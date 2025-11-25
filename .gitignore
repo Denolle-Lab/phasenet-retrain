@@ -1,0 +1,98 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# Data files
+data/raw/
+data/processed/
+*.mseed
+*.sac
+*.h5
+*.hdf5
+
+# Model checkpoints and results
+checkpoints/*.ckpt
+checkpoints/*.pth
+results/logs/
+results/plots/
+
+# Weights & Biases
+wandb/
+
+# TensorBoard
+runs/
+lightning_logs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.log
+*.tmp
+*~
+
+# Training outputs (keep directories, ignore contents)
+checkpoints/*
+!checkpoints/.gitkeep
+results/*
+!results/.gitkeep
+models/*
+!models/.gitkeep
+
+# Data files (datasets can be large)
+data/*
+!data/.gitkeep
+!data/README.md
+
+# Cache
+.cache/
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+wandb/
+lightning_logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+

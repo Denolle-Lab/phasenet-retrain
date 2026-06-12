@@ -1,0 +1,75 @@
+# v4: Three targeted improvements over v3
+#
+#  1. Direct timing loss (beta=0.1)
+#       Soft-argmax L1 on P/S peak locations added to CE+KL loss.
+#       Prevents P-MAE from drifting up as val_loss keeps falling.
+#
+#  2. Cosine LR schedule with linear warmup
+#       Peak LR 1e-4 (20x higher than v3), 5-epoch linear warmup,
+#       cosine decay to 1e-6 over remaining epochs.
+#       ReduceLROnPlateau never fired in v3 (LR stayed flat at 5e-6).
+#
+#  3. Best checkpoint and early stopping track val_p_mae_s, not val_loss
+#       In v3, best.pt was saved at epoch 96 (lowest val_loss) but best
+#       P-MAE was at epoch ~4.  Now best.pt = lowest val P-MAE.
+#
+#  4. Reduced distillation alpha 0.3 → 0.1
+#       v3 proved global training no longer causes catastrophic forgetting,
+#       so the teacher anchor can be relaxed to allow more adaptation.
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 150
+  learning_rate: 0.0001
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.1
+    temperature: 4.0
+
+  timing_beta: 0.1
+
+  scheduler:
+    name: "CosineAnnealingWarmup"
+    warmup_epochs: 5
+    warmup_start_factor: 0.01
+    min_lr: 1.0e-6
+
+  early_stopping:
+    monitor: "val_p_mae_s"
+    patience: 20
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2/train.csv"
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global_v4"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global_v4"
+  metrics_csv: "results/finetune_jma_wc_global_v4_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  amp: true
+
+seed: 42

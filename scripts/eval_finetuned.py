@@ -47,7 +47,7 @@ from tqdm import tqdm
 
 # ── constants ─────────────────────────────────────────────────────────────────
 NB_DIR       = REPO_ROOT / "notebooks"
-CKPT_PATH    = REPO_ROOT / "checkpoints" / "finetune_jma_wc_global_v3" / "best.pt"
+CKPT_PATH    = REPO_ROOT / "checkpoints" / "finetune_jma_wc_global_v7" / "best.pt"
 HDF5_PATH    = NB_DIR / "benchmark_waveforms.hdf5"
 INDEX_PATH   = NB_DIR / "benchmark_waveforms_index.csv"
 RESULTS_PATH = NB_DIR / "step3_results.parquet"
@@ -60,7 +60,7 @@ SEARCH_WIN_S  = 5.0
 OUTLIER_THR_S = 1.50
 THRESHOLD_P   = 0.3
 THRESHOLD_S   = 0.3
-FT_WEIGHT     = "jma_wc_ft_global_v3"
+FT_WEIGHT     = "jma_wc_ft_global_v7"
 
 print(f"Device : {DEVICE}")
 if DEVICE == "cuda":
@@ -230,6 +230,11 @@ PHASENET_WEIGHTS = {
     "jma_wc_ft": {"tier":"B","trained_on":None},
     "jma_wc_ft_frozen": {"tier":"B","trained_on":None},
     "jma_wc_ft_noise": {"tier":"B","trained_on":None},
+    "jma_wc_ft_global_v3": {"tier":"B","trained_on":None},
+    "jma_wc_ft_global_v4": {"tier":"B","trained_on":None},
+    "jma_wc_ft_global_v5": {"tier":"B","trained_on":None},
+    "jma_wc_ft_global_v6": {"tier":"B","trained_on":None},
+    "jma_wc_ft_global_v7": {"tier":"B","trained_on":None},
     FT_WEIGHT: {"tier":"B","trained_on":None},
     "scedc": {"tier":"C","trained_on":"scedc"},
     "ethz": {"tier":"C","trained_on":"ethz"},
@@ -365,28 +370,36 @@ print(cross_all[["weight","tier","p_mae_s","s_mae_s","p_recall","mcc",
 HIGHLIGHT  = "#E6A817"   # gold  — jma_wc_ft
 PARENT     = "#D25F10"   # burnt orange — jma_wc
 TOP_MODELS = ["stead", "instance", "neic", "diting", FT_WEIGHT,
-              "jma_wc_ft_frozen", "jma_wc_ft_noise", "jma_wc_ft", "jma_wc"]
+              "jma_wc_ft_global_v6", "jma_wc_ft_global_v5", "jma_wc_ft_global_v4", "jma_wc_ft_global_v3", "jma_wc_ft_frozen", "jma_wc_ft_noise", "jma_wc_ft", "jma_wc"]
 COLORS     = {
-    "stead":             "#1f77b4",
-    "instance":          "#2ca02c",
-    "neic":              "#9467bd",
-    "diting":            "#8c564b",
-    FT_WEIGHT:           "#E65C00",   # deep orange — new global ft
-    "jma_wc_ft_frozen":  HIGHLIGHT,   # gold — frozen ft
-    "jma_wc_ft_noise":   "#F4C542",   # lighter gold
-    "jma_wc_ft":         "#D4B442",   # muted gold
-    "jma_wc":            PARENT,
+    "stead":                  "#1f77b4",
+    "instance":               "#2ca02c",
+    "neic":                   "#9467bd",
+    "diting":                 "#8c564b",
+    FT_WEIGHT:                "#16A085",   # teal — v7 global ft
+    "jma_wc_ft_global_v6":    "#27AE60",   # green — v6 global ft
+    "jma_wc_ft_global_v5":    "#C0392B",   # deep red — v5 global ft
+    "jma_wc_ft_global_v4":    "#E65C00",   # deep orange — v4 global ft
+    "jma_wc_ft_global_v3":    "#FF8C42",   # lighter orange — v3 global ft
+    "jma_wc_ft_frozen":       HIGHLIGHT,   # gold — frozen ft
+    "jma_wc_ft_noise":        "#F4C542",   # lighter gold
+    "jma_wc_ft":              "#D4B442",   # muted gold
+    "jma_wc":                 PARENT,
 }
 LABELS = {
-    "stead":             "stead",
-    "instance":          "instance",
-    "neic":              "neic",
-    "diting":            "diting",
-    FT_WEIGHT:           "jma_wc_ft_global ★",
-    "jma_wc_ft_frozen":  "jma_wc_ft_frozen",
-    "jma_wc_ft_noise":   "jma_wc_ft_noise",
-    "jma_wc_ft":         "jma_wc_ft",
-    "jma_wc":            "jma_wc",
+    "stead":                  "stead",
+    "instance":               "instance",
+    "neic":                   "neic",
+    "diting":                 "diting",
+    FT_WEIGHT:                "jma_wc_ft_global_v7 ★",
+    "jma_wc_ft_global_v6":    "jma_wc_ft_global_v6",
+    "jma_wc_ft_global_v5":    "jma_wc_ft_global_v5",
+    "jma_wc_ft_global_v4":    "jma_wc_ft_global_v4",
+    "jma_wc_ft_global_v3":    "jma_wc_ft_global_v3",
+    "jma_wc_ft_frozen":       "jma_wc_ft_frozen",
+    "jma_wc_ft_noise":        "jma_wc_ft_noise",
+    "jma_wc_ft":              "jma_wc_ft",
+    "jma_wc":                 "jma_wc",
 }
 
 dist_order = ["local (<150km)", "regional (150-1500km)", "teleseismic (>1500km)"]
@@ -445,9 +458,9 @@ for ax, (col, ylabel, higher_better) in zip(axes.flat, metrics_to_plot):
 
 from matplotlib.patches import Patch
 legend_handles = [
-    Patch(color=HIGHLIGHT, label="jma_wc_ft (this work)"),
-    Patch(color=PARENT,    label="jma_wc (base model)"),
-    Patch(color="#aaaaaa", label="other pretrained"),
+    Patch(color=COLORS[FT_WEIGHT], label="jma_wc_ft_global_v7 (this work)"),
+    Patch(color=PARENT,            label="jma_wc (base model)"),
+    Patch(color="#aaaaaa",         label="other pretrained"),
 ]
 fig.legend(handles=legend_handles, loc="lower center", ncol=3,
            frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.01))
@@ -583,7 +596,7 @@ print(f"  → {out4}")
 
 # ── Summary print ─────────────────────────────────────────────────────────────
 print("\n" + "═" * 70)
-print("SUMMARY — jma_wc_ft vs key baselines (cross-domain, all distances)")
+print("SUMMARY — jma_wc_ft_global_v7 vs key baselines (cross-domain, all distances)")
 print("═" * 70)
 cols = ["weight", "p_mae_s", "s_mae_s", "p_recall", "s_recall", "mcc", "p_outlier"]
 summary = (cross_all_df.reset_index()

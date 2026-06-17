@@ -80,6 +80,10 @@ data/*
 !data/.gitkeep
 !data/README.md
 
+# Large seisbench metadata files (too large for GitHub)
+notebooks/seisbench_metadata/instancecounts_metadata.csv
+notebooks/seisbench_metadata/scedc_metadata.csv
+
 # Cache
 .cache/
 __pycache__/

@@ -1,0 +1,55 @@
+# Fine-tune jma_wc with expanded global training data
+# (aq2009gm, obst2024, scedc added vs the original manifest)
+# No frozen layers, no distillation — same approach as finetune_jma_wc
+# but with the larger global dataset and 100 epochs.
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 8
+  max_epochs: 100
+  learning_rate: 0.00001
+  optimizer: "adamw"
+  weight_decay: 0.0001
+  scheduler:
+    name: "ReduceLROnPlateau"
+    mode: "min"
+    factor: 0.5
+    patience: 5
+    min_lr: 1.0e-6
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 15
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests/train.csv"
+  val_manifest:   "data/manifests/val.csv"
+  test_manifest:  "data/manifests/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global"
+  metrics_csv: "results/finetune_jma_wc_global_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  amp: true
+
+seed: 42

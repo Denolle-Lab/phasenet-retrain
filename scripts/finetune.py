@@ -192,7 +192,7 @@ def _plot_progress(metrics_csv: str, log_cfg: dict):
         print(f"  [plot] warning: {e}", flush=True)
 
 
-def train(config: dict, resume_path=None):
+def train(config: dict, resume_path=None, init_from=None):
     torch.manual_seed(config.get("seed", 42))
 
     hw_cfg    = config.get("hardware", {})
@@ -252,10 +252,26 @@ def train(config: dict, resume_path=None):
             pg["lr"] = new_lr
         print(f"LR overridden to: {new_lr}")
 
+    if init_from:
+        # Load model weights only — fresh optimizer state for staged training.
+        # Avoids carrying over Adam second-moment estimates from a different task.
+        print(f"Init weights from: {init_from}  (fresh optimizer)")
+        ckpt = torch.load(Path(init_from), map_location="cpu")
+        raw  = model_raw._orig_mod if hasattr(model_raw, "_orig_mod") else model_raw
+        # strict=False: ignore teacher.* keys present in distillation checkpoints
+        # when loading into a non-distillation model (alpha=0).
+        missing, unexpected = raw.load_state_dict(ckpt["model"], strict=False)
+        model_keys = {k for k, _ in raw.named_parameters()}
+        unexpected_model = [k for k in unexpected if any(k.startswith(p) for p in ("model.", "distill"))]
+        if unexpected_model:
+            print(f"  WARNING: unexpected model keys ignored: {unexpected_model[:3]} …")
+        print(f"  Loaded epoch={ckpt.get('epoch','?')}  val_loss={ckpt.get('val_loss',float('nan')):.4f}")
+
     metrics_logger = MetricsLogger(metrics_csv)
 
     es_cfg      = train_cfg.get("early_stopping", {})
     es_patience = es_cfg.get("patience", 12)
+    es_monitor  = es_cfg.get("monitor", "val_p_mae_s")   # "val_loss" or "val_p_mae_s"
     es_counter  = 0
     max_epochs  = train_cfg.get("max_epochs", 50)
     grad_clip   = train_cfg.get("gradient_clip_val", 1.0)
@@ -263,7 +279,7 @@ def train(config: dict, resume_path=None):
     n_params = sum(p.numel() for p in model_raw.parameters())
     print(f"Model params : {n_params:,}")
     print(f"Batch size   : {train_cfg.get('batch_size', 1024)}")
-    print(f"Max epochs   : {max_epochs}  (early stop patience={es_patience})")
+    print(f"Max epochs   : {max_epochs}  (early stop patience={es_patience}, monitor={es_monitor})")
     print()
     print(f"{'Epoch':>6}  {'TrainLoss':>10} {'TrainAcc':>9} {'GradNorm':>9} "
           f"{'ValLoss':>9} {'ValAcc':>8} "
@@ -283,7 +299,11 @@ def train(config: dict, resume_path=None):
 
         lr_now = optimiser.param_groups[0]["lr"]
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-            scheduler.step(val_m["loss"])
+            sched_monitor = train_cfg.get("scheduler", {}).get("monitor", "val_loss")
+            if sched_monitor == "val_p_mae_s" and math.isfinite(val_m.get("p_mae_s", float("nan"))):
+                scheduler.step(val_m["p_mae_s"])
+            else:
+                scheduler.step(val_m["loss"])
         else:
             scheduler.step()
 
@@ -291,7 +311,13 @@ def train(config: dict, resume_path=None):
         s_mae     = val_m.get("s_mae_s", float("nan"))
         grad_norm = train_m.get("grad_norm", float("nan"))
         ep_t      = time.time() - t0
-        mark      = " ✓" if (math.isfinite(p_mae) and p_mae < best_val_p_mae) else ""
+
+        if es_monitor == "val_loss":
+            improved = val_m["loss"] < best_val_loss
+        else:
+            improved = math.isfinite(p_mae) and p_mae < best_val_p_mae
+
+        mark = " ✓" if improved else ""
 
         print(
             f"{epoch:>6}  {train_m['loss']:>10.4f} {train_m['acc']:>9.4f} {grad_norm:>9.3f} "
@@ -324,18 +350,20 @@ def train(config: dict, resume_path=None):
             best_val_loss = val_m["loss"]
         if math.isfinite(p_mae) and p_mae < best_val_p_mae:
             best_val_p_mae = p_mae
+
+        if improved:
             save_checkpoint(model, optimiser, scaler, epoch, val_m["loss"], best_path)
             es_counter = 0
-        elif math.isfinite(p_mae):
+        else:
             es_counter += 1
 
         if es_patience and es_counter >= es_patience:
-            print(f"\nEarly stopping: no improvement for {es_patience} epochs.")
+            print(f"\nEarly stopping: no improvement in {es_monitor} for {es_patience} epochs.")
             break
 
     total = time.time() - t_start
     print("=" * 93)
-    print(f"Done — {total/60:.1f} min total  |  best val_p_mae = {best_val_p_mae:.4f} s")
+    print(f"Done — {total/60:.1f} min total  |  best val_loss = {best_val_loss:.4f}  |  best val_p_mae = {best_val_p_mae:.4f} s")
     print(f"Best ckpt : {best_path}")
     print(f"Metrics   : {metrics_csv}")
     return best_path, metrics_csv
@@ -383,7 +411,7 @@ def main(args):
         run_test(config, args.test_only)
         return
 
-    best_ckpt, metrics_csv = train(config, resume_path=args.resume)
+    best_ckpt, metrics_csv = train(config, resume_path=args.resume, init_from=args.init_from)
 
     if args.test:
         run_test(config, str(best_ckpt))
@@ -409,6 +437,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config",    default="configs/finetune_jma_wc.yaml")
     parser.add_argument("--resume",    default=None)
+    parser.add_argument("--init-from", default=None, metavar="CKPT",
+                        help="Load model weights only from CKPT (fresh optimizer) — for staged training")
     parser.add_argument("--test",      action="store_true")
     parser.add_argument("--test-only", default=None, metavar="CKPT")
     args = parser.parse_args()

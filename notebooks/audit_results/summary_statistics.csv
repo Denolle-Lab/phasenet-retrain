@@ -1,0 +1,184 @@
+dataset,n_traces,n_events,dist_available,dist_min,dist_p10,dist_median,dist_p90,dist_max,dist_bins,mag_min,mag_median,mag_max,mag_std,snr_median,snr_available,sampling_rates,dominant_sr,instrument_mix,dominant_instrument,n_p_picks,n_s_picks,p_pick_frac,s_pick_frac,n_analyst_picks,analyst_frac,lat_min,lat_max,lon_min,lon_max
+STEAD,1265657,441705.0,True,0.0,5.57,39.05,101.23,346.27,"235426     Near\n50–200 km
+235427     Near\n50–200 km
+235428     Near\n50–200 km
+235429     Near\n50–200 km
+235430     Near\n50–200 km
+                ...       
+1265652      Local\n<50 km
+1265653      Local\n<50 km
+1265654      Local\n<50 km
+1265655      Local\n<50 km
+1265656      Local\n<50 km
+Name: source_distance_km, Length: 1030231, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",-0.5,1.3,7.9,0.9757983146958089,,False,[],,"{'Broadband': 975915, 'Short-period': 289736, 'Accelerometer': 6}",Broadband,1030231,1030231,0.813989098152185,0.813989098152185,0,0.0,-43.8455,78.3804,-179.9965,179.9972
+INSTANCE,1159249,54008.0,True,0.012,13.621,44.912,122.70720000000007,656.298,"0            Local\n<50 km
+1            Local\n<50 km
+2            Local\n<50 km
+3          Near\n50–200 km
+4          Near\n50–200 km
+                ...       
+1159244    Near\n50–200 km
+1159245    Near\n50–200 km
+1159246    Near\n50–200 km
+1159247    Near\n50–200 km
+1159248    Near\n50–200 km
+Name: path_ep_distance_km, Length: 1159249, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",0.0,2.2,6.5,0.6920411695959398,,False,[],,{'Unknown': 1159249},Unknown,0,0,0.0,0.0,0,0.0,35.002,48.4088,5.246,18.9892
+PNW,183909,,True,0.0,7.1648655515567405,30.467507219615964,81.1611382804625,670.719361315967,"0         Near\n50–200 km
+1         Near\n50–200 km
+2         Near\n50–200 km
+3           Local\n<50 km
+4         Near\n50–200 km
+               ...       
+183904      Local\n<50 km
+183905      Local\n<50 km
+183906      Local\n<50 km
+183907      Local\n<50 km
+183908      Local\n<50 km
+Length: 183909, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",,,,,,False,[100],100.0,{'Unknown': 183909},Unknown,0,0,0.0,0.0,0,0.0,41.501,49.973,-126.996,-116.004
+IQUIQUE,13400,,True,1.7446028627791703,55.263054444451186,131.1916120344438,249.5624191832861,573.3478392007986,"0        Near\n50–200 km
+1        Near\n50–200 km
+2        Near\n50–200 km
+3          Local\n<50 km
+4          Local\n<50 km
+              ...       
+13395    Near\n50–200 km
+13396    Near\n50–200 km
+13397    Near\n50–200 km
+13398    Near\n50–200 km
+13399    Near\n50–200 km
+Length: 13400, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",,,,,,False,[100.0],100.0,"{'Broadband': 12357, 'Short-period': 1043}",Broadband,0,0,0.0,0.0,0,0.0,-20.999,-18.9652,-71.2245,-68.9874
+LENDB,1244942,,True,0.0175107913515,13.786735011720001,50.6213427928,109.8712464446,133.43339986,"0         Near\n50–200 km
+1         Near\n50–200 km
+2         Near\n50–200 km
+3         Near\n50–200 km
+4         Near\n50–200 km
+               ...       
+629090    Near\n50–200 km
+629091      Local\n<50 km
+629092    Near\n50–200 km
+629093    Near\n50–200 km
+629094      Local\n<50 km
+Name: path_ep_distance_km, Length: 629095, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",0.4,2.11,7.1,0.7283740029923773,,False,[],,{'Unknown': 1244942},Unknown,629095,0,0.505320729801067,0.0,0,0.0,-66.7638,82.405,-179.2363,178.6267
+SCEDC,8035833,378528.0,True,0.0,12.087807069443802,41.26299604145666,91.38971405692416,200.00426647346805,"0            Local\n<50 km
+1            Local\n<50 km
+2            Local\n<50 km
+3            Local\n<50 km
+4            Local\n<50 km
+                ...       
+8035828    Near\n50–200 km
+8035829    Near\n50–200 km
+8035830    Near\n50–200 km
+8035831    Near\n50–200 km
+8035832    Near\n50–200 km
+Length: 8035833, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",-1.02,1.35,7.2,0.7404903619353372,,False,"[40.0, 100.0]",100.0,{'Unknown': 8035833},Unknown,7501488,4317447,0.9335047156903336,0.5372743560001807,0,0.0,29.6883,41.0703,-126.1568,-112.098
+ETHZ,36743,2231.0,True,0.4542142748780748,13.278477064388946,45.26651330878753,117.7360898680731,318.71158982648865,"0        Near\n50–200 km
+1        Near\n50–200 km
+2        Near\n50–200 km
+3        Near\n50–200 km
+4          Local\n<50 km
+              ...       
+36738    Near\n50–200 km
+36739    Near\n50–200 km
+36740    Near\n50–200 km
+36741    Near\n50–200 km
+36742    Near\n50–200 km
+Length: 36743, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",1.500312193,2.062558357,4.628068684,0.6489595997639268,,False,"[100.0, 120.0, 200.0, 250.0, 500.0]",200.0,"{'Broadband': 32954, 'Short-period': 3789}",Broadband,0,0,0.0,0.0,0,0.0,45.40438828,48.29931484,5.666278019,11.08406109
+GEOFON,275274,2270.0,True,0.8178083060176489,1471.610641122328,6458.715238778108,9820.829323308155,16503.61304574234,"0             Teleseismic\n>2000 km
+1             Teleseismic\n>2000 km
+2         Far-regional\n800–2000 km
+3         Far-regional\n800–2000 km
+4             Teleseismic\n>2000 km
+                    ...            
+275269        Teleseismic\n>2000 km
+275270        Teleseismic\n>2000 km
+275271         Regional\n200–800 km
+275272        Teleseismic\n>2000 km
+275273    Far-regional\n800–2000 km
+Length: 269500, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",1.454309389,5.3980952,8.3282681,0.8567861492271666,,False,"[19.9999275208, 19.9999294281, 19.9999313354, 19.9999790192, 19.9999809265, 19.9999885559, 19.9999980927, 20.0, 25.0, 40.0, 50.0, 80.0, 100.0, 125.0, 200.0]",20.0,"{'Broadband': 266432, 'Short-period': 8842}",Broadband,0,0,0.0,0.0,0,0.0,-63.24095154,76.19390869,-179.90555,179.9946136
+NEIC,1354789,137424.0,True,0.0,40.030173592,330.248932134,6671.69559867,10007.543398,"0                      Local\n<50 km
+1                    Near\n50–200 km
+2                      Local\n<50 km
+3                      Local\n<50 km
+4                    Near\n50–200 km
+                     ...            
+1354784    Far-regional\n800–2000 km
+1354785         Regional\n200–800 km
+1354786        Teleseismic\n>2000 km
+1354787        Teleseismic\n>2000 km
+1354788    Far-regional\n800–2000 km
+Name: path_ep_distance_km, Length: 1354789, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",0.0,3.4,8.3,1.0358292814479337,,False,[],,{'Unknown': 1354789},Unknown,1025000,329789,0.7565753781585177,0.24342462184148234,0,0.0,,,,
+OBST2024,60394,0.0,False,,,,,,,,,,,,False,[],,{'Unknown': 60394},Unknown,35394,35394,0.5860515945292579,0.5860515945292579,0,0.0,,,,
+TXED,519689,,True,0.007842162411732835,11.390823074375898,50.08692832035888,164.84876378209563,713.6809903019632,"207458    Near\n50–200 km
+207459      Local\n<50 km
+207460      Local\n<50 km
+207461      Local\n<50 km
+207462    Near\n50–200 km
+               ...       
+519684    Near\n50–200 km
+519685      Local\n<50 km
+519686      Local\n<50 km
+519687      Local\n<50 km
+519688    Near\n50–200 km
+Length: 312231, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",-0.9848482495,2.005621169,5.432978086,0.5931655390145232,,False,[],,{'Unknown': 519689},Unknown,312231,312231,0.6008035575122814,0.6008035575122814,0,0.0,28.22570801,36.26312256,-106.0035966,-93.99902344
+VCSEIS,160278,39501.0,True,0.00677154960195204,2.3880484115550975,8.566193322938762,32.72824860734916,339.7757689320368,"0           Local\n<50 km
+1           Local\n<50 km
+2           Local\n<50 km
+3           Local\n<50 km
+4           Local\n<50 km
+               ...       
+147858    Near\n50–200 km
+147859      Local\n<50 km
+147860      Local\n<50 km
+147861      Local\n<50 km
+147862      Local\n<50 km
+Length: 147863, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",-9.0,0.81,4.5,0.7765732852952529,,False,[100],100.0,"{'Short-period': 107522, 'Broadband': 52741, 'Accelerometer': 15}",Short-period,147863,147863,0.9225408352986686,0.9225408352986686,0,0.0,18.8085,62.213166666666666,-179.29416666666663,179.96833333333333
+CEED,1962,,True,0.654425,8.7496323,23.547188,70.90335820000003,118.105823,"0         Local\n<50 km
+1         Local\n<50 km
+2       Near\n50–200 km
+3       Near\n50–200 km
+4       Near\n50–200 km
+             ...       
+1957      Local\n<50 km
+1958      Local\n<50 km
+1959    Near\n50–200 km
+1960      Local\n<50 km
+1961      Local\n<50 km
+Name: path_ep_distance_km, Length: 1962, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",0.0,1.92,4.2,0.6835287202823777,,False,[100],100.0,{'Unknown': 1962},Unknown,1962,1962,1.0,1.0,0,0.0,34.902168,35.753666,-121.2715,-120.602501
+PNW_ACCEL,6107,,True,0.31910419162488335,6.842209825640354,20.359840644876037,50.97866652805996,219.91491563228598,"0       Local\n<50 km
+1       Local\n<50 km
+2       Local\n<50 km
+3       Local\n<50 km
+4       Local\n<50 km
+            ...      
+6102    Local\n<50 km
+6103    Local\n<50 km
+6104    Local\n<50 km
+6105    Local\n<50 km
+6106    Local\n<50 km
+Length: 6107, dtype: category
+Categories (5, object): ['Local\n<50 km' < 'Near\n50–200 km' < 'Regional\n200–800 km' <
+                         'Far-regional\n800–2000 km' < 'Teleseismic\n>2000 km']",,,,,,False,[100],100.0,{'Unknown': 6107},Unknown,0,0,0.0,0.0,0,0.0,41.633,49.52,-125.492,-117.74

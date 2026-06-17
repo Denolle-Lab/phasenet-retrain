@@ -1,0 +1,76 @@
+# v8: Three targeted fixes over v7
+#
+#  Problem 1 — LR never decayed in v7:
+#    ReduceLROnPlateau never triggered because val_loss improved every epoch.
+#    Switching to CosineAnnealingWarmup forces LR to decay 5e-6 → 1e-7
+#    over 150 epochs regardless of loss trajectory.
+#
+#  Problem 2 — N-class dominates CE loss:
+#    val_N_acc=0.999, val_P_acc=0.46, val_S_acc=0.46.
+#    ~98% of samples per trace are N, so the gradient is almost entirely
+#    from N samples. class_weights [P=20, S=10, N=1] rebalances this.
+#
+#  Problem 3 — Distillation alpha too low:
+#    Teacher (jma_wc) has recall=0.881 vs v7's 0.853.
+#    Raising alpha 0.3 → 0.5 preserves more of the teacher's recall.
+#
+#  Also: early-stop on val_p_mae_s (the metric we actually benchmark).
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 150
+  learning_rate: 0.000005
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  class_weights: [20.0, 10.0, 1.0]   # P, S, N  — fix N-class dominance
+
+  distillation:
+    alpha: 0.5                        # was 0.3; teacher has better recall
+    temperature: 4.0
+
+  timing_beta: 0.0                    # keep off (v6 showed this collapses recall)
+
+  scheduler:
+    name: "CosineAnnealingWarmup"
+    warmup_epochs: 5
+    min_lr: 1.0e-7
+    warmup_start_factor: 0.1
+
+  early_stopping:
+    monitor: "val_p_mae_s"            # directly optimize the benchmark metric
+    patience: 20
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2/train.csv"
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global_v8"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global_v8"
+  metrics_csv: "results/finetune_jma_wc_global_v8_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  amp: true
+
+seed: 42

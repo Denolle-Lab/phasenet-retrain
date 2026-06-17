@@ -1,0 +1,64 @@
+# phasenet_scratch_v1.yaml
+#
+# PhaseNet trained FROM SCRATCH on the full manifests_v2 dataset (527k traces).
+#
+# Key decisions vs fine-tuning:
+#   LR:          1e-3  (10x–200x higher — random init needs larger steps)
+#   Schedule:    Cosine warmup (10 ep) + cosine decay — stable for long runs
+#   Max epochs:  300   (model learns from scratch; needs more exposure)
+#   Early stop:  patience=25 on val_p_mae_s (switches from val_loss once
+#                P-MAE first appears — see train_scratch.py for logic)
+#   Loss:        Soft cross-entropy on Gaussian labels (preserves timing info)
+#   Class wts:   P=3, S=3, N=1 — upweight sparse phase samples vs noise
+#   Augment:     Strong (scratch_dataset.py): log-uniform amp, 50% polarity
+#                flip, additive noise at random SNR, channel masking
+#   Data:        manifests_v2  (527k train / 125k val / 275k test)
+
+model:
+  name: "PhaseNet"
+
+training:
+  batch_size:   1024
+  num_workers:  16
+  max_epochs:   300
+  learning_rate: 0.001
+  optimizer:    "adamw"
+  weight_decay:  0.0001
+
+  # Class weights: P=3, S=3, N=1
+  # Upweights the sparse phase-sample classes (< 5% of all time samples)
+  # so the model does not just learn "predict noise everywhere".
+  class_weights: [3.0, 3.0, 1.0]   # [P, S, N]
+
+  scheduler:
+    name: "CosineAnnealingWarmup"
+    warmup_epochs:       10
+    warmup_start_factor: 0.01   # LR starts at 1e-5 and ramps to 1e-3 over 10 ep
+    min_lr:              1.0e-6
+
+  early_stopping:
+    patience: 25    # generous — from-scratch models improve slowly early on
+
+  gradient_clip_val: 1.0
+
+data:
+  train_manifest: "data/manifests_v2/train.csv"
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: false
+  use_wandb:       false
+  log_every_n_steps: 100
+  save_dir:        "results"
+  run_name:        "phasenet_scratch_v1"
+  checkpoint_dir:  "checkpoints/phasenet_scratch_v1"
+  metrics_csv:     "results/phasenet_scratch_v1_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  amp: true
+
+seed: 42

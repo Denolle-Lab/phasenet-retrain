@@ -1,0 +1,92 @@
+# v13: Target the recall gap — three targeted fixes over v7
+#
+#  Root cause (from threshold sweep + missed-pick analysis):
+#    v7's 7.3% miss rate is driven by two populations:
+#      (1) teleseismic traces (mlaapde, 65.8% miss rate) — emergent onsets,
+#          underrepresented relative to local events
+#      (2) low-SNR traces across all distances (82% of misses have SNR<5dB)
+#          — current augmentation never shows the model noisy waveforms
+#    v7's timing on DETECTED picks is already excellent (cond-MAE 0.198s vs
+#    jma_wc 0.239s), so the benchmark P-MAE gap is 100% a recall problem.
+#
+#  Fix 1 — Hard-noise augmentation (targets SNR gap):
+#    40% of training examples get additive Gaussian noise at SNR 0-10 dB,
+#    uniformly sampled.  This directly trains on the regime (SNR<5dB) where
+#    v7 currently fails.  Implementation in fast_manifest_dataset.py.
+#
+#  Fix 2 — Pick-presence loss (targets missed-pick gradient):
+#    Add L_presence = -log(P_model[t_pick] + eps) for traces with P picks.
+#    CE loss weights all 3001 time steps equally; this term focuses gradient
+#    on the exact pick sample, rewarding the model for high probability where
+#    it matters.  gamma=0.5 balances with CE.
+#
+#  Fix 3 — Teleseismic oversampling (targets emergent-onset gap):
+#    Training manifest = manifests_v2 train + duplicate teleseismic rows.
+#    Raises teleseismic fraction from 25%→40% without rebuilding HDF5 files.
+#
+#  Base: init from v7 (best timing), alpha=0 (no teacher ceiling), LR=5e-6.
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 60
+  learning_rate: 0.000005       # same as v3/v9/v11 proven stable base
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.0                  # no teacher — removes jma_wc timing ceiling
+    temperature: 4.0
+
+  timing_beta: 0.0
+
+  presence_gamma: 0.5           # pick-presence loss weight
+
+  scheduler:
+    name: "ReduceLROnPlateau"
+    monitor: "val_p_mae_s"
+    mode: "min"
+    factor: 0.5
+    patience: 3
+    min_lr: 1.0e-7
+
+  early_stopping:
+    monitor: "val_p_mae_s"
+    patience: 10
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2/train_tele2x.csv"   # 2x teleseismic
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+
+  augmentation:
+    noise_prob: 0.40                  # 40% of train examples get noise injection
+    noise_snr_db_range: [0, 10]       # uniform SNR in dB; 0dB = noise≈signal
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global_v13"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global_v13"
+  metrics_csv: "results/finetune_jma_wc_global_v13_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  amp: true
+
+seed: 42

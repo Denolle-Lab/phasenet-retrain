@@ -154,8 +154,15 @@ class PhaseNetFinetune(nn.Module):
                     param.requires_grad = False
                     print(f"  frozen: {name}")
 
-        self.criterion     = nn.CrossEntropyLoss()
         self.learning_rate = training_cfg.get("learning_rate", 3e-4)
+
+        cw_list = training_cfg.get("class_weights", None)
+        if cw_list is not None:
+            cw = torch.tensor(cw_list, dtype=torch.float32)
+            print(f"  class weights: P={cw[0]:.1f}  S={cw[1]:.1f}  N={cw[2]:.1f}")
+        else:
+            cw = None
+        self.register_buffer("class_weight", cw)  # auto-moves with .to(device)
 
         # Knowledge distillation: frozen teacher = original pretrained weights.
         # Penalises deviation from the teacher's predictions (prevents catastrophic forgetting).
@@ -174,6 +181,14 @@ class PhaseNetFinetune(nn.Module):
         self.timing_beta = training_cfg.get("timing_beta", 0.0)
         if self.timing_beta > 0:
             print(f"  timing loss     ON  beta={self.timing_beta}")
+
+        # Pick-presence loss: directly penalise low model probability at the
+        # true pick sample.  Unlike CE (which weights all time steps equally),
+        # this term concentrates gradient on the exact pick location for traces
+        # the model currently misses.  gamma=0 disables it.
+        self.presence_gamma = training_cfg.get("presence_gamma", 0.0)
+        if self.presence_gamma > 0:
+            print(f"  pick-presence   ON  gamma={self.presence_gamma}")
 
     def train(self, mode: bool = True):
         super().train(mode)
@@ -200,7 +215,7 @@ class PhaseNetFinetune(nn.Module):
         logits_flat = logits.permute(0, 2, 1).reshape(-1, 3)
         y_cls       = y_flat.argmax(dim=1)
 
-        ce_loss  = self.criterion(logits_flat, y_cls)
+        ce_loss = F.cross_entropy(logits_flat, y_cls, weight=self.class_weight)
 
         if self.distill_alpha > 0 and self.teacher is not None:
             with torch.no_grad():
@@ -222,6 +237,19 @@ class PhaseNetFinetune(nn.Module):
             p_timing = soft_pick_mae(probs, y, phase_idx=0)  # P = ch0
             s_timing = soft_pick_mae(probs, y, phase_idx=1)  # S = ch1
             loss = loss + self.timing_beta * (p_timing + s_timing)
+
+        if self.presence_gamma > 0:
+            # For each trace with a P pick, penalise low model probability at
+            # the true pick sample: L = -log(p_model[t_pick] + eps).
+            # y[:, 0, :] is the P-channel Gaussian label; its argmax = t_pick.
+            p_lbl   = y[:, 0, :]                                   # (B, T)
+            has_p   = p_lbl.max(dim=1).values > 0.5               # (B,)
+            if has_p.any():
+                t_pick       = p_lbl[has_p].argmax(dim=1)         # (N,)
+                p_prob_pick  = probs[has_p, 0, :].gather(          # (N,)
+                    1, t_pick.unsqueeze(1)).squeeze(1)
+                presence_loss = -torch.log(p_prob_pick + 1e-6).mean()
+                loss = loss + self.presence_gamma * presence_loss
 
         pred_cls = logits_flat.argmax(dim=1)
         acc      = (pred_cls == y_cls).float().mean()

@@ -1,0 +1,64 @@
+# v5: Same as v4 but early stopping monitors val_loss instead of val_p_mae_s.
+#
+#  v4 post-mortem: best.pt was selected at epoch 3 (mid LR-warmup) because
+#  P-MAE happened to be minimal there on the val set. The detection head was
+#  undertrained, collapsing P-Recall to 0.30 and MCC to -0.06 on the benchmark.
+#  Switching to val_loss lets the model train to convergence (epoch ~23+) and
+#  picks up the fully-trained checkpoint.
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 150
+  learning_rate: 0.0001
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.1
+    temperature: 4.0
+
+  timing_beta: 0.1
+
+  scheduler:
+    name: "CosineAnnealingWarmup"
+    warmup_epochs: 5
+    warmup_start_factor: 0.01
+    min_lr: 1.0e-6
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 20
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2/train.csv"
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global_v5"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global_v5"
+  metrics_csv: "results/finetune_jma_wc_global_v5_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  amp: true
+
+seed: 42

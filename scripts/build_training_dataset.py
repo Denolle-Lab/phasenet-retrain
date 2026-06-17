@@ -123,22 +123,24 @@ def coalesce_picks(meta, priority):
 # Chunked-dataset manual loaders (avoid SeisBench "partial instance" errors)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _load_chunked_meta(ds_path):
+def _load_chunked_meta(ds_path, prefix="metadata_"):
     """
     Combine all complete (non-.partial) metadata CSVs in a chunked SeisBench
     dataset directory.  Returns a DataFrame with an added 'chunk' column.
+    prefix : filename prefix before the chunk tag (e.g. "metadata_" for MLAAPDE,
+             "metadata" for AQ2009GM).
     """
     path = Path(ds_path)
     csvs = sorted(
         f for f in path.iterdir()
-        if f.name.startswith("metadata_") and f.suffix == ".csv"
+        if f.name.startswith(prefix) and f.suffix == ".csv" and not f.name.endswith(".partial")
     )
     if not csvs:
-        raise FileNotFoundError(f"No complete metadata CSVs in {path}")
+        raise FileNotFoundError(f"No complete metadata CSVs in {path} (prefix='{prefix}')")
 
     frames = []
     for csv in csvs:
-        chunk_tag = csv.stem.replace("metadata_", "")
+        chunk_tag = csv.stem.replace(prefix, "")
         df = pd.read_csv(csv, low_memory=False)
         df["chunk"] = chunk_tag
         frames.append(df)
@@ -146,9 +148,13 @@ def _load_chunked_meta(ds_path):
     return pd.concat(frames, ignore_index=True)
 
 
-MLAAPDE_PATH = Path(SEISBENCH_CACHE) / "datasets" / "mlaapde"
-CWA_PATH     = Path(SEISBENCH_CACHE) / "datasets" / "cwa"
-PISDL_PATH   = Path(SEISBENCH_CACHE) / "datasets" / "pisdl"
+MLAAPDE_PATH      = Path(SEISBENCH_CACHE) / "datasets" / "mlaapde"
+CWA_PATH          = Path(SEISBENCH_CACHE) / "datasets" / "cwa"
+PISDL_PATH        = Path(SEISBENCH_CACHE) / "datasets" / "pisdl"
+AQ2009GM_PATH     = Path(SEISBENCH_CACHE) / "datasets" / "aq2009gm"
+MEIER2019JGR_PATH = Path(SEISBENCH_CACHE) / "datasets" / "meier2019jgr"
+ROSS2018GPD_PATH  = Path(SEISBENCH_CACHE) / "datasets" / "ross2018gpd"
+OBS_PATH          = Path(SEISBENCH_CACHE) / "datasets" / "obs"
 
 
 def _load_mlaapde():
@@ -159,11 +165,33 @@ def _load_cwa():
     return _load_chunked_meta(CWA_PATH)
 
 
+def _load_aq2009gm():
+    return _load_chunked_meta(AQ2009GM_PATH, prefix="metadata")
+
+
 def _load_pisdl():
     ds = sbd.WaveformDataset(str(PISDL_PATH))
     meta = ds.metadata.copy()
     meta["chunk"] = ""
     return meta
+
+
+def _load_meier2019jgr():
+    ds = sbd.WaveformDataset(str(MEIER2019JGR_PATH))
+    meta = ds.metadata.copy()
+    meta["chunk"] = ""
+    return meta
+
+
+def _load_ross2018gpd():
+    ds = sbd.WaveformDataset(str(ROSS2018GPD_PATH))
+    meta = ds.metadata.copy()
+    meta["chunk"] = ""
+    return meta
+
+
+def _load_obs():
+    return _load_chunked_meta(OBS_PATH, prefix="metadata")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -183,44 +211,44 @@ DATASET_CONFIGS = [
     dict(name="geofon",
          cls=sbd.GEOFON,          meta_fn=None,
          dist_col=None,           dist_unit="km",
-         cap=80_000,              default_bin="teleseismic",  use_s=False),
+         cap=150_000,             default_bin="teleseismic",  use_s=False),
 
     # ── Large generalist sources ──────────────────────────────────────────────
     dict(name="stead",
          cls=sbd.STEAD,           meta_fn=None,
          dist_col="source_distance_km", dist_unit="km",
-         cap=50_000,              default_bin=None,           use_s=True),
+         cap=100_000,             default_bin=None,           use_s=True),
 
     dict(name="ceed",
          cls=sbd.CEED,            meta_fn=None,
          dist_col="path_ep_distance_km", dist_unit="km",
-         cap=50_000,              default_bin=None,           use_s=True),
+         cap=100_000,             default_bin=None,           use_s=True),
 
     dict(name="instancecounts",
          cls=sbd.InstanceCounts,  meta_fn=None,
          dist_col="path_ep_distance_km", dist_unit="km",
-         cap=50_000,              default_bin=None,           use_s=True),
+         cap=100_000,             default_bin=None,           use_s=True),
 
     # ── Regional diversity ────────────────────────────────────────────────────
     dict(name="mlaapde",
          cls=None,                meta_fn=_load_mlaapde,
          dist_col="path_ep_distance_km", dist_unit="km",
-         cap=40_000,              default_bin=None,           use_s=True),
+         cap=80_000,              default_bin=None,           use_s=True),
 
     dict(name="ethz",
          cls=sbd.ETHZ,            meta_fn=None,
          dist_col=None,           dist_unit="km",
-         cap=30_000,              default_bin="local",        use_s=True),
+         cap=60_000,              default_bin="local",        use_s=True),
 
     dict(name="crew",
          cls=sbd.CREW,            meta_fn=None,
          dist_col="path_epicentral_distance_deg", dist_unit="deg",
-         cap=15_000,              default_bin=None,           use_s=True),
+         cap=30_000,              default_bin=None,           use_s=True),
 
     dict(name="cwa",
          cls=None,                meta_fn=_load_cwa,
          dist_col="path_ep_distance_km", dist_unit="km",
-         cap=15_000,              default_bin=None,           use_s=True),
+         cap=30_000,              default_bin=None,           use_s=True),
 
     dict(name="iquique",
          cls=sbd.Iquique,         meta_fn=None,
@@ -231,17 +259,17 @@ DATASET_CONFIGS = [
     dict(name="txed",
          cls=sbd.TXED,            meta_fn=None,
          dist_col=None,           dist_unit="km",
-         cap=20_000,              default_bin="local",        use_s=True),
+         cap=40_000,              default_bin="local",        use_s=True),
 
     dict(name="pnw",
          cls=sbd.PNW,             meta_fn=None,
          dist_col=None,           dist_unit="km",
-         cap=20_000,              default_bin="regional",     use_s=True),
+         cap=40_000,              default_bin="regional",     use_s=True),
 
     dict(name="lendb",
          cls=sbd.LenDB,           meta_fn=None,
          dist_col="path_ep_distance_km", dist_unit="km",
-         cap=20_000,              default_bin=None,           use_s=False),
+         cap=40_000,              default_bin=None,           use_s=False),
 
     dict(name="pisdl",
          cls=None,                meta_fn=_load_pisdl,
@@ -252,17 +280,53 @@ DATASET_CONFIGS = [
     dict(name="vcseis",
          cls=sbd.VCSEIS,          meta_fn=None,
          dist_col="station_epicentral_distance_m", dist_unit="m",
-         cap=15_000,              default_bin="local",        use_s=True),
+         cap=30_000,              default_bin="local",        use_s=True),
+
+    # ── Global additions (benchmark coverage + OBS diversity) ─────────────────
+    dict(name="aq2009gm",
+         cls=None,                meta_fn=_load_aq2009gm,
+         dist_col="path_ep_distance_km", dist_unit="km",
+         cap=60_000,              default_bin="local",        use_s=True),
+
+    dict(name="obst2024",
+         cls=sbd.OBST2024,        meta_fn=None,
+         dist_col="source_distance_deg", dist_unit="deg",
+         cap=60_000,              default_bin="regional",     use_s=True),
+
+    dict(name="scedc",
+         cls=sbd.SCEDC,           meta_fn=None,
+         dist_col="station_epicentral_distance", dist_unit="km",
+         cap=60_000,              default_bin="local",        use_s=True),
+
+    # ── New diversity datasets ────────────────────────────────────────────────
+    # meier2019jgr: global catalog, P-only, hypocentral distances 4-12000 km
+    dict(name="meier2019jgr",
+         cls=None,                meta_fn=_load_meier2019jgr,
+         dist_col="path_hyp_distance_km", dist_unit="km",
+         cap=150_000,             default_bin="regional",     use_s=False),
+
+    # ross2018gpd: Southern California, 4.77M traces, P+S, local seismicity
+    dict(name="ross2018gpd",
+         cls=None,                meta_fn=_load_ross2018gpd,
+         dist_col=None,           dist_unit="km",
+         cap=200_000,             default_bin="local",        use_s=True),
+
+    # obs: ocean-bottom seismometers, Pg/Sg phases, unique sensor environment
+    dict(name="obs",
+         cls=None,                meta_fn=_load_obs,
+         dist_col=None,           dist_unit="km",
+         cap=100_000,             default_bin="local",        use_s=True),
 ]
 
-# Target distance fractions for the TRAINING split (teleseismic upsampled).
-# If a bin falls below its target, ALL available traces in that bin are kept.
-# If it exceeds the target, it is downsampled to match.
+# Target distance fractions for the TRAINING split.
+# Teleseismic raised to 0.25 (from 0.20) to address the biggest weakness
+# in the global fine-tune.  Local reduced to 0.40 because ross2018gpd adds
+# abundant local data — no need to oversample that bin further.
 TARGET_FRACTIONS = {
-    "local":       0.50,
+    "local":       0.40,
     "regional":    0.25,
-    "teleseismic": 0.20,
-    "unknown":     0.05,
+    "teleseismic": 0.25,
+    "unknown":     0.10,
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -291,10 +355,11 @@ def normalise_split(s):
 # Per-dataset processing
 # ──────────────────────────────────────────────────────────────────────────────
 
-def process_dataset(cfg, rng, benchmark_exclude=None):
+def process_dataset(cfg, rng, benchmark_exclude=None, s_balanced=False):
     """
     Load one dataset, filter for valid P picks, compute distances, apply cap.
     benchmark_exclude : set of trace_name strings to exclude (benchmark traces).
+    s_balanced        : if True and use_s=True, additionally require a valid S pick.
     Returns a standardised DataFrame or None on failure.
     """
     name = cfg["name"]
@@ -334,6 +399,14 @@ def process_dataset(cfg, rng, benchmark_exclude=None):
         return None
 
     print(f"    {len(meta):,} with valid P pick  (p_col=coalesced/{p_col}, s_col={s_col})")
+
+    # ── S-balanced mode: require S pick for use_s=True datasets ──────────────
+    if s_balanced and cfg["use_s"] and s_col and s_col in meta.columns:
+        s_vals_pre = pd.to_numeric(meta[s_col], errors="coerce")
+        s_mask = s_vals_pre.notna() & (s_vals_pre >= 0)
+        meta   = meta.loc[s_mask].copy()
+        p_vals = p_vals.loc[s_mask]
+        print(f"    {len(meta):,} after S-pick filter (s_balanced=True)")
 
     # ── exclude benchmark traces ──────────────────────────────────────────────
     if benchmark_exclude and "trace_name" in meta.columns:
@@ -533,7 +606,7 @@ def load_benchmark_exclusions():
     return exclusions
 
 
-def main(output_dir, seed):
+def main(output_dir, seed, s_balanced=False):
     rng = np.random.default_rng(seed)
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -543,6 +616,7 @@ def main(output_dir, seed):
     print(f"  SeisBench cache : {SEISBENCH_CACHE}")
     print(f"  Output dir      : {out_path.resolve()}")
     print(f"  Random seed     : {seed}")
+    print(f"  S-balanced mode : {s_balanced}")
     print("=" * 70)
 
     # ── load benchmark exclusions ────────────────────────────────────────────
@@ -552,7 +626,7 @@ def main(output_dir, seed):
     frames = []
     for cfg in DATASET_CONFIGS:
         exclude = benchmark_exclusions.get(cfg["name"], set())
-        df = process_dataset(cfg, rng, benchmark_exclude=exclude)
+        df = process_dataset(cfg, rng, benchmark_exclude=exclude, s_balanced=s_balanced)
         if df is not None:
             frames.append(df)
 
@@ -620,5 +694,7 @@ if __name__ == "__main__":
                         help="Directory to write manifest CSVs (default: data/manifests)")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed for reproducibility (default: 42)")
+    parser.add_argument("--s-balanced", action="store_true",
+                        help="Require valid S pick for datasets with use_s=True (boosts S-recall training signal)")
     args = parser.parse_args()
-    main(args.output_dir, args.seed)
+    main(args.output_dir, args.seed, s_balanced=args.s_balanced)

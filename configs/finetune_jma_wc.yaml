@@ -1,0 +1,53 @@
+# Fine-tune jma_wc PhaseNet on the multi-dataset manifest created by
+# build_training_dataset.py.  Uses ManifestDataset + ManifestDataModule.
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []           # fine-tune all layers
+
+training:
+  batch_size: 1024               # fills RTX 3090; reduce if OOM
+  num_workers: 8                 # used only for initial RAM pre-load
+  max_epochs: 50
+  learning_rate: 0.00001        # 1e-5: small enough to avoid catastrophic forgetting
+  optimizer: "adamw"
+  weight_decay: 0.0001          # L2 penalty keeps weights near pretrained init
+  scheduler:
+    name: "ReduceLROnPlateau"
+    mode: "min"
+    factor: 0.5
+    patience: 5
+    min_lr: 1.0e-6
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 15
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests/train.csv"
+  val_manifest:   "data/manifests/val.csv"
+  test_manifest:  "data/manifests/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc"
+  checkpoint_dir: "checkpoints/finetune_jma_wc"
+  metrics_csv: "results/finetune_jma_wc_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  amp: true                       # automatic mixed precision (fp16 forward/backward)
+
+seed: 42

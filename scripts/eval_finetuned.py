@@ -45,9 +45,16 @@ import matplotlib.gridspec as gridspec
 from sklearn.metrics import matthews_corrcoef
 from tqdm import tqdm
 
+# ── CLI args ──────────────────────────────────────────────────────────────────
+import argparse
+_parser = argparse.ArgumentParser()
+_parser.add_argument("--ckpt",       default=None, help="Path to best.pt checkpoint")
+_parser.add_argument("--ft-weight",  default=None, help="Weight label (e.g. jma_wc_ft_global_v9)")
+_args, _ = _parser.parse_known_args()
+
 # ── constants ─────────────────────────────────────────────────────────────────
 NB_DIR       = REPO_ROOT / "notebooks"
-CKPT_PATH    = REPO_ROOT / "checkpoints" / "finetune_jma_wc_global_v7" / "best.pt"
+CKPT_PATH    = Path(_args.ckpt) if _args.ckpt else REPO_ROOT / "checkpoints" / "finetune_jma_wc_global_v8" / "best.pt"
 HDF5_PATH    = NB_DIR / "benchmark_waveforms.hdf5"
 INDEX_PATH   = NB_DIR / "benchmark_waveforms_index.csv"
 RESULTS_PATH = NB_DIR / "step3_results.parquet"
@@ -60,7 +67,7 @@ SEARCH_WIN_S  = 5.0
 OUTLIER_THR_S = 1.50
 THRESHOLD_P   = 0.3
 THRESHOLD_S   = 0.3
-FT_WEIGHT     = "jma_wc_ft_global_v7"
+FT_WEIGHT     = _args.ft_weight if _args.ft_weight else "jma_wc_ft_global_v8"
 
 print(f"Device : {DEVICE}")
 if DEVICE == "cuda":
@@ -75,13 +82,16 @@ print(f"\nLoading fine-tuned checkpoint: {CKPT_PATH}")
 assert CKPT_PATH.exists(), f"Checkpoint not found: {CKPT_PATH}"
 
 ckpt = torch.load(CKPT_PATH, map_location="cpu")
-# The checkpoint stores the raw (non-compiled) PhaseNetFinetune state dict.
-# The inner .model is a standard sbm.PhaseNet — load its weights directly.
-ft_model = sbm.PhaseNet.from_pretrained("jma_wc", update=False)
-# Checkpoint stores PhaseNetFinetune state dict (keys prefixed with "model.")
-# Strip prefix to load into the bare sbm.PhaseNet inner model.
-raw_sd    = ckpt["model"]
-inner_sd  = {k[len("model."):]: v for k, v in raw_sd.items() if k.startswith("model.")}
+# Strip "model." prefix shared by both PhaseNetFinetune and PhaseNetScratch checkpoints.
+raw_sd   = ckpt["model"]
+inner_sd = {k[len("model."):]: v for k, v in raw_sd.items() if k.startswith("model.")}
+
+# Scratch checkpoints use the default (smaller) PhaseNet architecture;
+# fine-tune checkpoints were trained from jma_wc (4x larger).
+if "scratch" in FT_WEIGHT.lower():
+    ft_model = sbm.PhaseNet(in_channels=3, classes=3, phases="PSN", sampling_rate=100)
+else:
+    ft_model = sbm.PhaseNet.from_pretrained("jma_wc", update=False)
 ft_model.load_state_dict(inner_sd)
 ft_model.eval()
 ft_model.to(DEVICE)
@@ -391,7 +401,7 @@ LABELS = {
     "instance":               "instance",
     "neic":                   "neic",
     "diting":                 "diting",
-    FT_WEIGHT:                "jma_wc_ft_global_v7 ★",
+    FT_WEIGHT:                "jma_wc_ft_global_v8 ★",
     "jma_wc_ft_global_v6":    "jma_wc_ft_global_v6",
     "jma_wc_ft_global_v5":    "jma_wc_ft_global_v5",
     "jma_wc_ft_global_v4":    "jma_wc_ft_global_v4",
@@ -458,7 +468,7 @@ for ax, (col, ylabel, higher_better) in zip(axes.flat, metrics_to_plot):
 
 from matplotlib.patches import Patch
 legend_handles = [
-    Patch(color=COLORS[FT_WEIGHT], label="jma_wc_ft_global_v7 (this work)"),
+    Patch(color=COLORS[FT_WEIGHT], label="jma_wc_ft_global_v8 (this work)"),
     Patch(color=PARENT,            label="jma_wc (base model)"),
     Patch(color="#aaaaaa",         label="other pretrained"),
 ]
@@ -596,7 +606,7 @@ print(f"  → {out4}")
 
 # ── Summary print ─────────────────────────────────────────────────────────────
 print("\n" + "═" * 70)
-print("SUMMARY — jma_wc_ft_global_v7 vs key baselines (cross-domain, all distances)")
+print("SUMMARY — jma_wc_ft_global_v8 vs key baselines (cross-domain, all distances)")
 print("═" * 70)
 cols = ["weight", "p_mae_s", "s_mae_s", "p_recall", "s_recall", "mcc", "p_outlier"]
 summary = (cross_all_df.reset_index()

@@ -81,8 +81,7 @@ data/*
 !data/README.md
 
 # Large seisbench metadata files (too large for GitHub)
-notebooks/seisbench_metadata/instancecounts_metadata.csv
-notebooks/seisbench_metadata/scedc_metadata.csv
+notebooks/seisbench_metadata/
 
 # Cache
 .cache/

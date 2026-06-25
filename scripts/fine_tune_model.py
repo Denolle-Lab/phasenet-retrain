@@ -182,6 +182,13 @@ class PhaseNetFinetune(nn.Module):
         if self.timing_beta > 0:
             print(f"  timing loss     ON  beta={self.timing_beta}")
 
+        # Focal loss: down-weights easy (already-correct) time steps so the
+        # gradient concentrates on hard cases — weak teleseismic onsets, S picks.
+        # gamma=0 → standard cross-entropy.  gamma=1 is a mild but effective boost.
+        self.focal_gamma = training_cfg.get("focal_gamma", 0.0)
+        if self.focal_gamma > 0:
+            print(f"  focal loss      ON  gamma={self.focal_gamma}")
+
         # Pick-presence loss: directly penalise low model probability at the
         # true pick sample.  Unlike CE (which weights all time steps equally),
         # this term concentrates gradient on the exact pick location for traces
@@ -215,7 +222,12 @@ class PhaseNetFinetune(nn.Module):
         logits_flat = logits.permute(0, 2, 1).reshape(-1, 3)
         y_cls       = y_flat.argmax(dim=1)
 
-        ce_loss = F.cross_entropy(logits_flat, y_cls, weight=self.class_weight)
+        if self.focal_gamma > 0:
+            ce_per = F.cross_entropy(logits_flat, y_cls, weight=self.class_weight, reduction="none")
+            pt = torch.exp(-ce_per)
+            ce_loss = ((1 - pt) ** self.focal_gamma * ce_per).mean()
+        else:
+            ce_loss = F.cross_entropy(logits_flat, y_cls, weight=self.class_weight)
 
         if self.distill_alpha > 0 and self.teacher is not None:
             with torch.no_grad():

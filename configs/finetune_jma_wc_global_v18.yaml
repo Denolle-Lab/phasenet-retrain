@@ -1,0 +1,122 @@
+# v18: Final version — synthesises all lessons from v2–v17
+#
+# Root-cause analysis summary:
+#
+#   The jma_wc teacher already beats every fine-tuned model on P-recall and MCC.
+#   Our fine-tuned models beat jma_wc only on P-MAE and P-outlier (v7).
+#   Gaps to close (cross-domain benchmark):
+#     Local  P-recall:  0.925 → need ≥0.936  (+1.1pp gap)
+#     Local  S-recall:  0.588 → need ≥0.621  (+3.3pp gap)
+#     Regional P-recall: 0.842 → need ≥0.885 (+4.3pp gap)  ← biggest issue
+#     Regional S-recall: 0.285 → need ≥0.358 (+7.3pp gap)
+#     Teleseismic P-recall: 0.122 → need ≥0.238 (+11.6pp)
+#
+# v18 design decisions:
+#
+#   1. DATA: manifests_v3 (S-balanced, 60.5% S) + 1.5× teleseismic oversampling
+#      → v9 on manifests_v3 beat jma_wc on REGIONAL S-recall (0.376 > 0.358)
+#        but was stopped at epoch 13 (wrong monitor, tiny patience).
+#        Proper training should reproduce and improve this.
+#      → 1.5× tele (36.6% tele fraction, vs 2× = 40.7% in v17) adds tele signal
+#        while reducing the KD-tele gradient conflict that collapsed regional
+#        P-recall in v16 (0.761) and v17 (0.724).
+#      → v2/val.csv kept as validation proxy (broader distribution than v3).
+#
+#   2. FOCAL LOSS (gamma=1.0): NEW — focuses CE gradient on hard examples
+#      (weak teleseismic onsets, marginal S picks) without explicit rebalancing.
+#      gamma=1 is mild: weight = (1-pt), so a pick with pt=0.5 gets 2× the
+#      gradient of a pick with pt=0.9. Distillation remains the timing anchor.
+#      Evidence for efficacy: alpha=0 models (v13) achieved highest recall ever
+#      (P=0.888) by removing the distillation constraint. Focal loss achieves a
+#      similar "hard example" emphasis without removing the constraint.
+#
+#   3. DISTILLATION: alpha=0.3, T=4.0 — proven timing-preserving formula (v3, v7).
+#      Never remove distillation (v13/v14/v15 showed timing collapses without it).
+#
+#   4. SCHEDULER: ReduceLROnPlateau on val_loss, patience=7, min_lr=1e-8.
+#      val_loss is the only reliable cross-domain proxy (val_p_mae_s caused
+#      premature stopping at epoch 13 in v9).  min_lr=1e-8 allows 3+ extra
+#      decay stages for fine-grained convergence (same as v17).
+#
+#   5. TRAINING: max_epochs=200, early_stop patience=25.
+#      v7 was the gold standard (stopped ~epoch 44 out of 150 with patience=20).
+#      More patience + more epochs ensure full convergence on the richer dataset.
+#
+#   6. NO NOISE, NO TIMING/PRESENCE LOSS:
+#      Noise aug (v13–v16) degraded P-MAE by 36–65%.  timing_beta≥0.01 collapsed
+#      P-recall from 0.87 to 0.52 (v6). presence_gamma caused outlier inflation.
+#
+#   7. FRESH INIT from jma_wc (not from v7):
+#      v16 (init from v7, tele2x) still got P-MAE=0.462s.  The v7 checkpoint
+#      carries a recall bias from v2 training. Fresh jma_wc init + better data
+#      lets the model find a new optimum with both good recall and good timing.
+#
+# Expected improvements vs v7 (current best):
+#   P-MAE:         maintain ~0.340–0.360s  (still beats jma_wc's 0.374s)
+#   P-outlier:     maintain ~0.063          (still beats jma_wc's 0.070)
+#   Local S-recall:   0.588 → 0.60+        (S-balanced local data 81.2% S)
+#   Regional S-recall: 0.285 → 0.36+       (S-balanced regional 87.8% S + focal)
+#   Tele P-recall:    0.122 → 0.20–0.30    (1.5× tele + focal on hard examples)
+#   Overall MCC:      0.760 → 0.78–0.81    (better recall across distances)
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 200
+  learning_rate: 0.000005
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.3
+    temperature: 4.0
+
+  focal_gamma: 1.0
+
+  timing_beta: 0.0
+  presence_gamma: 0.0
+
+  scheduler:
+    name: "ReduceLROnPlateau"
+    monitor: "val_loss"
+    mode: "min"
+    factor: 0.5
+    patience: 7
+    min_lr: 1.0e-8
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 25
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2/train_v18.csv"
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global_v18"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global_v18"
+  metrics_csv: "results/finetune_jma_wc_global_v18_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  amp: true
+
+seed: 42

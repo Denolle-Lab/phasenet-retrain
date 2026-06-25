@@ -1,0 +1,105 @@
+# v16: Maximum-performance recipe — restore distillation + recall fixes
+#
+#  Goal: beat jma_wc baseline on ALL metrics (P-MAE 0.374s → lower, recall 0.881 → higher).
+#  v7 is best on P-MAE (0.340s) but still trails on recall (0.853 vs 0.881).
+#
+#  Root causes of v7's recall gap (from threshold sweep + missed-pick analysis):
+#    (a) Teleseismic (mlaapde): 65.8% miss rate → emergent P onsets, undersampled
+#    (b) Low-SNR traces: 82% of v7's misses have SNR < 5 dB, never seen during training
+#
+#  Lessons from v13–v15 (all had alpha=0.0):
+#    v13: noise 40% SNR[0,10] + gamma=0.5 + 2x tele → recall 0.888 ★ but P-MAE 0.967s ✗
+#    v14: noise 20% SNR[5,10] + gamma=0.5 + 2x tele → P-MAE 1.039s ✗ (gamma kills timing)
+#    v15: noise 20% SNR[5,10] + gamma=0.0 + 2x tele → P-MAE 0.477s (better, but still ✗)
+#
+#  KEY INSIGHT: alpha=0.3 distillation (v3/v7) is the cross-domain regularizer.
+#  v15 had val_p_mae_s=0.21s (good on training distribution) but benchmark P-MAE=0.477s
+#  because alpha=0.0 lets the model overfit to training distribution characteristics.
+#  v7's alpha=0.3 keeps the model anchored to jma_wc's cross-domain behavior.
+#
+#  v16 = v7's proven recipe + v13's data recipe, no gamma:
+#    1. alpha=0.3 RESTORED  — THE critical cross-domain timing regularizer (v3/v7)
+#    2. train_tele2x.csv    — 2x teleseismic: directly targets 65.8% tele miss rate
+#    3. noise_prob=0.20, SNR [2,8] dB — covers SNR<5dB misses; alpha=0.3 distillation
+#       protects timing even with more aggressive noise than v15 used
+#    4. presence_gamma=0.0  — confirmed timing-killer in v13/v14; v15 proved removing
+#                             it moves P-MAE from ~1.0s → 0.477s
+#    5. timing_beta=0.0     — confirmed recall-killer in v6 (0.87→0.52 recall)
+#    6. val_loss monitoring — reliable proxy for cross-domain generalization (v7);
+#                             val_p_mae_s is in-distribution and misleading (v13–v15)
+#    7. Init from v7 best.pt (--init-from) — start from best-ever timing weights
+#    8. LR=5e-6             — same as v7, proven stable; distillation prevents drift
+#    9. max_epochs=200, patience=25 — more room than v7's 150/20
+#
+#  Run command:
+#    conda activate surface
+#    cd /home/ak287/phasenet-retrain
+#    nohup python scripts/finetune.py \
+#      --config configs/finetune_jma_wc_global_v16.yaml \
+#      --init-from checkpoints/finetune_jma_wc_global_v7/best.pt \
+#      > results/finetune_jma_wc_global_v16_train.log 2>&1 &
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 200
+  learning_rate: 0.000005
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.3                    # RESTORED from v7 — cross-domain timing regularizer
+    temperature: 4.0              # same as v3/v7
+
+  timing_beta: 0.0                # no timing loss (v6: even 0.01 collapsed recall 0.87→0.52)
+  presence_gamma: 0.0             # no pick-presence loss (v13/v14: gamma=0.5 killed timing)
+
+  scheduler:
+    name: "ReduceLROnPlateau"
+    monitor: "val_loss"           # same as v7 — in-distribution metric, reliable
+    mode: "min"
+    factor: 0.5
+    patience: 7                   # more generous than v7's 5; tele-heavy data is noisier
+    min_lr: 1.0e-7
+
+  early_stopping:
+    monitor: "val_loss"           # val_loss is the reliable cross-domain proxy (v7)
+    patience: 25                  # generous — more room than v7's 20
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2/train_tele2x.csv"   # 2x tele: 662k traces (41% tele)
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+
+  augmentation:
+    noise_prob: 0.20                  # 20% of examples get noise (same rate as v15)
+    noise_snr_db_range: [2, 8]        # floor at 2dB (covers SNR<5dB misses; above 0dB
+                                      # which in v13 buried signals completely)
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global_v16"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global_v16"
+  metrics_csv: "results/finetune_jma_wc_global_v16_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "32-true"
+  amp: true
+
+seed: 42

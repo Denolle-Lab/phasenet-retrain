@@ -78,10 +78,9 @@ pip install -r requirements.txt
 Core stack: PyTorch ≥ 2.0, SeisBench ≥ 0.4, ObsPy ≥ 1.4 (see
 [`requirements.txt`](requirements.txt)).
 
-> **Portability caveat.** The SeisBench cache path
-> `/data/wsd04/ak287/.seisbench` is currently **hard-coded** in the build/train/
-> eval scripts. To run elsewhere you must edit those paths (making this
-> configurable via `SEISBENCH_CACHE_ROOT` is on the TODO list).
+> **Portability caveat.** The SeisBench cache path is currently **hard-coded**
+> in the build/train/eval scripts (update it to your local path before running).
+> Making it configurable via `SEISBENCH_CACHE_ROOT` is on the TODO list.
 
 ## Usage
 

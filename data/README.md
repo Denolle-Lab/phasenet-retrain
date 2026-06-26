@@ -5,8 +5,9 @@ large to host on GitHub** (hundreds of GB to multiple TB). They live on the
 Denolle Lab back-end Linux servers as the local **SeisBench cache**, and are
 pulled from the SeisBench data repositories on first use.
 
-- **Server cache location (current):** `/data/wsd04/ak287/.seisbench`
-  *(hard-coded in the build/train/eval scripts — see "Known issue" below).*
+- **Server cache location (current):** lab back-end Linux server
+  *(hard-coded path in the build/train/eval scripts — see "Known issue" below;
+  update to your local path before running).*
 - **This `data/` directory** holds only the generated **manifest CSVs**
   (lightweight index files listing `dataset_name`, `trace_name`, picks,
   distance, split) — and even those are git-ignored because the full manifests
@@ -75,18 +76,17 @@ set are built by `../scripts/build_noise_dataset.py` /
 ## Measure actual on-disk sizes (run on the server)
 
 ```bash
-# Per-dataset on-disk footprint in the SeisBench cache:
-du -sh /data/wsd04/ak287/.seisbench/datasets/*/ | sort -h
+# Per-dataset on-disk footprint in the SeisBench cache (update path for your server):
+du -sh /path/to/.seisbench/datasets/*/ | sort -h
 
 # Total cache size:
-du -sh /data/wsd04/ak287/.seisbench
+du -sh /path/to/.seisbench
 ```
 
 Paste the output into the `On-disk` column above so the inventory is exact.
 
 ## Known issue — hard-coded cache path
 
-The SeisBench cache path `/data/wsd04/ak287/.seisbench` is hard-coded in ~12
-scripts. The repo will not run on another machine without editing those, or
+The SeisBench cache path is hard-coded in ~12 scripts. The repo will not run on another machine without editing those, or
 without making the path configurable via the `SEISBENCH_CACHE_ROOT` environment
 variable. Tracked in the repo TODO list.

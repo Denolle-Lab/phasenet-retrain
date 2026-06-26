@@ -283,7 +283,7 @@ a teacher, and a temperature-scaled KL term penalizes drift from it
 terms:
 
 $$
-\mathcal{L} = (1-\alpha)\,\mathcal{L}_{\text{CE/focal}} + \alpha\,T^2\,\mathrm{KL}\!\left(\tfrac{z_s}{T}\,\big\|\,\tfrac{z_t}{T}\right) + \beta\,\mathcal{L}_{\text{timing}} + \gamma_{p}\,\mathcal{L}_{\text{presence}}
+\mathcal{L} = (1-\alpha)\,\mathcal{L}_{\text{CE/focal}} + \alpha\,T^2\,\mathrm{KL}\!\left(\tfrac{z_t}{T}\,\big\|\,\tfrac{z_s}{T}\right) + \beta\,\mathcal{L}_{\text{timing}} + \gamma_{p}\,\mathcal{L}_{\text{presence}}
 $$
 
 - **CE / focal CE** on argmax-hardened labels. With `focal_gamma>0`,
@@ -688,8 +688,8 @@ verification against SeisBench/source documentation before circulation.)*
   discrimination with machine learning. *JGR Solid Earth*. `10.1029/2018JB016661`
 - **Cole, H., et al. (2023).** MLAAPDE. *SRL*. `10.1785/0220230021` [confirm]
 - **Lin, T.-Y., et al. (2017).** Focal Loss for Dense Object Detection. *ICCV*.
-- **Aguilar, A. L., et al. (2024).** Pervasive label errors in seismological
-  ML datasets. `github.com/albertleonardo/labelerrors` *(arXiv number to confirm)*
+- **Aguilar, A. L., et al. (2025).** Pervasive label errors in seismological
+  ML datasets. arXiv:2511.09805. `github.com/albertleonardo/labelerrors`
 - **Ni, Y., Denolle, M. A., Münchmeyer, J., Wang, Y., Feng, K.-F., Garcia
   Jurado Suarez, C., Thomas, A. M., Trabant, C., Hamilton, A., & Mencin, D.
   (2025a).** A review of cloud computing and storage in seismology.

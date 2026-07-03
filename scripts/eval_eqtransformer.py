@@ -44,6 +44,7 @@ import pandas as pd
 import h5py
 import torch
 import seisbench.models as sbm
+from domain_registry import split_masks
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -249,8 +250,6 @@ print(f"\nSaved {len(combined):,} rows → {RESULTS_PATH}")
 # Metrics
 # ══════════════════════════════════════════════════════════════════════════════
 
-TRAINED_ON_MAP = {label: to for label, to in succeeded if to}
-
 def compute_metrics(df: pd.DataFrame, weight_name: str,
                     split: str, dist_label: str = "all"):
     if len(df) == 0:
@@ -298,19 +297,15 @@ metrics_rows = []
 
 # Include key PhaseNet baselines for side-by-side comparison
 COMPARE_WEIGHTS = (
-    [(f"eqt_{w}", to) for w, to in EQT_WEIGHTS if f"eqt_{w}" in results_df["weight"].unique()]
-    + [("jma_wc", None), ("jma_wc_ft_global_v7", None), ("instance", "instance"),
-       ("stead", "stead"), ("neic", "neic")]
+    [f"eqt_{w}" for w, _ in EQT_WEIGHTS if f"eqt_{w}" in results_df["weight"].unique()]
+    + ["jma_wc", "jma_wc_ft_global_v7", "instance", "stead", "neic"]
 )
 
-for weight_name, trained_on in COMPARE_WEIGHTS:
+for weight_name in COMPARE_WEIGHTS:
     wdf = results_df[results_df["weight"] == weight_name]
     if len(wdf) == 0:
         continue
-    if trained_on:
-        cross_mask = ~wdf["trained_models"].str.contains(trained_on, na=False, regex=False)
-    else:
-        cross_mask = pd.Series(True, index=wdf.index)
+    _, cross_mask = split_masks(wdf, weight_name)
 
     for dist in DIST_BINS:
         sub = wdf if dist == "all" else wdf[wdf["dist_bin"] == dist]

@@ -41,6 +41,7 @@ import pandas as pd
 import h5py
 import torch
 import seisbench.models as sbm
+from domain_registry import split_masks
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -260,24 +261,21 @@ results_df = pd.read_parquet(RESULTS_PATH)
 DIST_BINS  = ["local (<150km)", "regional (150-1500km)", "teleseismic (>1500km)", "all"]
 
 COMPARE_WEIGHTS = [
-    (ENSEMBLE_LABEL,                  "stead"),   # original_nc component was trained on STEAD
-    ("eqt_volpick",                   None),
-    ("eqt_original_nonconservative",  "stead"),
-    ("jma_wc_ft_global_v7",           None),
-    ("jma_wc",                        None),
-    ("eqt_scedc",                     None),
-    ("eqt_instance",                  "instance"),
+    ENSEMBLE_LABEL,   # original_nc component was trained on STEAD — see domain_registry
+    "eqt_volpick",
+    "eqt_original_nonconservative",
+    "jma_wc_ft_global_v7",
+    "jma_wc",
+    "eqt_scedc",
+    "eqt_instance",
 ]
 
 metrics_rows = []
-for weight_name, trained_on in COMPARE_WEIGHTS:
+for weight_name in COMPARE_WEIGHTS:
     wdf = results_df[results_df["weight"] == weight_name]
     if len(wdf) == 0:
         continue
-    if trained_on:
-        cross_mask = ~wdf["trained_models"].str.contains(trained_on, na=False, regex=False)
-    else:
-        cross_mask = pd.Series(True, index=wdf.index)
+    _, cross_mask = split_masks(wdf, weight_name)
 
     for dist in DIST_BINS:
         sub   = wdf if dist == "all" else wdf[wdf["dist_bin"] == dist]

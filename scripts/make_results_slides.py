@@ -376,7 +376,10 @@ notes = [
      "(noise-tiled where raw waveform too short), avoiding the zero-padding artifact."),
     ("Cross-domain split",
      "Traces from a model's training dataset are excluded from its cross-domain evaluation. "
-     "EQT ensemble (volpick + original_nc) excludes STEAD traces since original_nc was trained on STEAD."),
+     "EQT ensemble (volpick + original_nc) excludes STEAD traces since original_nc was trained on STEAD. "
+     "jma_wc / jma_wc_ft_global_v7 show '—' here by design: their training manifest was assembled from "
+     "every benchmark source dataset, so no benchmark trace's dataset is truly held out at this granularity. "
+     "See results/event_leakage_audit.csv for the event-level (not dataset-level) independence check."),
     ("Metrics",
      "P/S-MAE: mean absolute timing error for detected picks. "
      "P/S-Recall: fraction of events where peak probability ≥ 0.30 within ±5 s of true arrival. "

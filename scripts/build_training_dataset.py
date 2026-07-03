@@ -528,10 +528,63 @@ def stratify_training(train_df, rng):
 # Split assignment
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _event_group_ids(df):
+    """
+    Positional group id per row of df (0..len(df)-1 order), such that rows
+    sharing any event_keys.py fingerprint end up in the same group — so an
+    earthquake's traces move together across train/val/test instead of being
+    split independently. Datasets not registered in event_keys.py (no known
+    id column, e.g. teleseismic-only sources like geofon) fall back to one
+    singleton group per row — today's trace-level behavior, unchanged.
+    """
+    import event_keys as ek
+
+    dnames = df["dataset_name"].values
+    tnames = df["trace_name"].values
+    n = len(df)
+
+    maps = {}
+    for dname in pd.unique(dnames):
+        try:
+            maps[dname] = ek.trace_key_map(dname)
+        except Exception as exc:
+            print(f"    event-key lookup unavailable for {dname!r} ({exc}) "
+                  f"— falling back to trace-level assignment for it")
+            maps[dname] = {}
+
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    key_to_first_row = {}
+    for pos in range(n):
+        keys = maps.get(dnames[pos], {}).get(tnames[pos], frozenset())
+        for k in keys:
+            if k in key_to_first_row:
+                union(pos, key_to_first_row[k])
+            else:
+                key_to_first_row[k] = pos
+
+    return np.array([find(i) for i in range(n)])
+
+
 def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
     """
-    Use existing SeisBench splits where available; apply random 80/10/10 to
-    rows that have no predefined split.
+    Use existing SeisBench splits where available. For rows with no
+    predefined split, group by event identity (scripts/event_keys.py) and
+    assign whole events to train/val/test — a random per-trace 80/10/10
+    could otherwise put two stations of the same earthquake on opposite
+    sides of a split. Rows with no derivable event key (see event_keys.py's
+    UNVERIFIABLE_DATASETS) fall back to today's per-trace random assignment.
     """
     split = pd.Series("", index=df.index, dtype=str)
 
@@ -540,18 +593,41 @@ def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
     split[has_orig & (df["orig_split"] == "val")]   = "val"
     split[has_orig & (df["orig_split"] == "test")]  = "test"
 
-    no_split = df.index[split == ""]
-    if len(no_split):
-        n = len(no_split)
-        perm = rng.permutation(n)
-        n_val  = int(val_frac  * n)
-        n_test = int(test_frac * n)
-        val_pos  = no_split[perm[:n_val]]
-        test_pos = no_split[perm[n_val:n_val + n_test]]
-        train_pos = no_split[perm[n_val + n_test:]]
-        split[train_pos] = "train"
-        split[val_pos]   = "val"
-        split[test_pos]  = "test"
+    no_split_idx = df.index[split == ""]
+    if len(no_split_idx):
+        sub = df.loc[no_split_idx]
+        n = len(sub)
+        group_pos = _event_group_ids(sub)
+
+        groups = {}
+        for pos, gid in enumerate(group_pos):
+            groups.setdefault(gid, []).append(pos)
+        group_keys = list(groups.keys())
+        rng.shuffle(group_keys)
+
+        n_val_target  = int(val_frac  * n)
+        n_test_target = int(test_frac * n)
+
+        assign = np.full(n, "train", dtype=object)
+        gi, count = 0, 0
+        while gi < len(group_keys) and count < n_val_target:
+            for pos in groups[group_keys[gi]]:
+                assign[pos] = "val"
+            count += len(groups[group_keys[gi]])
+            gi += 1
+        count = 0
+        while gi < len(group_keys) and count < n_test_target:
+            for pos in groups[group_keys[gi]]:
+                assign[pos] = "test"
+            count += len(groups[group_keys[gi]])
+            gi += 1
+
+        n_multi = sum(1 for g in group_keys if len(groups[g]) > 1)
+        print(f"    event-aware split: {n:,} rows -> {len(group_keys):,} groups "
+              f"({n_multi:,} multi-trace events, "
+              f"{len(group_keys) - n_multi:,} singleton/no-event-key)")
+
+        split.loc[no_split_idx] = assign
 
     return split
 

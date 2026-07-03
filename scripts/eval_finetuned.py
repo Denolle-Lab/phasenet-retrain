@@ -38,6 +38,7 @@ import pandas as pd
 import h5py
 import torch
 import seisbench.models as sbm
+from domain_registry import split_masks
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -226,32 +227,34 @@ print(f"Saved {len(combined):,} rows → {RESULTS_PATH}  (+{len(ft_df):,} ft row
 
 results_df = pd.read_parquet(RESULTS_PATH)
 
+# trained_on is no longer tracked here — see scripts/domain_registry.py,
+# the single source of truth for in_domain/cross_domain split logic.
 PHASENET_WEIGHTS = {
-    "stead": {"tier":"A","trained_on":"stead"},
-    "instance": {"tier":"A","trained_on":"instance"},
-    "neic": {"tier":"A","trained_on":"neic"},
-    "diting": {"tier":"B","trained_on":None},
-    "obs": {"tier":"B","trained_on":"obst2024"},
-    "volpick": {"tier":"B","trained_on":None},
-    "pisdl": {"tier":"B","trained_on":"pisdl"},
-    "phasenet_sn": {"tier":"B","trained_on":None},
-    "jma": {"tier":"B","trained_on":None},
-    "jma_wc": {"tier":"B","trained_on":None},
-    "jma_wc_ft": {"tier":"B","trained_on":None},
-    "jma_wc_ft_frozen": {"tier":"B","trained_on":None},
-    "jma_wc_ft_noise": {"tier":"B","trained_on":None},
-    "jma_wc_ft_global_v3": {"tier":"B","trained_on":None},
-    "jma_wc_ft_global_v4": {"tier":"B","trained_on":None},
-    "jma_wc_ft_global_v5": {"tier":"B","trained_on":None},
-    "jma_wc_ft_global_v6": {"tier":"B","trained_on":None},
-    "jma_wc_ft_global_v7": {"tier":"B","trained_on":None},
-    FT_WEIGHT: {"tier":"B","trained_on":None},
-    "scedc": {"tier":"C","trained_on":"scedc"},
-    "ethz": {"tier":"C","trained_on":"ethz"},
-    "iquique": {"tier":"C","trained_on":"iquique"},
-    "lendb": {"tier":"C","trained_on":None},
-    "original": {"tier":"C","trained_on":"stead"},
-    "geofon": {"tier":"D","trained_on":None},
+    "stead": {"tier":"A"},
+    "instance": {"tier":"A"},
+    "neic": {"tier":"A"},
+    "diting": {"tier":"B"},
+    "obs": {"tier":"B"},
+    "volpick": {"tier":"B"},
+    "pisdl": {"tier":"B"},
+    "phasenet_sn": {"tier":"B"},
+    "jma": {"tier":"B"},
+    "jma_wc": {"tier":"B"},
+    "jma_wc_ft": {"tier":"B"},
+    "jma_wc_ft_frozen": {"tier":"B"},
+    "jma_wc_ft_noise": {"tier":"B"},
+    "jma_wc_ft_global_v3": {"tier":"B"},
+    "jma_wc_ft_global_v4": {"tier":"B"},
+    "jma_wc_ft_global_v5": {"tier":"B"},
+    "jma_wc_ft_global_v6": {"tier":"B"},
+    "jma_wc_ft_global_v7": {"tier":"B"},
+    FT_WEIGHT: {"tier":"B"},
+    "scedc": {"tier":"C"},
+    "ethz": {"tier":"C"},
+    "iquique": {"tier":"C"},
+    "lendb": {"tier":"C"},
+    "original": {"tier":"C"},
+    "geofon": {"tier":"D"},
 }
 
 # Degenerate model detection
@@ -335,14 +338,8 @@ metrics_rows = []
 dist_bins = results_df["dist_bin"].dropna().unique().tolist() + ["all"]
 
 for weight_name in tqdm(results_df["weight"].unique(), desc="Metrics"):
-    wdf        = results_df[results_df["weight"] == weight_name]
-    trained_on = PHASENET_WEIGHTS.get(weight_name, {}).get("trained_on", None)
-    if trained_on:
-        in_mask    = wdf["trained_models"].str.contains(trained_on, na=False, regex=False)
-        cross_mask = ~in_mask
-    else:
-        in_mask    = pd.Series(False, index=wdf.index)
-        cross_mask = pd.Series(True,  index=wdf.index)
+    wdf                  = results_df[results_df["weight"] == weight_name]
+    in_mask, cross_mask  = split_masks(wdf, weight_name)
 
     for dist_label in dist_bins:
         if dist_label == "all":

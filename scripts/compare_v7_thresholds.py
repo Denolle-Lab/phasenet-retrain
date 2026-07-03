@@ -27,6 +27,7 @@ Outputs
   results/compare_v7_thresholds.png   — formatted matplotlib table figure
 """
 
+import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -38,6 +39,8 @@ import matplotlib.gridspec as gridspec
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 REPO_ROOT    = Path(__file__).parent.parent.resolve()
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from domain_registry import split_masks
 RESULTS_PATH = REPO_ROOT / "notebooks" / "step3_results.parquet"
 INDEX_PATH   = REPO_ROOT / "notebooks" / "benchmark_waveforms_index.csv"
 OUT_CSV      = REPO_ROOT / "results" / "compare_v7_thresholds.csv"
@@ -138,25 +141,10 @@ def compute_metrics(df: pd.DataFrame, thr_p: float, thr_s: float) -> dict:
 print(f"Loading {RESULTS_PATH} …")
 df_all = pd.read_parquet(RESULTS_PATH)
 
-# Build in_domain / cross_domain masks for models trained on a known dataset.
-# jma and jma_wc have no known trained_on dataset → all traces are cross_domain.
-TRAINED_ON = {
-    "stead":     "stead",
-    "instance":  "instance",
-    "neic":      "neic",
-    "scedc":     "scedc",
-    "ethz":      "ethz",
-    "iquique":   "iquique",
-    "obs":       "obst2024",
-    "pisdl":     "pisdl",
-}
-
 def get_split_mask(wdf: pd.DataFrame, weight: str) -> pd.Series:
-    """True = cross_domain row for this model."""
-    trained_on = TRAINED_ON.get(weight)
-    if trained_on is None:
-        return pd.Series(True, index=wdf.index)  # all cross_domain
-    return ~wdf["trained_models"].str.contains(trained_on, na=False, regex=False)
+    """True = cross_domain row for this model. See scripts/domain_registry.py."""
+    _, cross_mask = split_masks(wdf, weight)
+    return cross_mask
 
 print(f"  {len(df_all):,} rows, {df_all['weight'].nunique()} models\n")
 

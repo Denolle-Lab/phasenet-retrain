@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
 Recompute ensemble metrics with corrected cross_domain exclusion.
-No inference — reads existing parquet, fixes trained_on for the ensemble,
-overwrites eval_ensemble_eqt.csv.
+No inference — reads existing parquet, resolves trained_on via
+scripts/domain_registry.py, overwrites eval_ensemble_eqt.csv.
 """
 
+import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from sklearn.metrics import matthews_corrcoef
 
 REPO_ROOT      = Path(__file__).parent.parent.resolve()
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from domain_registry import split_masks
+
 RESULTS_PATH   = REPO_ROOT / "notebooks" / "step3_results.parquet"
 OUT_CSV        = REPO_ROOT / "results" / "eval_ensemble_eqt.csv"
 ENSEMBLE_LABEL = "eqt_ensemble_volpick_nc"
@@ -57,27 +61,26 @@ def compute_metrics(df, weight_name, split, dist_label="all"):
 results_df = pd.read_parquet(RESULTS_PATH)
 DIST_BINS  = ["local (<150km)", "regional (150-1500km)", "teleseismic (>1500km)", "all"]
 
-# ensemble trained_on="stead" — exclude STEAD traces same as original_nc
+# trained_on resolution now lives in scripts/domain_registry.py (single
+# source of truth — ensemble trained_on="stead" via COMPOSITE_TRAINED_ON,
+# same STEAD exclusion as its original_nc component).
 COMPARE_WEIGHTS = [
-    (ENSEMBLE_LABEL,                  "stead"),
-    ("eqt_volpick",                   None),
-    ("eqt_original_nonconservative",  "stead"),
-    ("jma_wc_ft_global_v7",           None),
-    ("jma_wc",                        None),
-    ("eqt_scedc",                     None),
-    ("eqt_instance",                  "instance"),
+    ENSEMBLE_LABEL,
+    "eqt_volpick",
+    "eqt_original_nonconservative",
+    "jma_wc_ft_global_v7",
+    "jma_wc",
+    "eqt_scedc",
+    "eqt_instance",
 ]
 
 metrics_rows = []
-for weight_name, trained_on in COMPARE_WEIGHTS:
+for weight_name in COMPARE_WEIGHTS:
     wdf = results_df[results_df["weight"] == weight_name]
     if len(wdf) == 0:
         print(f"  WARNING: no rows for {weight_name}")
         continue
-    if trained_on:
-        cross_mask = ~wdf["trained_models"].str.contains(trained_on, na=False, regex=False)
-    else:
-        cross_mask = pd.Series(True, index=wdf.index)
+    _, cross_mask = split_masks(wdf, weight_name)
 
     for dist in DIST_BINS:
         sub   = wdf if dist == "all" else wdf[wdf["dist_bin"] == dist]

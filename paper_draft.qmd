@@ -1,0 +1,711 @@
+---
+title: "Toward a Globally-Deployable PhaseNet for Onshore and Offshore Seismic Phase Picking"
+subtitle: "Project rationale, methods, benchmark leaderboard, and a critical internal audit — working draft for community review"
+author:
+  - name: "Denolle Lab, University of Washington (Dept. of Earth & Space Sciences)"
+  - name: "Lead data/retraining work: Akash Kharita · Project lead: Marine Denolle"
+date: "2026-06-26"
+abstract: |
+  Münchmeyer et al. (2022) showed that deep-learning seismic phase pickers
+  generalize unevenly across regions and tectonic regimes. Since then the
+  SeisBench ecosystem has grown to host many more benchmark datasets spanning
+  diverse regions and source types, and our group has deployed an INSTANCE-trained
+  PhaseNet at scale in the cloud (Ni et al., 2025a,b). A downstream team is now
+  re-analyzing the resulting pick catalogs and inter-comparing associators. To
+  produce more reliable, more uniform picks — especially for temporary networks
+  in under-instrumented regions — we are retraining PhaseNet on a cleaned, hybrid,
+  rebalanced training set. This document explains **why** we are doing this,
+  **what** has been built, and **how** it performs against a Münchmeyer-style
+  benchmark, and it embeds the key figures and leaderboards. It is also a
+  **critical internal audit**: we flag, candidly and with file-level citations,
+  the methodological and reproducibility issues that must be resolved before any
+  model is promoted to production. **No model in this draft yet dominates the
+  jma_wc baseline on all metrics, and several benchmark definitions need to be
+  tightened before results are publication- or deployment-ready.**
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: "Contents"
+    number-sections: true
+    embed-resources: true
+    theme: cosmo
+    fig-cap-location: bottom
+    tbl-cap-location: top
+    code-fold: true
+    smooth-scroll: true
+    link-external-newwindow: true
+---
+
+::: {.callout-note appearance="simple"}
+**Status of this document.** This is a *working draft for internal/community
+review*, not a submitted manuscript. Numbers are read directly from the
+committed evaluation artifacts (`notebooks/step3_metrics.csv`,
+`notebooks/step3_results.parquet`) and from the experiment configuration files
+(`configs/finetune_jma_wc_global_v*.yaml`). Where a figure or claim rests on a
+metric definition we consider non-final, it is marked with a ⚠️ caveat and
+discussed in @sec-audit.
+:::
+
+# Glossary and acronyms {#sec-glossary}
+
+Because this draft is meant to be read across the broader collaboration
+(seismologists, ML practitioners, and downstream catalog users), every acronym
+is defined here on first use.
+
+| Term | Definition |
+|------|------------|
+| **PhaseNet** | A U-Net–style convolutional neural network (CNN) for seismic phase picking (Zhu & Beroza, 2019). Input: 3-component seismogram; output: per-sample probability of three classes (P, S, Noise). |
+| **P-wave / S-wave** | Primary (compressional) and Secondary (shear) seismic body-wave arrivals. The two phases we "pick" (assign arrival times to). |
+| **Phase picking** | Estimating the arrival time of a seismic phase at a station. |
+| **CNN / U-Net** | Convolutional Neural Network / an encoder–decoder CNN with skip connections. |
+| **SeisBench** | An open ML-for-seismology toolbox and dataset/model hub (Woollam et al., 2022). |
+| **jma_wc** | The pretrained PhaseNet weights we fine-tune; a SeisBench-distributed PhaseNet trained on Japan Meteorological Agency (JMA) data. *(Exact training corpus and the meaning of the "wc" suffix to be confirmed for the final methods section.)* |
+| **KD (Knowledge Distillation)** | Training a "student" model to stay close to a frozen "teacher" via a soft-label loss; here used to prevent catastrophic forgetting. |
+| **CE / KL** | Cross-Entropy loss / Kullback–Leibler divergence (the distillation loss). |
+| **Focal loss** | A modified CE that down-weights easy examples to focus gradient on hard ones (Lin et al., 2017). |
+| **MAE / RMSE** | Mean / Root-Mean-Square Absolute Error of pick times, in seconds. |
+| **MCC** | Matthews Correlation Coefficient (a balanced classification score). *(As implemented here it measures within-window P-vs-S separation — see @sec-audit.)* |
+| **Recall** | Fraction of true in-window arrivals detected at a given probability threshold. |
+| **Outlier fraction** | Fraction of picks whose timing error exceeds a threshold (here 1.5 s; Münchmeyer uses 1.0 s). |
+| **SNR** | Signal-to-Noise Ratio (dB). |
+| **t_S − t_P** | S-minus-P travel-time difference; a proxy for source–receiver distance. |
+| **Local / Regional / Teleseismic** | Distance bins: <150 km / 150–1500 km / >1500 km. |
+| **AMP** | Automatic Mixed Precision (fp16) training. |
+| **AdamW / LR** | Adam optimizer with decoupled weight decay / Learning Rate. |
+| **OBS** | Ocean-Bottom Seismometer (offshore instrumentation; Phase 2 target). |
+| **Associator** | Algorithm that groups picks across stations into earthquakes. |
+| **DOI** | Digital Object Identifier (persistent publication/dataset citation). |
+
+# Why: motivation and project goals {#sec-why}
+
+**1. Pickers generalize unevenly.** Münchmeyer et al. (2022) quantitatively
+benchmarked deep-learning pickers (PhaseNet, EQTransformer, GPD, and others)
+across multiple datasets and showed that picking quality — recall, timing
+precision, and outlier rate — varies substantially with region, magnitude, and
+distance. No single released model is uniformly best.
+
+**2. The SeisBench ecosystem has grown.** Since 2022, SeisBench has added many
+more benchmark datasets covering new regions and tectonic regimes (subduction
+zones, induced seismicity, volcanic settings, ocean-bottom deployments). This
+makes it possible — for the first time — to assemble a genuinely *global, hybrid*
+training set and to benchmark generalization far more broadly than the original
+study.
+
+**3. We deployed a picker at scale and now need better picks.** Our group
+produced a **global-scale database of seismic phase picks** by running PhaseNet
+(via SeisBench) across petabyte-scale continuous data on the cloud — 4.3 billion
+P/S picks from >47,000 stations over a 23-year span (Ni et al., 2025b,
+*Seismica*) — within the cloud-computing/storage framework reviewed in Ni et al.
+(2025a, *GJI*). A downstream team is re-analyzing the resulting catalogs and
+inter-comparing associators. The value of that catalog is
+bounded by pick quality and **reliability** (consistency, low false-positive
+rate, calibrated probabilities) — especially for **temporary networks** in
+under-instrumented regions, where the deployed model was never specialized.
+
+**4. The plan is two-phase.**
+
+- **Phase 1 — Onshore.** Retrain a high-quality, *globally* deployable PhaseNet
+  on a cleaned, rebalanced, hybrid land-station dataset. *(This document.)*
+- **Phase 2 — Offshore / OBS.** Specialize the Phase-1 base for ocean-bottom
+  seismometer data, where noise characteristics differ markedly and where many
+  groups maintain their own opinionated, site-tuned models.
+
+**Design requirements** (from `docs/retraining_steps.md`): metrics reported in a
+way **directly comparable to Münchmeyer et al. (2022)** and to other
+PhaseNet-architecture picker papers; a hybrid training set with **spurious labels
+removed** (Aguilar et al. label-error method; `albertleonardo/labelerrors`); and **rebalancing** toward
+uniform coverage in space, depth, tectonic regime, and P/S feature diversity
+(travel time, spectral content, polarity).
+
+::: {.callout-important}
+**Audit headline (read first).** The work to date is a serious, well-documented
+experimental campaign (19 versioned fine-tuning runs with written post-mortems).
+However, three issues currently prevent the headline claims from being
+deployment- or publication-ready, and are detailed in @sec-audit:
+
+1. The **"cross-domain" benchmark split is a no-op** for the fine-tuned models
+   and the jma_wc baseline (it equals the full set), and the **training manifests
+   are not committed**, so train/test independence cannot yet be verified.
+2. The headline **P-MAE is *unconditional*** (averaged over undetected traces
+   whose residuals saturate at the ±5 s search window), which is **not the
+   Münchmeyer definition** and underlies a misleading "recall at zero MAE cost"
+   statement.
+3. The documented label-error cleaning and the README dataset list describe a
+   pipeline that was **not** the one used to train the v-series models. The
+   methods narrative must be reconciled with what was actually run.
+:::
+
+# What: the data and the model {#sec-what}
+
+## Two pipelines exist — be precise about which one is "the work" {#sec-twopipelines}
+
+The repository contains **two largely disconnected pipelines**, and conflating
+them is the main source of confusion:
+
+- **Pipeline A (documented, template, *not* used for the v-series):**
+  `README.md`, `docs/DATASETS.md`, `docs/LABEL_ERROR_FILTERING.md`,
+  `scripts/data_module.py`, `scripts/label_error_filter.py`. This is the
+  "5 datasets (STEAD/INSTANCE/ETHZ/PNW/TXED) + automated label-error filtering"
+  story.
+- **Pipeline B (actually run, produced models v2–v19):**
+  `scripts/build_training_dataset.py` → manifest CSVs → `scripts/manifest_dataset.py`
+  → `scripts/finetune.py` + the `configs/finetune_jma_wc_global_v*.yaml`. This
+  uses ~20 datasets, distance-stratified rebalancing, benchmark-trace exclusion,
+  and noise augmentation. **It does not call the label-error filter.**
+
+Everything quantitative below describes **Pipeline B**. The README/docs (Pipeline
+A) should be treated as an earlier scaffold and rewritten to match.
+
+## Datasets and provenance {#sec-datasets}
+
+The hybrid **training pool** is assembled in
+`scripts/build_training_dataset.py` (`DATASET_CONFIGS`, lines 209–319) from the
+SeisBench-distributed datasets below. The **benchmark/evaluation pool** (35,392
+candidate traces; 31,992 usable) is built separately and drawn from 11 of these.
+
+::: {.callout-warning appearance="simple"}
+**DOIs marked "[confirm]" must be verified before circulation.** We list the
+canonical reference where we are confident; remaining entries are SeisBench-
+distributed datasets whose primary citation should be confirmed against the
+SeisBench data documentation. Do **not** publish unverified DOIs.
+:::
+
+| Dataset (SeisBench name) | Region / regime | Role | Primary reference & DOI |
+|---|---|---|---|
+| **STEAD** | Global, M3–7 | Train + benchmark | Mousavi et al. 2019, *IEEE Access* — `10.1109/ACCESS.2019.2947848` |
+| **INSTANCE** (`instancecounts`) | Italy, multi-source | Train + benchmark | Michelini et al. 2021, *ESSD* — `10.5194/essd-13-5509-2021` |
+| **ETHZ** | Switzerland / Alpine | Train + benchmark | SED, ETH Zürich; via SeisBench (Woollam et al. 2022) — `10.1785/0220210324` |
+| **PNW** | Cascadia / Pacific NW | Train + benchmark | Ni et al. 2023, *Seismica* — `10.26443/seismica.v2i1.368` |
+| **TXED** | Texas (induced) | Train + benchmark | Chen et al. 2024, *SRL* — `10.1785/0220230327` |
+| **GEOFON** | Global / teleseismic | Train | GEOFON Data Centre, GFZ — `10.14470/TR560404` [confirm dataset DOI] |
+| **SCEDC** | Southern California | Train | SCEDC — `10.7909/C3WD3xH1` [confirm] |
+| **LEN-DB** | Global local + noise | Train + noise | Magrini et al. 2020, *AIIG*; data `10.5281/zenodo.3648232` |
+| **Iquique** | N. Chile subduction | Train + benchmark | Woollam et al. 2019; via SeisBench [confirm] |
+| **MLAAPDE** (`mlaapde`) | Global (PDE), teleseismic | Train | Cole et al. 2023, *SRL* — `10.1785/0220230021` [confirm] |
+| **Ross 2018 (GPD)** (`ross2018gpd`) | Southern California | Train | Ross et al. 2018, *BSSA* — `10.1785/0120180080` |
+| **Meier 2019** (`meier2019jgr`) | Global | Train | Meier et al. 2019, *JGR Solid Earth* — `10.1029/2018JB016661` |
+| **CEED** (`ceed`) | California (event dataset) | Train + benchmark | [provenance + DOI to confirm] |
+| **CWA** (`cwa`) | Taiwan | Train + benchmark | Taiwan CWA dataset [confirm] |
+| **OBST2024** (`obst2024`) | Ocean-bottom (Phase-2 relevant) | Train + noise | [provenance + DOI to confirm] |
+| **PISDL** (`pisdl`), **CREW** (`crew`), **VCSEIS** (`vcseis`), **AQ2009GM** (`aq2009gm`), **OBS** (`obs`) | Various (volcanic, OBS, L'Aquila) | Train / noise | [provenance + DOIs to confirm] |
+
+**Provenance bookkeeping is good** where implemented: each training row carries
+`dataset_name`, `trace_name`, `chunk`, source phase column, `distance_km`, and
+`distance_bin` (`build_training_dataset.py:467–483`), so a trace can be traced
+back to its source dataset.
+
+::: {.callout-warning}
+**Reproducibility gap.** The committed `data/` directory is effectively empty —
+the manifest CSVs (`manifests_v2/`, `manifests_v3/`, `train_tele2x.csv`,
+`train_p_focused.csv`, `train_v18.csv`) that actually trained v2–v19 are **not in
+the repository**, and the scripts that derived the oversampled variants are not
+committed. The SeisBench cache path is **hard-coded** to a single machine
+(`/data/wsd04/ak287/.seisbench`). The exact training composition is therefore not
+reproducible from this repo alone.
+:::
+
+## Label-error cleaning {#sec-labelerrors}
+
+The intended method (Aguilar et al.; `github.com/albertleonardo/labelerrors`,
+arXiv:2511.09805) flags traces with more arrivals than labeled (multiplets) or
+seismic energy in "noise" windows, and removes them.
+
+**What is actually applied today:** label-error exclusion (~103k flagged
+`trace_name`s across STEAD/INSTANCE/PNW/TXED/ETHZ) is applied **only to the
+benchmark pool** (`notebooks/04_creating_benchmark_dataset.ipynb`, keyed on
+`trace_name` — the correct method). The standalone training-side filter
+(`scripts/label_error_filter.py`) has an index-vs-`trace_name` matching bug
+(lines 146–172) and is **not wired into Pipeline B at all**. The "expected
+removal rates" in `docs/LABEL_ERROR_FILTERING.md` are placeholder values.
+
+➡️ **Action:** apply the (correct, `trace_name`-keyed) cleaning to the *training*
+pool and report the true removal fraction per dataset.
+
+## Rebalancing — implemented vs. aspirational {#sec-rebalance}
+
+The stated goal is uniform coverage in space, depth, tectonic regime, and P/S
+feature diversity. **What is actually implemented:**
+
+- **Distance rebalancing (yes):** the training split is resampled toward
+  `TARGET_FRACTIONS = {local 0.40, regional 0.25, teleseismic 0.25, unknown 0.10}`
+  (`build_training_dataset.py:325–330, 491–524`). These are hand-tuned targets.
+- **Per-dataset caps (yes):** each dataset's contribution is capped and
+  subsampled proportionally across its own distance bins (lines 433–451) — a
+  coarse control on geographic/source dominance.
+- **S-pick balancing (partial):** an `--s-balanced` mode (→ `manifests_v3`,
+  ~60.5% S coverage vs ~38% in `manifests_v2`) requires a valid S pick. At
+  teleseismic range S is nulled by policy (physically reasonable).
+
+**Aspirational / not yet implemented:** depth, tectonic-regime, and magnitude
+rebalancing of the *training* set (these are stratified only in the *benchmark*);
+and **spectral-content, t_S−t_P, and polarity** balancing (no code computes or
+targets these distributions — they are only visualized post hoc). The design
+document's full rebalancing vision is **not yet realized** and should be stated
+as future work, not as accomplished.
+
+```{=html}
+<figure>
+```
+![Training-set spatial coverage (`notebooks/training_spatial_distribution.png`). Used to qualitatively assess geographic spread of the hybrid pool.](notebooks/training_spatial_distribution.png){#fig-spatial width=85%}
+```{=html}
+</figure>
+```
+
+![Distance and S−P travel-time distributions of the training/benchmark pools (`notebooks/sp_time_distributions.png`). t_S−t_P is the practical proxy for source–receiver distance.](notebooks/sp_time_distributions.png){#fig-sptime width=85%}
+
+![Magnitude distribution (`notebooks/magnitude_analysis.png`). The benchmark is dominated by M≈3 events; large events (M>6 ≈ 449 traces) are sparse.](notebooks/magnitude_analysis.png){#fig-mag width=70%}
+
+![SNR analysis (`notebooks/snr_analysis_corrected.png`). Low-SNR traces dominate the model's missed picks (≈82% of v7 misses have SNR < 5 dB per the config post-mortems).](notebooks/snr_analysis_corrected.png){#fig-snr width=85%}
+
+## Noise augmentation {#sec-noise}
+
+A dedicated noise pool (~82k traces) is built from explicit "noise" category
+traces (STEAD, LEN-DB lat-stratified, TXED, VCSEIS, OBST2024) and quality-screened
+by running the pretrained jma_wc picker over each trace and discarding any with
+spurious P/S probability (`scripts/build_noise_dataset.py`,
+`scripts/audit_noise_picks.py`, `scripts/add_noise_to_manifests.py`). A
+"pre-phase" noise variant (the 30 s before P) was built but then **deliberately
+excluded** because ~26% of those windows triggered the picker — a sound,
+evidence-based decision. Training-time augmentation in the manifest dataset is
+limited to **amplitude jitter (0.5–2×) and a 10% polarity flip**; the
+time-shift / Gaussian-noise / channel-dropout augmentation advertised in the
+README belongs to Pipeline A and is not active.
+
+## The model and the loss {#sec-model}
+
+We **fine-tune jma_wc** (full fine-tuning, all layers trainable) with a
+**self-distillation anchor**: a frozen copy of the same jma_wc weights serves as
+a teacher, and a temperature-scaled KL term penalizes drift from it
+(`scripts/fine_tune_model.py:167–177`). The total loss (method
+`compute_loss_and_metrics`, lines 209–278) is a configurable sum of up to five
+terms:
+
+$$
+\mathcal{L} = (1-\alpha)\,\mathcal{L}_{\text{CE/focal}} + \alpha\,T^2\,\mathrm{KL}\!\left(\tfrac{z_t}{T}\,\big\|\,\tfrac{z_s}{T}\right) + \beta\,\mathcal{L}_{\text{timing}} + \gamma_{p}\,\mathcal{L}_{\text{presence}}
+$$
+
+- **CE / focal CE** on argmax-hardened labels. With `focal_gamma>0`,
+  $\mathcal{L}=(1-p_t)^{\gamma}\,\mathrm{CE}$ (lines 225–228).
+- **KL distillation** with mixing weight $\alpha$ and temperature $T$ (the
+  $T^2$ Hinton correction is applied; lines 232–244).
+- **Timing loss** $\beta$ (differentiable soft-argmax L1 in seconds) — found
+  *lethal to recall* even at $\beta=0.01$ and disabled in the champion.
+- **Pick-presence loss** $\gamma_p$ (−log probability at the true pick) — found
+  to inflate timing outliers and disabled in the champion.
+
+::: {.callout-warning}
+**Two loss-code issues for the record** (see @sec-audit): (a) the **focal +
+class-weight interaction** computes $p_t$ from a *weighted* CE, so the focal
+modulator is wrong whenever class weights are set (latent — no focal config
+currently sets weights); (b) the fine-tune path uses **hard-argmax CE**, which
+discards the sub-sample timing information encoded in the Gaussian labels — a
+plausible root cause of the recall↔timing tug-of-war below. The from-scratch
+path (`scripts/scratch_model.py`) already uses soft CE and should be considered
+for the fine-tune path too.
+:::
+
+## Loss design and lineage relative to the cited models {#sec-lossdesign}
+
+A central question for the broader group is how our training objective relates to
+the objectives that produced the models we benchmark against. This matters because
+**every pretrained model in our leaderboard — including the `jma_wc` teacher we
+fine-tune — was trained with a loss that our fine-tuning path partly abandons.**
+
+### The champion objective, explicitly
+
+With the timing, presence, and focal terms disabled (the v7 configuration), the
+effective loss is just two terms — a data-fit term and a stay-near-the-teacher
+term:
+
+$$
+\mathcal{L}_{v7} = \underbrace{(1-\alpha)\,\mathrm{CE}_{\text{hard}}(z_s,\hat{y})}_{\text{fit the (hardened) labels}} \;+\; \underbrace{\alpha\,T^{2}\,\mathrm{KL}\!\big(\sigma(z_t/T)\,\big\|\,\sigma(z_s/T)\big)}_{\text{distill from frozen jma\_wc}},\qquad \alpha=0.3,\; T=4
+$$
+
+where $z_s,z_t$ are student/teacher logits and $\hat{y}=\arg\max_c y_{t,c}$ is the
+**argmax-hardened** version of the Gaussian soft label
+(`fine_tune_model.py:223–244`).
+
+### Loss lineage of every model in the comparison
+
+| Model (loss lineage) | Label representation | Training loss | Sub-sample timing in gradient? |
+|---|---|---|:--:|
+| **Original PhaseNet** (Zhu & Beroza 2019) | Soft Gaussian masks over P/S/N | **Soft (vector) cross-entropy** $-\sum_t\sum_c y_{t,c}\log p_{t,c}$ | **Yes** |
+| **SeisBench PhaseNet weights** — `jma_wc` (teacher), `stead`, `instance`, `ethz`, `geofon`, `neic`, … (Woollam et al. 2022) | Soft Gaussian (ProbabilisticLabeller) | Same soft vector CE | **Yes** |
+| **GPD** (`ross2018gpd`; Ross et al. 2018) | One-hot 4 s-window class | Hard categorical CE (window classifier) | No |
+| **EQTransformer** family (Mousavi et al. 2020) | Detection box + triangular P/S | Weighted sum of per-task (binary) CE | Partial |
+| **Our from-scratch path** (`scratch_model.py:94–100`) | Soft Gaussian | **Soft vector CE** (= original PhaseNet) | **Yes** |
+| **Our fine-tune path v1–v19** (`fine_tune_model.py:223`) | **Argmax-hardened** one-hot | **Hard CE + KD** (+ optional focal/timing/presence) | **No** in CE; **re-injected via KD** |
+
+::: {.callout-important}
+**The pivotal design fact.** All SeisBench pretrained baselines — and the
+`jma_wc` teacher itself — were trained with **soft-label cross-entropy that
+preserves sub-sample arrival timing**. Our fine-tune path replaces this with
+**hard-argmax CE**, which collapses the Gaussian target to a single class index
+and discards exactly the timing signal those models were optimized on. Our own
+*from-scratch* path keeps the soft CE — so the two internal code paths disagree on
+the most consequential modeling choice.
+:::
+
+### Where each term comes from, and what it is engineered to do
+
+- **CE term — inherited from PhaseNet/SeisBench, but degraded.** Same
+  architecture and 3-class softmax, but hardened labels. This is a regression
+  relative to the teacher's own objective and is a plausible root cause of the
+  recall↔timing seesaw across versions (@sec-trajectory).
+- **KD term — from Hinton et al. (2015); novel for phase pickers.** No cited
+  picker paper uses distillation. Here it is *self-distillation* from a frozen
+  copy of `jma_wc`, intended to prevent catastrophic forgetting. The configs show
+  it is load-bearing: removing it (α=0; v13/v15) collapses P-MAE to ≈0.97 s.
+- **Why the two interact — the key insight.** The teacher's per-sample softmax
+  output is a **smooth, peaked, Gaussian-like curve** around each pick — it
+  carries the same timing/shape information the soft labels would. So the KL term
+  pulls the student toward a smoothly *timed* curve even though the CE term only
+  sees a hard class. **In effect, α=0.3 distillation acts as a proxy for the
+  soft-label CE the pipeline discarded** — which is why v7's timing is good
+  (0.340 vs 0.374) despite a crude CE: the timing quality comes from the KD anchor
+  and the very small learning rate (5e-6), not from the CE term.
+- **Focal term — from Lin et al. (2017), object detection.** Foreign to seismic
+  pickers; targets the *recall* weakness (hard examples = weak teleseismic /
+  low-SNR onsets) and overlaps with the class-imbalance problem (Noise ≫ P, S per
+  sample). (Recall the latent bug in @sec-audit: it mis-computes $p_t$ if combined
+  with class weights.)
+- **Timing / presence terms — bespoke, regression-flavored, not in any baseline.**
+  `soft_pick_mae` (`fine_tune_model.py:65–94`) directly optimizes the *evaluation*
+  metric (expected-position MAE). No cited picker trains on this; it was found
+  *lethal to recall* even at β=0.01, because sharpening the expected-time estimate
+  fights the detection objective.
+
+### The engineering critique, in one line
+
+We fine-tune a **soft-CE-trained** model with a **hard-CE** loss, then spend a
+distillation term to claw back the timing information the hard CE deleted — and
+when that was insufficient, added regression-style timing losses that broke
+detection. The cleaner design, already used by the cited models *and by our own
+from-scratch path*, is to **fine-tune with the same soft-label CE as the teacher**
+and keep KD purely as the forgetting regularizer. This removes the internal
+contradiction and is our leading hypothesis for closing the recall gap (the real
+deficit vs `jma_wc`; @sec-bydist) without the timing collapse seen in v13.
+
+### How this maps onto the leaderboard
+
+- **Timing beats the baseline** (P-MAE, outliers): KD anchor + low LR keep the
+  student near the teacher's well-timed curve while light adaptation trims
+  residuals.
+- **Recall loses to the baseline** in every bin: hard CE provides no graded
+  "almost-a-pick" gradient, there is no detection/precision-optimized term, and
+  the shift toward the new hybrid distribution is not offset — so the model fires
+  less. Because the benchmark never measures precision (oracle ±5 s window,
+  @sec-bench), the recall loss is the *only* visible detection cost.
+
+::: {.callout-warning appearance="simple"}
+**To confirm before the methods section is final.** The exact SeisBench training
+loss for the specific `jma_wc` weights is stated here from the SeisBench PhaseNet
+convention and from our from-scratch replica that explicitly mirrors it
+(`scratch_model.py:94–100`), **not** from reading SeisBench's training source in
+this review. Verify against the SeisBench PhaseNet training code (label width σ,
+exact reduction) before publication. EQTransformer task weights are described
+qualitatively for the same reason.
+:::
+
+# How it performs: the benchmark leaderboard {#sec-results}
+
+## Benchmark design {#sec-bench}
+
+Evaluation uses **31,992 usable traces** (of 35,392) drawn from 11 SeisBench
+datasets. Per trace, the predicted pick is the **argmax of the probability curve
+within ±5 s of the *known* arrival** (`SEARCH_WIN_S = 5.0`,
+`eval_finetuned.py:160–172`). Distance composition: **local 15,869 / regional
+14,469 / teleseismic 1,346** (teleseismic is only ≈4.2% of the set). S picks are
+present in only ≈53% of traces and in **zero** teleseismic traces (so teleseismic
+S metrics are undefined by construction). Magnitude: mean M≈2.95; large events
+(M>6) ≈ 449.
+
+::: {.callout-warning}
+**This is an oracle-windowed evaluation.** Because picks are searched only within
+±5 s of the true arrival, **no false positives are possible and precision is
+never measured.** Recall is the only detection metric. This systematically
+flatters every model relative to a real continuous-data deployment, and means the
+benchmark cannot currently speak to the *reliability* (false-positive rate) that
+motivated the project.
+:::
+
+![Benchmark composition by dataset and distance bin (`notebooks/bin_composition_by_dataset.png`).](notebooks/bin_composition_by_dataset.png){#fig-bincomp width=90%}
+
+![Pick availability per bin (`notebooks/bin_pick_availability.png`). Note the absence of teleseismic S picks.](notebooks/bin_pick_availability.png){#fig-pickavail width=80%}
+
+## Metric definitions and Münchmeyer alignment {#sec-metrics}
+
+| Metric | As implemented here | Münchmeyer et al. (2022) |
+|---|---|---|
+| P/S-recall | `(prob ≥ t).mean()` over in-window traces, default `t=0.3` | Detection recall at F1-optimal threshold |
+| P/S-MAE, RMSE | **Unconditional** — over *all* in-window traces incl. misses ⚠️ | **Conditional** — detected/matched picks only |
+| Outlier fraction | `\|residual\| > 1.5 s` ⚠️ | `> 1.0 s` |
+| MCC | Within-window **P-vs-S** argmax comparison ⚠️ | Noise-vs-signal classification |
+| Precision / F1 | **Not computed** (oracle window) | Reported |
+
+These deviations (⚠️) are the subject of @sec-audit. The relative *ordering* of
+models is probably robust; the *absolute* values and some headline claims are
+not yet Münchmeyer-comparable.
+
+## Leaderboard — all distances (cross-domain split) {#sec-leaderboard}
+
+Numbers read directly from `notebooks/step3_metrics.csv`
+(`dist_bin = all`). Recall/MCC: higher is better; MAE/outlier: lower is better.
+Best non-baseline value per column in **bold**.
+
+| Model | n | P-recall | S-recall | P-MAE (s) | P-outlier | MCC |
+|---|--:|--:|--:|--:|--:|--:|
+| **jma_wc** (baseline/teacher) | 32,144 | **0.881** | **0.549** | 0.374 | 0.071 | **0.790** |
+| Ensemble v7+v11 | 31,992 | 0.834 | 0.511 | **0.339** | **0.063** | 0.735 |
+| **v7** (champion FT) | 31,992 | 0.853 | 0.505 | 0.340 | 0.063 | 0.760 |
+| Ensemble v3+v7 | 31,992 | 0.857 | 0.506 | 0.356 | 0.069 | 0.756 |
+| v11 | 31,992 | 0.810 | 0.517 | 0.364 | 0.068 | 0.699 |
+| v19 | 31,992 | 0.810 | 0.502 | 0.381 | 0.070 | 0.696 |
+
+**Reading of the table.** Fine-tuning **improves timing** (P-MAE 0.340 vs 0.374,
+≈9% better; P-outlier 0.063 vs 0.071, ≈11% fewer) but **loses recall and MCC**:
+the un-fine-tuned **jma_wc parent still wins P-recall, S-recall, and MCC**. No
+single fine-tuned model dominates the baseline across all metrics.
+
+![Fine-tuned model dashboard vs. all baselines (`notebooks/step3_ft_dashboard.png`). Main results overview across P/S-MAE, recall, MCC, and outlier rate.](notebooks/step3_ft_dashboard.png){#fig-dashboard width=100%}
+
+![Per-metric ranked leaderboard — P-MAE (`notebooks/step3_fig_A_pmae.png`).](notebooks/step3_fig_A_pmae.png){#fig-pmae width=90%}
+
+![Per-metric ranked leaderboard — P-recall (`notebooks/step3_fig_E_recall.png`).](notebooks/step3_fig_E_recall.png){#fig-recall width=90%}
+
+## Leaderboard — by distance bin {#sec-bydist}
+
+| Model | Local <150 km (recall / P-MAE) | Regional 150–1500 km | Teleseismic >1500 km |
+|---|---|---|---|
+| **jma_wc** | **0.936** / 0.227 | **0.885** / 0.395 | **0.238** / 1.803 |
+| **v7** | 0.925 / **0.208** | 0.842 / **0.359** | 0.122 / 1.724 |
+
+Fine-tuning beats the baseline on **timing** (P-MAE) in local and regional bins,
+but **loses recall in every bin** — and the gap is severe at teleseismic range
+(**v7 recall 0.122 vs jma_wc 0.238**, i.e. fine-tuning roughly *halved*
+teleseismic detection).
+
+![P/S-MAE by distance bin (`notebooks/step3_ft_distance_bins.png`).](notebooks/step3_ft_distance_bins.png){#fig-distbins width=95%}
+
+![Residual distributions by distance bin, FT vs baselines (`notebooks/step3_ft_residuals.png`). Widening the x-limits here would expose the ±5 s saturation discussed in @sec-audit.](notebooks/step3_ft_residuals.png){#fig-residuals width=95%}
+
+![Recall vs. detection threshold (`notebooks/step3_ft_recall_curves.png`).](notebooks/step3_ft_recall_curves.png){#fig-recallcurves width=95%}
+
+::: {.callout-warning}
+**The teleseismic-MAE artifact.** v7's *unconditional* teleseismic P-MAE (1.724)
+looks *better* than jma_wc's (1.803), but v7 only detects 12% of teleseismic P
+picks — the average is dominated by ≈88% saturated misses. On **detected-only
+(conditional)** MAE the picture is consistent (v7 0.652 vs jma_wc 0.863 for the
+few easy picks), but the headline number must not be read as "v7 times
+teleseismic picks better." The only model with genuine teleseismic capability in
+the pool is **geofon** (recall 0.775), the teleseismic-trained baseline.
+:::
+
+# The experimental trajectory (v1 → v19) {#sec-trajectory}
+
+The configuration headers document a disciplined campaign of single-variable
+experiments, each with a written post-mortem. The recurring lesson is a
+**recall ↔ timing seesaw**: interventions that raised recall (noise augmentation,
+pick-presence loss, removing distillation, S-balancing, teleseismic
+oversampling) degraded P-MAE, and vice-versa. Numbers below are **self-reported
+in the config comments** and should be reconciled against `step3_metrics.csv` in
+the final version.
+
+| Ver | Key change | Stated outcome |
+|--|--|--|
+| v2 | +datasets, LR 1e-5, no KD | Catastrophic forgetting, P-MAE ≈ 1.25 |
+| v3 | **KD α=0.3, T=4, LR 5e-6** | First stable win, P-MAE 0.368 |
+| v4 | timing loss + cosine LR 1e-4 | Recall collapsed to 0.296 |
+| v6 | tiny timing β=0.01 | Recall collapsed 0.872→0.522 ("even 0.01 is lethal") |
+| **v7** | v6 with β=0 | **Champion: P-MAE 0.340**; recall 0.853 |
+| v8 | class weights + α=0.5 | P-MAE 0.379 (worse) |
+| v9 | S-balanced data, monitor val_p_mae_s | Stopped epoch 13; best S-recall 0.539 |
+| v11 | T=4→1.5 | P-MAE 0.364; ensemble v7+v11 = 0.339 |
+| v12 | α=0 (no teacher) | Crashed (checkpoint key mismatch) |
+| v13 | α=0 + noise + presence loss + 2× tele | **Best recall 0.888, MCC 0.943** but P-MAE 0.967 |
+| v14–v16 | dial noise/presence, restore KD | P-MAE 0.46–1.04 (noise hurts timing) |
+| v17 | 2× tele, no noise, fresh init | Regional P-MAE worsened (tele data hurts timing) |
+| v18 | S-balanced + 1.5× tele + **focal γ=1** | *Aspirational targets; no recorded result* |
+| v19 | local+regional only, monitor val_p_mae_s | *P-MAE-focused; no recorded result* |
+
+**Key conclusions the team reached** (well-supported by the configs): (1)
+**KD distillation (α≈0.3) is the indispensable cross-domain regularizer** —
+removing it collapses timing; (2) **explicit timing/presence losses backfire**;
+(3) **in-distribution validation metrics (`val_loss`, `val_p_mae_s`) do not
+predict cross-domain benchmark P-MAE**, which complicates model selection.
+
+::: {.callout-important}
+**Selection-bias caveat.** Conclusion (3) is double-edged: because validation
+metrics were found unreliable, model selection (which version "wins") was driven
+by repeatedly reading the **benchmark** leaderboard across 19 versions. That is
+iterated selection on the test set. The reported v7 > jma_wc timing advantage
+(0.340 vs 0.374) may shrink on a truly held-out set. A final, untouched test
+split — never used for version selection or threshold tuning — is required before
+any claim is locked.
+:::
+
+# Critical audit: issues to resolve before action {#sec-audit}
+
+This section is the "major review before we take any action" requested for the
+broader group. Items are ordered by impact on conclusions. Each cites
+`file:line`.
+
+## Blocking for publication / deployment {#sec-blocking}
+
+1. **Train/test independence is unverified; the cross-domain split is a no-op.**
+   For every `jma_wc*` and `jma_wc_ft_*` model, `trained_on` is `None`, so the
+   "cross-domain" mask is all-True and the `cross_domain` rows are **byte-identical
+   to `all`** (`eval_finetuned.py:229–255`; verified in `step3_metrics.csv`). The
+   fine-tuned models were trained on datasets (STEAD, INSTANCE, CEED, PNW, TXED…)
+   that **also populate the benchmark**, and the training manifests are not
+   committed, so we **cannot currently prove** that benchmark traces were excluded
+   from training. *Action:* commit the manifests (or a trace-name hash list),
+   register the FT training datasets in the split logic, and re-report a genuine
+   cross-domain leaderboard with event-level (not just trace-level) separation.
+
+2. **Headline MAE/RMSE/outlier are unconditional and ±5 s-saturated.**
+   `compute_metrics` averages `|residual|` over *all* in-window traces including
+   undetected ones, whose residual is the global peak within ±5 s (censored at the
+   window edge) (`eval_finetuned.py:299–305`; residuals verified to span exactly
+   [−5.0, +4.99]). This is **not** the Münchmeyer (detected-only) definition,
+   makes teleseismic MAE meaningless, and produces the misleading **"recall gains
+   at zero MAE cost"** statement (`compare_v7_thresholds.py:406–408`) — which is
+   *circular*, since unconditional MAE is threshold-independent **by
+   construction**. *Action:* report conditional (detected-only) MAE/RMSE/outlier
+   matched to Münchmeyer, alongside recall, and drop the zero-cost framing.
+
+3. **Methods/README describe a pipeline that was not used.** The README,
+   `docs/DATASETS.md`, and `docs/LABEL_ERROR_FILTERING.md` describe Pipeline A
+   (5 datasets + automated label-error filtering). The v-series were trained with
+   Pipeline B (~20 datasets, manifest-based, **no** training-side label-error
+   filtering). *Action:* rewrite the methods docs to describe what was actually
+   run, and either apply or explicitly disclaim training-side label cleaning.
+
+## Important (affect interpretation) {#sec-important}
+
+4. **Outlier threshold mislabeled.** 1.5 s is used throughout but attributed to
+   "Münchmeyer 2022," which uses 1.0 s (`eval_finetuned.py:67`). Harmonize or
+   stop attributing.
+
+5. **MCC measures the wrong thing.** It is a within-window P-vs-S argmax score
+   (`eval_finetuned.py:287–297`), not noise-vs-signal classification; it yields
+   an impossible `MCC = 1.0, MAE = 3.17 s` for a degenerate model. Redefine to
+   match Münchmeyer.
+
+6. **No uncertainty quantification.** No confidence intervals, bootstrap, or
+   significance tests anywhere; differences like 0.339 vs 0.374 are reported bare.
+   Teleseismic conditional metrics rest on ≈122–344 detected picks. *Action:* add
+   bootstrap CIs per bin.
+
+7. **Threshold tuned on the evaluation set.** The 0.30→0.10 threshold sweeps run
+   on the same traces reported as results (`threshold_sweep_v7*.py`,
+   `compare_v7_thresholds.py`). Needs a held-out tuning split.
+
+8. **AMP/precision mismatch.** Configs set `precision: "32-true"` *and*
+   `amp: true`; the pure-PyTorch driver ignores `precision` and runs **fp16
+   AMP** (`finetune.py:207`). All v-series results were produced under fp16, not
+   fp32 — relevant because the differences chased are small. Label honestly.
+
+## Correctness / hygiene (lower impact) {#sec-hygiene}
+
+9. **Reproducibility:** only `torch.manual_seed` is set; NumPy/Python `random`
+   (used for all augmentation and noise-window placement) are unseeded;
+   `cudnn.benchmark=True` and `torch.compile` are on. Not bit-reproducible.
+10. **Silent data failures:** `manifest_dataset.py:370–375` swallows all
+    waveform-fetch exceptions and returns an all-noise zero sample with no
+    logging — corrupt traces silently become phantom noise examples.
+11. **Focal × class-weight bug** (`fine_tune_model.py:226`): `pt = exp(−ce_per)`
+    is wrong when class weights are set (latent; v18 sets no weights). The
+    canonical fix computes `pt` from an unweighted CE and applies weights
+    separately.
+12. **Hard-argmax CE** discards Gaussian-label timing information
+    (`fine_tune_model.py:223`); consider the scratch path's soft CE.
+13. **Channel-order trap:** the active path uses **PSN**, the dead Lightning path
+    (`model.py`) uses **NPS**; reconcile or delete the dead path before release.
+14. **Dead/duplicated analysis code** in `threshold_sweep_v7_teleseismic.py`
+    (unused `table_data`/`cell_colors`, dead `to_rgba` import) and duplicated
+    metric logic across the eval/sweep scripts; the from-scratch run and v18/v19
+    have **no recorded benchmark outcome** yet.
+
+![Normalization fix (`notebooks/step3_norm_fix_comparison.png`): applying peak-vs-std normalization correctly changed STEAD P-MAE from 1.17→0.04 s — an example of how sensitive these metrics are to pipeline details. Belongs in a methods appendix.](notebooks/step3_norm_fix_comparison.png){#fig-norm width=85%}
+
+# Roadmap {#sec-roadmap}
+
+**Immediately, before any model is promoted:**
+
+1. Commit manifests (or trace-name hashes); register FT datasets and produce a
+   *genuine* cross-domain, **event-level** train/test split.
+2. Re-report the leaderboard with **conditional** MAE/RMSE/outlier (1.0 s
+   threshold), a corrected MCC, and **bootstrap CIs**; add a **precision/false-
+   positive** evaluation on continuous or noise windows (the reliability metric
+   the project actually needs).
+3. Lock a **held-out** test split untouched by version selection and threshold
+   tuning; re-confirm the v7-vs-jma_wc comparison on it.
+
+**Phase 1 (onshore) modeling directions** suggested by the trajectory:
+
+4. Apply training-side label cleaning (correct `trace_name` keying) and report
+   real removal fractions.
+5. Replace hard-argmax CE with **soft CE** (preserving label timing) instead of
+   the harmful explicit timing/presence losses; keep KD α≈0.3.
+6. Address the **recall gap** (the real weakness vs jma_wc) — especially low-SNR
+   and teleseismic onsets — without the timing collapse seen in v13; this is the
+   central scientific problem to solve before claiming a better global picker.
+
+**Phase 2 (offshore / OBS):**
+
+7. Build an OBS-specific noise/label corpus (cultural, biological, water-column,
+   instrument noise), then transfer-learn the Phase-1 base for OBS deployments,
+   benchmarking against the site-tuned models groups already use.
+
+# References {#sec-refs}
+
+*(Reference list for the broader group; DOIs marked "[confirm]" require
+verification against SeisBench/source documentation before circulation.)*
+
+- **Münchmeyer, J., et al. (2022).** Which picker fits my data? A quantitative
+  evaluation of deep learning based seismic pickers. *JGR Solid Earth*, 127,
+  e2021JB023499. `10.1029/2021JB023499`
+- **Zhu, W., & Beroza, G. C. (2019).** PhaseNet: a deep-neural-network-based
+  seismic arrival-time picking method. *GJI*, 216(1), 261–273. `10.1093/gji/ggy423`
+- **Woollam, J., et al. (2022).** SeisBench — A toolbox for machine learning in
+  seismology. *SRL*, 93(3), 1695–1709. `10.1785/0220210324`
+- **Mousavi, S. M., et al. (2019).** STEAD: A global dataset of seismic signals
+  for AI. *IEEE Access*, 7, 179464–179476. `10.1109/ACCESS.2019.2947848`
+- **Michelini, A., et al. (2021).** INSTANCE — the Italian seismic dataset for
+  machine learning. *ESSD*, 13, 5509–5544. `10.5194/essd-13-5509-2021`
+- **Ni, Y., et al. (2023).** Curated Pacific Northwest AI-ready Seismic Dataset
+  (PNW). *Seismica*, 2(1). `10.26443/seismica.v2i1.368`
+- **Chen, Y., et al. (2024).** TXED: the Texas Earthquake Dataset for AI. *SRL*,
+  95(4), 2530–2543. `10.1785/0220230327`
+- **Magrini, F., et al. (2020).** LEN-DB. *AI in Geosciences*; data
+  `10.5281/zenodo.3648232`
+- **Ross, Z. E., et al. (2018).** Generalized Seismic Phase Detection with Deep
+  Learning. *BSSA*, 108(5A), 2894–2901. `10.1785/0120180080`
+- **Meier, M.-A., et al. (2019).** Reliable real-time seismic signal/noise
+  discrimination with machine learning. *JGR Solid Earth*. `10.1029/2018JB016661`
+- **Cole, H., et al. (2023).** MLAAPDE. *SRL*. `10.1785/0220230021` [confirm]
+- **Lin, T.-Y., et al. (2017).** Focal Loss for Dense Object Detection. *ICCV*.
+- **Aguilar, A. L., et al. (2025).** Pervasive label errors in seismological
+  ML datasets. arXiv:2511.09805. `github.com/albertleonardo/labelerrors`
+- **Ni, Y., Denolle, M. A., Münchmeyer, J., Wang, Y., Feng, K.-F., Garcia
+  Jurado Suarez, C., Thomas, A. M., Trabant, C., Hamilton, A., & Mencin, D.
+  (2025a).** A review of cloud computing and storage in seismology.
+  *Geophysical Journal International*, 243(1), ggaf322. `10.1093/gji/ggaf322`
+- **Ni, Y., Denolle, M. A., Thomas, A. M., Hamilton, A., Münchmeyer, J., Wang,
+  Y., Bachelot, L., Trabant, C., & Mencin, D. (2025b).** A Global-scale Database
+  of Seismic Phases from Cloud-based Picking at Petabyte Scale. *Seismica*, 4(2),
+  Article 1738. `10.26443/seismica.v4i2.1738`
+- GEOFON `10.14470/TR560404` [confirm] · SCEDC `10.7909/C3WD3xH1` [confirm] ·
+  ETHZ/SED, Iquique, CEED, CWA, OBST2024, VCSEIS, AQ2009GM, PISDL, CREW, OBS —
+  provenance/DOIs to confirm against SeisBench documentation.
+
+---
+
+::: {.callout-note appearance="simple"}
+*Generated as a working draft. Source artifacts: `notebooks/step3_metrics.csv`,
+`notebooks/step3_results.parquet`, `configs/finetune_jma_wc_global_v*.yaml`, and
+the `scripts/` pipeline. Render with `quarto render paper_draft.qmd`.*
+:::

@@ -9,7 +9,8 @@ Slides:
   3. Local (<150 km)
   4. Regional (150-1500 km)
   5. Teleseismic (>1500 km)
-  6. Notes on methodology
+  6. Cross-dataset event leakage correction
+  7. Notes on methodology
 
 Run from repo root:
     conda activate surface
@@ -38,6 +39,17 @@ combined = pd.concat(
     ignore_index=True,
 )
 cross = combined[combined["split"] == "cross_domain"].copy()
+clean = combined[combined["split"] == "cross_domain_clean"].copy()
+
+# 2026-07-06 cross-dataset event leakage audit (scripts/audit_parent_leakage.py):
+# same earthquake recorded under a different benchmark dataset name, caught via
+# spatiotemporal (+-2s/+-10km) match rather than trace_name/dataset match.
+LEAK_ROWS = [
+    ("stead",                        "pnw",      0.385),
+    ("instance",                     "ethz",     0.327),
+    ("pisdl",                        "ethz",     0.309),
+    ("scedc",                        "stead",    0.076),
+]
 
 # ── Model display names and grouping ──────────────────────────────────────────
 
@@ -356,7 +368,83 @@ for dist_key, dist_label in DIST_BINS:
     make_table_slide(dist_key, dist_label)
 
 
-# ── Slide 6: Methodology notes ────────────────────────────────────────────────
+# ── Slide 6: Cross-dataset event leakage correction ──────────────────────────
+# All-distances cross_domain vs cross_domain_clean, for every weight in
+# MODEL_GROUPS that the 2026-07-06 parent-leakage audit actually covers.
+
+LEAK_TABLE_WEIGHTS = [
+    w for group in MODEL_GROUPS.values() for w in group
+    if w in set(clean["weight"].unique())
+]
+LEAK_METRICS = [("p_mae_s", "P-MAE (s)", False), ("p_recall", "P-Recall", True)]
+
+
+def make_leakage_slide():
+    slide = prs.slides.add_slide(BLANK)
+    slide.background.fill.solid()
+    slide.background.fill.fore_color.rgb = RGBColor(0xFA, 0xFA, 0xFA)
+
+    tb = slide.shapes.add_textbox(Inches(0.3), Inches(0.15), Inches(15.4), Inches(0.55))
+    tf = tb.text_frame; p = tf.paragraphs[0]; p.alignment = PP_ALIGN.LEFT
+    run = p.add_run()
+    run.text = "Cross-Dataset Event Leakage Correction"
+    run.font.size = Pt(22); run.font.bold = True
+    run.font.color.rgb = RGBColor(0x1A, 0x1A, 0x2E)
+
+    add_textbox(slide, "Same earthquake, different benchmark dataset name — caught via spatiotemporal "
+                        "(±2s / ±10km) match, not trace_name/dataset match (scripts/audit_parent_leakage.py)",
+                0.3, 0.72, 15, 0.35, font_size=9, color=RGBColor(0x66, 0x66, 0x66), italic=True)
+
+    # Top: worst offending (trained_on, benchmark_dataset) event-overlap pairs
+    add_textbox(slide, "Worst event-overlap pairs found:",
+                0.3, 1.15, 5, 0.3, font_size=11, bold=True, color=RGBColor(0x1A, 0x1A, 0x2E))
+    y = 1.5
+    for trained_on, bench_ds, frac in LEAK_ROWS:
+        add_textbox(slide, f"• {trained_on} training corpus ↔ {bench_ds} benchmark: "
+                            f"{frac*100:.1f}% of {bench_ds} events also in {trained_on}",
+                    0.5, y, 10, 0.3, font_size=10, color=DARK_GRAY)
+        y += 0.32
+
+    # Bottom: all-distance cross_domain vs cross_domain_clean table
+    TBL_TOP = y + 0.25
+    N_COLS = 1 + len(LEAK_METRICS) * 2
+    N_ROWS = len(LEAK_TABLE_WEIGHTS) + 1
+    tbl = slide.shapes.add_table(
+        N_ROWS, N_COLS, Inches(0.3), Inches(TBL_TOP), Inches(11), Inches(0.4 * N_ROWS)
+    ).table
+    tbl.columns[0].width = Inches(3.2)
+    for ci in range(1, N_COLS):
+        tbl.columns[ci].width = Inches(1.95)
+
+    HDR_BG = RGBColor(0x1A, 0x1A, 0x2E)
+    set_cell(tbl.cell(0, 0), "Model", font_size=9, bold=True, bg_color=HDR_BG, fg_color=WHITE)
+    ci = 1
+    for col, label, _ in LEAK_METRICS:
+        set_cell(tbl.cell(0, ci), f"{label}\ncross_domain", font_size=8.5, bold=True, bg_color=HDR_BG, fg_color=WHITE)
+        set_cell(tbl.cell(0, ci + 1), f"{label}\nclean", font_size=8.5, bold=True, bg_color=HDR_BG, fg_color=WHITE)
+        ci += 2
+
+    for ri, w in enumerate(LEAK_TABLE_WEIGHTS, start=1):
+        row_bg = LIGHT_GRAY if ri % 2 == 0 else WHITE
+        set_cell(tbl.cell(ri, 0), DISPLAY_NAMES.get(w, w), font_size=8.5,
+                 bg_color=row_bg, fg_color=DARK_GRAY, align=PP_ALIGN.LEFT)
+        raw_row   = cross[(cross["weight"] == w) & (cross["dist_bin"] == "all")]
+        clean_row = clean[(clean["weight"] == w) & (clean["dist_bin"] == "all")]
+        ci = 1
+        for col, _, _ in LEAK_METRICS:
+            raw_v   = raw_row.iloc[0][col]   if not raw_row.empty   and col in raw_row.columns   else np.nan
+            clean_v = clean_row.iloc[0][col] if not clean_row.empty and col in clean_row.columns else np.nan
+            set_cell(tbl.cell(ri, ci),     f"{raw_v:.3f}"   if not np.isnan(raw_v)   else "—", font_size=8, bg_color=row_bg, fg_color=DARK_GRAY)
+            set_cell(tbl.cell(ri, ci + 1), f"{clean_v:.3f}" if not np.isnan(clean_v) else "—", font_size=8, bg_color=row_bg, fg_color=DARK_GRAY)
+            ci += 2
+
+    return slide
+
+
+make_leakage_slide()
+
+
+# ── Slide 7: Methodology notes ────────────────────────────────────────────────
 
 slide = prs.slides.add_slide(BLANK)
 slide.background.fill.solid()
@@ -385,8 +473,10 @@ notes = [
      "P/S-Recall: fraction of events where peak probability ≥ 0.30 within ±5 s of true arrival. "
      "MCC: Matthews Correlation Coefficient measuring P vs S phase discrimination."),
     ("Data leakage caveat",
-     "EQT weights trained on STEAD / INSTANCE / ETHZ / PNW benefit from indirect distributional overlap "
-     "with nearby datasets even after cross-domain exclusion. "
+     "2026-07-06 audit (scripts/audit_parent_leakage.py) confirmed this quantitatively via spatiotemporal "
+     "(±2s/±10km) event matching: stead↔pnw 38.5%, instance↔ethz 32.7%, pisdl↔ethz 30.9% of benchmark events "
+     "are the same earthquake as one in that model's training corpus, recorded at a different station. "
+     "See the Cross-Dataset Event Leakage slide for the corrected (cross_domain_clean) metrics. "
      "eqt_volpick (volcano-tectonic training data) has no overlap with benchmark datasets."),
     ("Ensemble",
      "Average of eqt_volpick (norm=peak) and eqt_original_nc (norm=std) probability curves. "

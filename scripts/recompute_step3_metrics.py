@@ -25,7 +25,9 @@ from tqdm import tqdm
 
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from domain_registry import split_masks
+from domain_registry import (
+    split_masks, clean_holdout_mask, is_own_model, parent_clean_cross_domain_mask,
+)
 
 NB_DIR       = REPO_ROOT / "notebooks"
 RESULTS_PATH = NB_DIR / "step3_results.parquet"
@@ -143,16 +145,38 @@ def main():
     for weight_name in tqdm(results_df["weight"].unique(), desc="Metrics"):
         wdf = results_df[results_df["weight"] == weight_name]
         in_mask, cross_mask = split_masks(wdf, weight_name)
+        own_model = is_own_model(weight_name)
+        clean_mask = clean_holdout_mask(wdf, weight_name) if own_model else None
+        parent_clean_mask = None if own_model else parent_clean_cross_domain_mask(wdf, weight_name)
 
         for dist_label in dist_bins:
             if dist_label == "all":
                 sub_all, sub_cross, sub_in = wdf, wdf[cross_mask], wdf[in_mask]
+                sub_clean = wdf[clean_mask] if own_model else None
+                sub_parent_clean = wdf[parent_clean_mask] if parent_clean_mask is not None else None
             else:
                 d_mask    = wdf["dist_bin"] == dist_label
                 sub_all   = wdf[d_mask]
                 sub_cross = wdf[cross_mask & d_mask]
                 sub_in    = wdf[in_mask & d_mask]
-            for sub, split in [(sub_all, "all"), (sub_cross, "cross_domain"), (sub_in, "in_domain")]:
+                sub_clean = wdf[clean_mask & d_mask] if own_model else None
+                sub_parent_clean = (wdf[parent_clean_mask & d_mask]
+                                    if parent_clean_mask is not None else None)
+            splits = [(sub_all, "all"), (sub_cross, "cross_domain"), (sub_in, "in_domain")]
+            if own_model:
+                # Event-level holdout, not a named-domain cut — see
+                # domain_registry.clean_holdout_mask(). Only meaningful for
+                # our own fine-tunes, whose training corpus we can check.
+                splits.append((sub_clean, "clean_holdout"))
+            if sub_parent_clean is not None:
+                # cross_domain further restricted to exclude benchmark rows
+                # whose event spatiotemporally matches one in this weight's
+                # full public training corpus — see
+                # domain_registry.parent_clean_cross_domain_mask(). Only
+                # defined for public pretrained weights with a locally
+                # verifiable training corpus.
+                splits.append((sub_parent_clean, "cross_domain_clean"))
+            for sub, split in splits:
                 row = compute_metrics(sub, weight_name, split, dist_label, degenerate_models)
                 if row:
                     metrics_rows.append(row)
@@ -167,6 +191,12 @@ def main():
     print("\nCross-domain P-MAE ranking (all distances) — corrected split:")
     print(cross_all[["weight", "tier", "n_traces", "p_mae_s", "s_mae_s", "p_recall", "mcc",
                       "p_outlier"]].to_string(index=False))
+
+    clean_holdout_all = (clean[(clean["split"] == "clean_holdout") & (clean["dist_bin"] == "all")]
+                          .sort_values("p_mae_s"))
+    print("\nClean-holdout P-MAE ranking (all distances) — event-level, domain-agnostic, own fine-tunes only:")
+    print(clean_holdout_all[["weight", "tier", "n_traces", "p_mae_s", "s_mae_s", "p_recall", "mcc",
+                              "p_outlier"]].to_string(index=False))
 
     if old_metrics is not None:
         print("\n" + "=" * 90)

@@ -58,6 +58,12 @@ _SBD_CLASS = {
     "txed":           sbd.TXED,
     "vcseis":         sbd.VCSEIS,
     "obst2024":       sbd.OBST2024,
+    # Not benchmark datasets themselves — these are public pretrained
+    # weights' training corpora, loaded in full by
+    # scripts/audit_parent_leakage.py to check for cross-dataset event
+    # overlap against the 12 BENCHMARK_DATASETS above.
+    "scedc":          sbd.SCEDC,
+    "iquique":        sbd.Iquique,
 }
 _CHUNKED = {
     "mlaapde":  (MLAAPDE_PATH,  "metadata_"),
@@ -90,6 +96,7 @@ SCALAR_ID_COL = {
     "vcseis":         "source_id",
     "pnw":            "event_id",
     "cwa":            "source_event_id",
+    "scedc":          "source_id",
 }
 MULTI_ID_COL = {"ceed": "source_id_list"}
 
@@ -99,7 +106,10 @@ FALLBACK_LON_COL  = "source_longitude_deg"
 
 # 100% NaN on every source_* column in the cached copy — no fingerprint
 # possible. Named explicitly so it never silently reports 0% leakage.
-UNVERIFIABLE_DATASETS = {"obst2024"}
+# neic: the local SeisBench copy is a partial/failed download (raises
+# "Found partial instance" on load) — re-downloading is a large, unbudgeted
+# operation this module does not trigger, so it's unverifiable here too.
+UNVERIFIABLE_DATASETS = {"obst2024", "neic"}
 
 _ID_TOKEN_RE = re.compile(r"[A-Za-z0-9_.:-]+")
 

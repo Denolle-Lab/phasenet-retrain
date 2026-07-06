@@ -25,7 +25,9 @@ from sklearn.metrics import matthews_corrcoef
 
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from domain_registry import split_masks
+from domain_registry import (
+    split_masks, clean_holdout_mask, is_own_model, parent_clean_cross_domain_mask,
+)
 
 RESULTS_PATH = REPO_ROOT / "notebooks" / "step3_results.parquet"
 OUT_CSV      = REPO_ROOT / "results" / "eval_eqtransformer.csv"
@@ -100,11 +102,21 @@ def main():
             print(f"  WARNING: no rows for {weight_name}")
             continue
         _, cross_mask = split_masks(wdf, weight_name)
+        own_model = is_own_model(weight_name)
+        clean_mask = clean_holdout_mask(wdf, weight_name) if own_model else None
+        parent_clean_mask = None if own_model else parent_clean_cross_domain_mask(wdf, weight_name)
 
         for dist in DIST_BINS:
             sub   = wdf if dist == "all" else wdf[wdf["dist_bin"] == dist]
             sub_x = sub[cross_mask.reindex(sub.index, fill_value=True)]
-            for df_s, split in [(sub, "all"), (sub_x, "cross_domain")]:
+            splits = [(sub, "all"), (sub_x, "cross_domain")]
+            if own_model:
+                sub_clean = sub[clean_mask.reindex(sub.index, fill_value=False)]
+                splits.append((sub_clean, "clean_holdout"))
+            if parent_clean_mask is not None:
+                sub_parent_clean = sub[parent_clean_mask.reindex(sub.index, fill_value=False)]
+                splits.append((sub_parent_clean, "cross_domain_clean"))
+            for df_s, split in splits:
                 row = compute_metrics(df_s, weight_name, split, dist)
                 if row:
                     metrics_rows.append(row)

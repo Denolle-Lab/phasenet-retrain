@@ -579,24 +579,51 @@ def _event_group_ids(df):
 
 def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
     """
-    Use existing SeisBench splits where available. For rows with no
-    predefined split, group by event identity (scripts/event_keys.py) and
-    assign whole events to train/val/test — a random per-trace 80/10/10
-    could otherwise put two stations of the same earthquake on opposite
-    sides of a split. Rows with no derivable event key (see event_keys.py's
-    UNVERIFIABLE_DATASETS) fall back to today's per-trace random assignment.
+    Group by event identity (scripts/event_keys.py) wherever an event key is
+    derivable, so the same earthquake can't land on both sides of a split —
+    regardless of whether the source dataset ships its own train/dev/test
+    partition. Vendor splits (orig_split) are NOT trusted as event-clean:
+    the 2026-07 leakage audit found several SeisBench-provided splits
+    (mlaapde, aq2009gm, cwa, stead) still put the same earthquake, recorded
+    at a different station, on both sides. orig_split is used only as a
+    fallback for rows with NO derivable event key at all (event_keys.py's
+    UNVERIFIABLE_DATASETS, e.g. obst2024, or a partial-coverage dataset's
+    unkeyed rows, e.g. TXED's ~40% noise-only rows) — better than a coin
+    flip when there's no other signal. Keyless rows with no orig_split
+    either fall back to random per-trace assignment (prior behavior).
     """
+    import event_keys as ek
+
+    dnames = df["dataset_name"].values
+    tnames = df["trace_name"].values
+    n = len(df)
+
+    maps = {}
+    for dname in pd.unique(dnames):
+        try:
+            maps[dname] = ek.trace_key_map(dname)
+        except Exception as exc:
+            print(f"    event-key lookup unavailable for {dname!r} ({exc}) "
+                  f"— falling back to orig_split/random for it")
+            maps[dname] = {}
+
+    has_key = np.fromiter(
+        (bool(maps.get(dnames[i], {}).get(tnames[i], frozenset())) for i in range(n)),
+        dtype=bool, count=n,
+    )
+
     split = pd.Series("", index=df.index, dtype=str)
 
-    has_orig = df["orig_split"].str.len() > 0
-    split[has_orig & (df["orig_split"] == "train")] = "train"
-    split[has_orig & (df["orig_split"] == "val")]   = "val"
-    split[has_orig & (df["orig_split"] == "test")]  = "test"
+    no_key_idx = df.index[~has_key]
+    orig = df.loc[no_key_idx, "orig_split"]
+    split.loc[no_key_idx[(orig == "train").values]] = "train"
+    split.loc[no_key_idx[(orig == "val").values]]   = "val"
+    split.loc[no_key_idx[(orig == "test").values]]  = "test"
 
-    no_split_idx = df.index[split == ""]
-    if len(no_split_idx):
-        sub = df.loc[no_split_idx]
-        n = len(sub)
+    ungrouped_idx = df.index[split == ""]
+    if len(ungrouped_idx):
+        sub = df.loc[ungrouped_idx]
+        m = len(sub)
         group_pos = _event_group_ids(sub)
 
         groups = {}
@@ -605,10 +632,10 @@ def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
         group_keys = list(groups.keys())
         rng.shuffle(group_keys)
 
-        n_val_target  = int(val_frac  * n)
-        n_test_target = int(test_frac * n)
+        n_val_target  = int(val_frac  * m)
+        n_test_target = int(test_frac * m)
 
-        assign = np.full(n, "train", dtype=object)
+        assign = np.full(m, "train", dtype=object)
         gi, count = 0, 0
         while gi < len(group_keys) and count < n_val_target:
             for pos in groups[group_keys[gi]]:
@@ -623,11 +650,11 @@ def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
             gi += 1
 
         n_multi = sum(1 for g in group_keys if len(groups[g]) > 1)
-        print(f"    event-aware split: {n:,} rows -> {len(group_keys):,} groups "
+        print(f"    event-aware split: {m:,} rows -> {len(group_keys):,} groups "
               f"({n_multi:,} multi-trace events, "
-              f"{len(group_keys) - n_multi:,} singleton/no-event-key)")
+              f"{len(group_keys) - n_multi:,} singleton events / no-key rows without orig_split)")
 
-        split.loc[no_split_idx] = assign
+        split.loc[ungrouped_idx] = assign
 
     return split
 

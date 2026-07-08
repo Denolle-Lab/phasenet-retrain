@@ -1,83 +1,87 @@
 """
-Starter unit tests for the benchmark-metric functions in
-`scripts/compare_v7_thresholds.py`.
+Starter unit tests for the benchmark-metric + domain-split helpers.
 
-Why this file exists
---------------------
-The code-review-graph knowledge graph flagged `compute_metrics` and
-`get_split_mask` as *untested*, and the internal audit found real correctness
-issues in both:
+Coverage targets (flagged as untested by the code-review-graph analysis):
+  * scripts/domain_registry.py :: split_masks   — in_domain / cross_domain split
+  * scripts/compare_v7_thresholds.py :: compute_metrics — recall / MAE / outlier
 
-  * `compute_metrics`  -> MAE/outlier are UNCONDITIONAL (averaged over undetected
-    traces, residuals saturated at the +/-5 s search window), so they are not
-    comparable to the Munchmeyer et al. (2022) detected-only definition.
-    (GitHub issue #8)
-  * `get_split_mask`   -> returns all-True for any weight not listed in
-    `TRAINED_ON`, so the benchmark "cross_domain" split is a no-op for every
-    `jma_wc*` / `jma_wc_ft_*` model (cross_domain == all).  (GitHub issue #7)
-
-These tests (a) pin the *correct* math that must not regress, and (b) DOCUMENT
-the two bugs with tests that will need to be flipped when the bugs are fixed.
-
-Loading note (temporary shim)
+Split logic (domain_registry)
 -----------------------------
-`compare_v7_thresholds.py` executes its analysis driver (reads
-`step3_results.parquet`, writes CSV/PNG) at *import* time, so it cannot be
-imported directly in a test.  Until that driver is guarded under
-`if __name__ == "__main__":` (issue #12), we extract just the two pure
-functions via the AST below.  After that refactor, replace `_load_pure()` with:
+The cross-domain split no-op has been FIXED (commit 244473f, closes #7): the
+logic now lives in `domain_registry.split_masks()`. For public pretrained
+weights it compares the benchmark trace's `trained_models` column to that
+weight's known corpus; for our own fine-tunes (`jma_wc*` / `jma_wc_ft_*`) it
+compares the trace's `dataset` column to the set of datasets the training
+manifest was actually built from (`OWN_TRAINED_DATASETS`). These tests are the
+regression guard for that fix. `domain_registry` is cleanly importable, so they
+use a normal import.
 
-    from scripts.compare_v7_thresholds import compute_metrics, get_split_mask
+Metric math (compute_metrics)
+-----------------------------
+`compare_v7_thresholds.py` still runs its analysis driver (reads
+`step3_results.parquet`, writes CSV/PNG) at *import* time, so it can't be
+imported in a test. Until that driver is guarded under
+`if __name__ == "__main__":` (issue #12), we extract just `compute_metrics` via
+the AST shim below; afterwards, replace it with a plain
+`from scripts.compare_v7_thresholds import compute_metrics`.
 
-Run with:
-    pytest tests/ -v
+`compute_metrics` computes MAE/outlier UNCONDITIONALLY (over all in-window
+traces, including undetected ones), which the audit flags as not
+Münchmeyer-comparable (issue #8). One test below documents that behavior and
+should be flipped when MAE becomes detected-only.
+
+Run with:  pytest tests/ -v
 """
 import ast
 import pathlib
+import sys
 
 import pytest
 
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
-pytest.importorskip("sklearn")  # compute_metrics uses matthews_corrcoef
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-SRC = REPO / "scripts" / "compare_v7_thresholds.py"
+SCRIPTS = REPO / "scripts"
+SRC = SCRIPTS / "compare_v7_thresholds.py"
+sys.path.insert(0, str(SCRIPTS))
+
+import domain_registry  # noqa: E402  (cleanly importable — no import-time driver)
 
 
-def _load_pure():
-    """Exec only the pure functions + the constants they need, skipping the
-    module-level analysis driver.  TEMPORARY — see module docstring."""
+# ── AST shim: load only compute_metrics, skipping the import-time driver ──────
+
+def _load_compute_metrics():
+    """Exec only `compute_metrics` (+ OUTLIER_THR and its numpy/pandas/sklearn
+    imports), skipping the module-level analysis driver. TEMPORARY — remove once
+    the driver is guarded under `if __name__ == "__main__":` (issue #12)."""
+    pytest.importorskip("sklearn")  # matthews_corrcoef is imported at module top
     tree = ast.parse(SRC.read_text())
-    want_funcs = {"compute_metrics", "get_split_mask"}
-    want_consts = {"OUTLIER_THR", "TRAINED_ON"}
     body = []
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and node.name in want_funcs:
+        if isinstance(node, ast.FunctionDef) and node.name == "compute_metrics":
             body.append(node)
         elif isinstance(node, (ast.Import, ast.ImportFrom)) and any(
             k in ast.dump(node) for k in ("numpy", "pandas", "sklearn")
         ):
             body.append(node)
         elif isinstance(node, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id in want_consts for t in node.targets
+            isinstance(t, ast.Name) and t.id == "OUTLIER_THR" for t in node.targets
         ):
             body.append(node)
     module = ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
     ns: dict = {}
     exec(compile(module, str(SRC), "exec"), ns)  # noqa: S102 - trusted local source
-    return ns
+    return ns["compute_metrics"]
 
 
-_NS = _load_pure()
-compute_metrics = _NS["compute_metrics"]
-get_split_mask = _NS["get_split_mask"]
+compute_metrics = _load_compute_metrics()
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _p_only(p_prob, p_res):
-    """Build a minimal benchmark slice with only P arrivals in window."""
+    """Minimal benchmark slice with only P arrivals in window."""
     n = len(p_prob)
     return pd.DataFrame(
         {
@@ -93,12 +97,15 @@ def _p_only(p_prob, p_res):
     )
 
 
-# ── compute_metrics: correct math (regression guards) ─────────────────────────
+def _wdf(**cols):
+    return pd.DataFrame(cols)
+
+
+# ══ compute_metrics: correct math (regression guards) ═════════════════════════
 
 def test_p_recall_is_fraction_at_or_above_threshold():
     df = _p_only(p_prob=[0.90, 0.50, 0.20, 0.05], p_res=[0.0, 0.0, 0.0, 0.0])
-    m = compute_metrics(df, thr_p=0.30, thr_s=0.30)
-    assert m["p_recall"] == 0.5          # 2 of 4 have p_prob >= 0.30
+    assert compute_metrics(df, thr_p=0.30, thr_s=0.30)["p_recall"] == 0.5
 
 
 def test_p_mae_and_outlier_fraction():
@@ -113,34 +120,54 @@ def test_n_traces_counts_the_whole_slice():
     assert compute_metrics(df, 0.3, 0.3)["n_traces"] == 2
 
 
-# ── compute_metrics: DOCUMENTS the unconditional-MAE bug (issue #8) ────────────
-
 def test_mae_is_currently_unconditional_and_threshold_independent():
-    """MAE averages over ALL in-window traces, including undetected ones, so it
-    does not change with the detection threshold.  This is the audit's core
-    complaint (issue #8).  When MAE is switched to detected-only, FLIP this to
-    `assert hi["p_mae_s"] != lo["p_mae_s"]`.
-    """
+    """MAE averages over ALL in-window traces, incl. undetected ones, so it does
+    not change with the detection threshold (issue #8). When MAE becomes
+    detected-only, FLIP this to `assert hi["p_mae_s"] != lo["p_mae_s"]`."""
     df = _p_only(p_prob=[0.90, 0.05], p_res=[0.1, 4.0])
     hi = compute_metrics(df, thr_p=0.90, thr_s=0.90)   # only 1 "detected"
     lo = compute_metrics(df, thr_p=0.01, thr_s=0.01)   # both "detected"
     assert hi["p_mae_s"] == lo["p_mae_s"] == pytest.approx(2.05)
 
 
-# ── get_split_mask: correct behavior + DOCUMENTS the no-op bug (issue #7) ──────
+# ══ domain_registry.split_masks: regression guard for the #7 fix ══════════════
 
-def test_get_split_mask_excludes_in_domain_rows_for_a_known_weight():
-    wdf = pd.DataFrame({"trained_models": ["stead,ethz", "instance", "geofon"]})
-    mask = get_split_mask(wdf, "stead")     # TRAINED_ON["stead"] == "stead"
-    assert list(mask) == [False, True, True]  # row 0 trained on stead -> in-domain
+def test_public_weight_with_known_corpus_marks_indomain():
+    wdf = _wdf(trained_models=["stead,ethz", "instance", "geofon"])
+    in_mask, cross_mask = domain_registry.split_masks(wdf, "stead")
+    assert list(in_mask) == [True, False, False]     # row 0 trained on stead
+    assert list(cross_mask) == [False, True, True]
 
 
-def test_get_split_mask_is_a_noop_for_finetuned_weights():
-    """`jma_wc_ft_*` weights are absent from TRAINED_ON, so EVERY row is labelled
-    cross-domain regardless of provenance -> cross_domain == all (issue #7).
-    When #7 is fixed so fine-tuned models exclude their own training datasets,
-    replace this with an assertion that in-domain rows are masked out.
-    """
-    wdf = pd.DataFrame({"trained_models": ["stead", "instance", "pnw"]})
-    mask = get_split_mask(wdf, "jma_wc_ft_global_v7")
-    assert mask.all()   # current (buggy) behavior: nothing is excluded
+def test_eqt_prefix_resolves_to_base_corpus():
+    wdf = _wdf(trained_models=["scedc", "stead"])
+    in_mask, _ = domain_registry.split_masks(wdf, "eqt_scedc")
+    assert list(in_mask) == [True, False]
+
+
+def test_public_weight_with_unknown_corpus_is_all_cross_domain():
+    wdf = _wdf(trained_models=["stead", "instance"])
+    in_mask, cross_mask = domain_registry.split_masks(wdf, "geofon")  # corpus None
+    assert not in_mask.any()
+    assert cross_mask.all()
+
+
+def test_own_model_splits_on_dataset_not_trained_models(monkeypatch):
+    """The #7 fix: our fine-tunes split on the benchmark trace's `dataset`
+    column vs the manifest's datasets — NOT the old all-True no-op. Monkeypatch
+    the manifest-derived set (empty in-repo, since data/manifests/ is
+    git-ignored) so the test is deterministic on any machine."""
+    monkeypatch.setattr(
+        domain_registry, "OWN_TRAINED_DATASETS", frozenset({"stead", "instance"})
+    )
+    wdf = _wdf(dataset=["stead", "pnw", "instance"], trained_models=["x", "y", "z"])
+    in_mask, cross_mask = domain_registry.split_masks(wdf, "jma_wc_ft_global_v7")
+    assert list(in_mask) == [True, False, True]      # in the manifest -> in-domain
+    assert list(cross_mask) == [False, True, False]  # not a no-op anymore
+
+
+def test_own_model_requires_a_dataset_column():
+    """Own-model split needs a `dataset` column (the contract Copilot flagged);
+    calling without it is a KeyError the caller must satisfy."""
+    with pytest.raises(KeyError):
+        domain_registry.split_masks(_wdf(trained_models=["stead"]), "jma_wc")

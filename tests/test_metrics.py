@@ -11,10 +11,12 @@ The cross-domain split no-op has been FIXED (commit 244473f, closes #7): the
 logic now lives in `domain_registry.split_masks()`. For public pretrained
 weights it compares the benchmark trace's `trained_models` column to that
 weight's known corpus; for our own fine-tunes (`jma_wc*` / `jma_wc_ft_*`) it
-compares the trace's `dataset` column to the set of datasets the training
-manifest was actually built from (`OWN_TRAINED_DATASETS`). These tests are the
-regression guard for that fix. `domain_registry` is cleanly importable, so they
-use a normal import.
+compares the trace's `dataset` column to the set of datasets in the specific
+train manifest that weight was fine-tuned on (each own-model weight resolves
+its own manifest via `domain_registry.WEIGHT_MANIFESTS`, since different
+weights train on different manifest families). These tests are the regression
+guard for that fix. `domain_registry` is cleanly importable, so they use a
+normal import.
 
 Metric math (compute_metrics)
 -----------------------------
@@ -154,11 +156,17 @@ def test_public_weight_with_unknown_corpus_is_all_cross_domain():
 
 def test_own_model_splits_on_dataset_not_trained_models(monkeypatch):
     """The #7 fix: our fine-tunes split on the benchmark trace's `dataset`
-    column vs the manifest's datasets — NOT the old all-True no-op. Monkeypatch
-    the manifest-derived set (empty in-repo, since data/manifests/ is
-    git-ignored) so the test is deterministic on any machine."""
+    column vs the manifest's datasets — NOT the old all-True no-op. Each
+    own-model weight now resolves its OWN train manifest (parsed from its
+    finetune config, since different weights train on different manifest
+    families — see domain_registry.WEIGHT_MANIFESTS); monkeypatch
+    `_load_trained_datasets` (rather than a single global set) so the test
+    is deterministic on any machine regardless of which manifest a given
+    weight resolves to."""
     monkeypatch.setattr(
-        domain_registry, "OWN_TRAINED_DATASETS", frozenset({"stead", "instance"})
+        domain_registry,
+        "_load_trained_datasets",
+        lambda train_path: frozenset({"stead", "instance"}),
     )
     wdf = _wdf(dataset=["stead", "pnw", "instance"], trained_models=["x", "y", "z"])
     in_mask, cross_mask = domain_registry.split_masks(wdf, "jma_wc_ft_global_v7")

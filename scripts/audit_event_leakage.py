@@ -4,11 +4,13 @@ audit_event_leakage.py
 
 Read-only proof of train/benchmark independence at the EVENT level, not
 just the trace_name level. scripts/build_training_dataset.py's
-load_benchmark_exclusions() already guarantees 0 exact trace_name overlap
-between our training manifests and notebooks/benchmark_manifest.csv
-(verified separately). What that mechanism CANNOT catch: the same
-earthquake, recorded at a different station, landing in both the training
-manifest and the benchmark under a different trace_name.
+load_benchmark_exclusions() guarantees 0 exact trace_name overlap between
+our training manifests and notebooks/benchmark_manifest.csv, and (as of the
+issue #32 fix) also excludes training rows whose EVENT matches a benchmark
+row under a different trace_name. This script re-audits any manifest
+regardless of whether it was built with that fix — it's how the ~75-95%
+event-level leakage for mlaapde/aq2009gm/cwa was originally found, and how
+the post-fix numbers are confirmed.
 
 This script does not regenerate any manifest — it only reads each manifest
 family's existing train/val CSVs and notebooks/benchmark_manifest.csv as
@@ -83,11 +85,17 @@ def _manifest_families():
 def benchmark_keys_by_dataset(bm_df):
     """Benchmark-side event keys/method don't depend on the manifest family
     being checked — compute once and reuse across every family instead of
-    recomputing event_keys.derive_event_keys() per family per dataset."""
+    recomputing event_keys.derive_event_keys() per family per dataset.
+
+    Uses trace_key_map_any_chunk(), not trace_key_map(): benchmark_manifest.csv
+    doesn't retain which chunk/shard a row came from, and mlaapde/aq2009gm/cwa
+    reuse trace_name as a positional slot index across chunks — resolving a
+    bare trace_name against the union of every chunk's event for that slot is
+    the conservative (can't under-count leakage) choice."""
     cache = {}
     for name in BENCHMARK_DATASETS:
         bm_traces = bm_df.loc[bm_df["dataset"] == name, "trace_name"]
-        trace_map = ek.trace_key_map(name)
+        trace_map = ek.trace_key_map_any_chunk(name)
         method    = ek.key_method(name, ek.load_metadata(name))
         bm_keys   = bm_traces.map(lambda t: trace_map.get(t, frozenset()))
         cache[name] = dict(bm_traces=bm_traces, trace_map=trace_map,
@@ -97,15 +105,26 @@ def benchmark_keys_by_dataset(bm_df):
 
 def audit_dataset(name, bm_cache, train_df, val_df):
     bm_traces = bm_cache["bm_traces"]
-    trace_map = bm_cache["trace_map"]
     method    = bm_cache["method"]
     bm_keys   = bm_cache["bm_keys"]
 
-    train_traces = train_df.loc[train_df["dataset_name"] == name, "trace_name"]
-    val_traces   = val_df.loc[val_df["dataset_name"] == name, "trace_name"]
+    # Exact (trace_name, chunk) map for the train/val side — unlike the
+    # benchmark side, train.csv/val.csv DO carry each row's real chunk, so
+    # there's no need to fall back to the conservative any-chunk union here.
+    exact_map = ek.trace_key_map(name)
 
-    train_keys = train_traces.map(lambda t: trace_map.get(t, frozenset()))
-    val_keys   = val_traces.map(lambda t: trace_map.get(t, frozenset()))
+    train_rows = train_df.loc[train_df["dataset_name"] == name, ["trace_name", "chunk"]]
+    val_rows   = val_df.loc[val_df["dataset_name"] == name, ["trace_name", "chunk"]]
+
+    def _lookup(rows):
+        chunks = rows["chunk"].fillna("") if "chunk" in rows.columns else pd.Series([""] * len(rows), index=rows.index)
+        return pd.Series(
+            [exact_map.get((t, c), frozenset()) for t, c in zip(rows["trace_name"], chunks)],
+            index=rows.index,
+        )
+
+    train_keys = _lookup(train_rows)
+    val_keys   = _lookup(val_rows)
 
     train_event_set = _union(train_keys)
     val_event_set   = _union(val_keys)
@@ -167,10 +186,23 @@ def main():
         family_key = dr.family_key_for_manifest(train_path)
         row_mask_csv = REPO_ROOT / "results" / f"event_leakage_row_mask__{family_key}.csv"
         print(f"\n{'='*100}\nFamily: {family_key}  (weights: {', '.join(sorted(weights))})")
+        # dtype=str on "chunk": mlaapde/aq2009gm/cwa's chunk tags are digit
+        # strings ("201307") — without this, pandas silently infers them as
+        # float64 on CSV reload, so (trace_name, chunk) lookups against
+        # event_keys.py's string-keyed map would never match anything.
+        # The .str.replace below additionally normalises train_tele2x.csv /
+        # train_v18.csv / train_p_focused.csv (built by a since-missing
+        # script — issue #6), which saved chunk as "201406.0" instead of
+        # "201406": a real digit-string chunk tag never legitimately
+        # contains a decimal point, so stripping a trailing ".0" is safe.
         print(f"Loading {train_path} …")
-        train_df = pd.read_csv(train_path, usecols=["dataset_name", "trace_name"], low_memory=False)
+        train_df = pd.read_csv(train_path, usecols=["dataset_name", "trace_name", "chunk"],
+                                dtype={"chunk": str}, low_memory=False)
+        train_df["chunk"] = train_df["chunk"].str.replace(r"\.0$", "", regex=True)
         print(f"Loading {val_path} …")
-        val_df = pd.read_csv(val_path, usecols=["dataset_name", "trace_name"], low_memory=False)
+        val_df = pd.read_csv(val_path, usecols=["dataset_name", "trace_name", "chunk"],
+                              dtype={"chunk": str}, low_memory=False)
+        val_df["chunk"] = val_df["chunk"].str.replace(r"\.0$", "", regex=True)
 
         row_dfs = []
         for name in BENCHMARK_DATASETS:

@@ -172,10 +172,60 @@ def derive_event_keys(dataset_name: str, meta_df: pd.DataFrame) -> pd.Series:
 
 
 def trace_key_map(dataset_name: str) -> dict:
-    """trace_name -> frozenset(event keys) for every row of a dataset."""
+    """
+    (trace_name, chunk) -> frozenset(event keys) for every row of a dataset.
+
+    Keyed by BOTH trace_name and chunk, not trace_name alone: the sharded
+    datasets (mlaapde, cwa, aq2009gm — one metadata file per month/year) reuse
+    trace_name as a positional slot index, so the SAME trace_name string
+    refers to a DIFFERENT real earthquake in every shard (confirmed
+    empirically: 93.9% of mlaapde rows and 85.0% of aq2009gm rows share their
+    trace_name with a row in another chunk). A plain trace_name->key dict
+    silently collapses all of those to whichever chunk loaded last, handing
+    back an arbitrary (usually wrong) event id. Datasets with no `chunk`
+    column (or a constant one) get chunk="" for every row, so callers can
+    build the same (trace_name, chunk) tuple uniformly regardless of dataset.
+
+    Unions rather than overwrites on a (trace_name, chunk) collision: cwa has
+    at least one exact-duplicate (trace_name, chunk) pair in the raw metadata
+    with two different source_event_ids (a few seconds apart) — a plain dict
+    would silently drop one, which is exactly the failure mode this function
+    exists to avoid. Collisions are rare enough here that unioning doesn't
+    meaningfully change split-grouping behavior, but a dropped id would.
+    """
     meta = load_metadata(dataset_name)
     keys = derive_event_keys(dataset_name, meta)
-    return dict(zip(meta["trace_name"], keys))
+    chunks = meta["chunk"] if "chunk" in meta.columns else pd.Series([""] * len(meta), index=meta.index)
+    out = {}
+    for t, c, k in zip(meta["trace_name"], chunks.fillna(""), keys):
+        tc = (t, c)
+        out[tc] = out.get(tc, frozenset()) | k
+    return out
+
+
+def trace_key_map_any_chunk(dataset_name: str) -> dict:
+    """
+    trace_name -> UNION of event keys across every chunk that reuses that
+    trace_name as a slot index.
+
+    Deliberately over-inclusive. Use this ONLY for a one-directional
+    exclusion check where the caller has a bare trace_name with no chunk
+    (e.g. notebooks/benchmark_manifest.csv, which doesn't retain chunk
+    identity for aq2009gm/cwa) and needs "could this trace_name refer to any
+    of the events currently in this dataset's chunks?" Excluding a handful of
+    extra, unrelated events from training because they happen to share a slot
+    index is harmless; under-excluding — silently picking the wrong chunk's
+    event, as the old plain-dict trace_key_map effectively did — is a real
+    leak. Do NOT use this for split-assignment grouping (assign_splits'
+    _event_group_ids): unioning across chunks there would merge thousands of
+    physically unrelated rows into a single group.
+    """
+    meta = load_metadata(dataset_name)
+    keys = derive_event_keys(dataset_name, meta)
+    out = {}
+    for t, k in zip(meta["trace_name"], keys):
+        out[t] = out.get(t, frozenset()) | k
+    return out
 
 
 if __name__ == "__main__":

@@ -355,10 +355,14 @@ def normalise_split(s):
 # Per-dataset processing
 # ──────────────────────────────────────────────────────────────────────────────
 
-def process_dataset(cfg, rng, benchmark_exclude=None, s_balanced=False):
+def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_balanced=False):
     """
     Load one dataset, filter for valid P picks, compute distances, apply cap.
     benchmark_exclude : set of trace_name strings to exclude (benchmark traces).
+    event_exclude     : frozenset of event_keys.py fingerprints to exclude — catches
+                        the same earthquake landing in the benchmark under a
+                        DIFFERENT trace_name (issue #32), which benchmark_exclude
+                        alone cannot.
     s_balanced        : if True and use_s=True, additionally require a valid S pick.
     Returns a standardised DataFrame or None on failure.
     """
@@ -417,6 +421,18 @@ def process_dataset(cfg, rng, benchmark_exclude=None, s_balanced=False):
         n_removed = before - len(meta)
         if n_removed:
             print(f"    excluded {n_removed:,} benchmark traces → {len(meta):,} remaining")
+
+    # ── exclude benchmark EVENTS under a different trace_name (issue #32) ────
+    if event_exclude:
+        import event_keys as ek
+        row_keys = ek.derive_event_keys(name, meta)
+        keep_ev = ~row_keys.map(lambda ks: bool(ks & event_exclude))
+        before = len(meta)
+        meta   = meta.loc[keep_ev].copy()
+        p_vals = p_vals.loc[keep_ev]
+        n_removed = before - len(meta)
+        if n_removed:
+            print(f"    excluded {n_removed:,} benchmark EVENTS (different trace_name) → {len(meta):,} remaining")
 
     # ── distance ──────────────────────────────────────────────────────────────
     if cfg["dist_col"] and cfg["dist_col"] in meta.columns:
@@ -541,6 +557,7 @@ def _event_group_ids(df):
 
     dnames = df["dataset_name"].values
     tnames = df["trace_name"].values
+    chunks = df["chunk"].fillna("").values if "chunk" in df.columns else np.full(len(df), "")
     n = len(df)
 
     maps = {}
@@ -567,7 +584,11 @@ def _event_group_ids(df):
 
     key_to_first_row = {}
     for pos in range(n):
-        keys = maps.get(dnames[pos], {}).get(tnames[pos], frozenset())
+        # (trace_name, chunk) — NOT trace_name alone: mlaapde/aq2009gm/cwa
+        # reuse trace_name as a positional slot index across chunks, so a
+        # plain trace_name lookup would silently group unrelated rows from
+        # different chunks together (see event_keys.trace_key_map docstring).
+        keys = maps.get(dnames[pos], {}).get((tnames[pos], chunks[pos]), frozenset())
         for k in keys:
             if k in key_to_first_row:
                 union(pos, key_to_first_row[k])
@@ -596,6 +617,7 @@ def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
 
     dnames = df["dataset_name"].values
     tnames = df["trace_name"].values
+    chunks = df["chunk"].fillna("").values if "chunk" in df.columns else np.full(len(df), "")
     n = len(df)
 
     maps = {}
@@ -607,8 +629,9 @@ def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
                   f"— falling back to orig_split/random for it")
             maps[dname] = {}
 
+    # (trace_name, chunk) — see _event_group_ids for why chunk can't be dropped.
     has_key = np.fromiter(
-        (bool(maps.get(dnames[i], {}).get(tnames[i], frozenset())) for i in range(n)),
+        (bool(maps.get(dnames[i], {}).get((tnames[i], chunks[i]), frozenset())) for i in range(n)),
         dtype=bool, count=n,
     )
 
@@ -694,19 +717,47 @@ BENCHMARK_CSV = Path(__file__).parent.parent / "notebooks" / "benchmark_manifest
 def load_benchmark_exclusions():
     """
     Load (dataset_name, trace_name) pairs from the benchmark manifest so they
-    can be excluded from training/validation data.
-    Returns a dict: {dataset_name: set_of_trace_names}.
+    can be excluded from training/validation data, PLUS the event-level
+    fingerprint (scripts/event_keys.py) of each benchmark trace so the same
+    earthquake recorded under a different trace_name is caught too (issue #32
+    — exact trace_name exclusion alone left ~75-95% event-level leakage for
+    mlaapde/aq2009gm/cwa).
+
+    Uses trace_key_map_any_chunk(), NOT trace_key_map(): notebooks/benchmark_
+    manifest.csv doesn't retain which chunk/shard a benchmark row came from
+    (mlaapde/aq2009gm/cwa reuse trace_name as a positional slot index across
+    monthly chunks), so a benchmark trace_name is resolved against the UNION
+    of every chunk's event for that slot — deliberately conservative, since
+    this is a one-directional exclusion (over-excluding a few unrelated
+    events from training is harmless; missing a real leak is not).
+
+    Returns (trace_exclusions, event_exclusions), both {dataset_name: set/frozenset}.
     """
     if not BENCHMARK_CSV.exists():
         print(f"  WARNING: benchmark manifest not found at {BENCHMARK_CSV} — no exclusions applied")
-        return {}
+        return {}, {}
+    import event_keys as ek
+
     bm = pd.read_csv(BENCHMARK_CSV, usecols=["dataset", "trace_name"])
-    exclusions = {}
+    trace_exclusions = {}
+    event_exclusions = {}
     for ds, group in bm.groupby("dataset"):
-        exclusions[ds] = set(group["trace_name"])
-    total = sum(len(v) for v in exclusions.values())
-    print(f"  Loaded {total:,} benchmark traces to exclude across {len(exclusions)} datasets")
-    return exclusions
+        trace_exclusions[ds] = set(group["trace_name"])
+        try:
+            trace_map = ek.trace_key_map_any_chunk(ds)
+        except Exception as exc:
+            print(f"    event-key lookup unavailable for benchmark dataset {ds!r} ({exc}) "
+                  f"— falling back to trace_name-only exclusion for it")
+            event_exclusions[ds] = frozenset()
+            continue
+        keys = (trace_map.get(t, frozenset()) for t in group["trace_name"])
+        event_exclusions[ds] = frozenset().union(*keys)
+
+    total_traces = sum(len(v) for v in trace_exclusions.values())
+    total_events = sum(len(v) for v in event_exclusions.values())
+    print(f"  Loaded {total_traces:,} benchmark traces ({total_events:,} distinct events) "
+          f"to exclude across {len(trace_exclusions)} datasets")
+    return trace_exclusions, event_exclusions
 
 
 def main(output_dir, seed, s_balanced=False):
@@ -723,13 +774,15 @@ def main(output_dir, seed, s_balanced=False):
     print("=" * 70)
 
     # ── load benchmark exclusions ────────────────────────────────────────────
-    benchmark_exclusions = load_benchmark_exclusions()
+    benchmark_exclusions, benchmark_event_exclusions = load_benchmark_exclusions()
 
     # ── process all datasets ─────────────────────────────────────────────────
     frames = []
     for cfg in DATASET_CONFIGS:
         exclude = benchmark_exclusions.get(cfg["name"], set())
-        df = process_dataset(cfg, rng, benchmark_exclude=exclude, s_balanced=s_balanced)
+        event_exclude = benchmark_event_exclusions.get(cfg["name"], frozenset())
+        df = process_dataset(cfg, rng, benchmark_exclude=exclude,
+                              event_exclude=event_exclude, s_balanced=s_balanced)
         if df is not None:
             frames.append(df)
 

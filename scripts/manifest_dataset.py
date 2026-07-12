@@ -12,6 +12,7 @@ HDF5 files directly with h5py.  All other datasets use SeisBench's standard
 get_waveforms() interface.
 """
 
+import logging
 import os
 import warnings
 from pathlib import Path
@@ -23,6 +24,8 @@ import torch
 from torch.utils.data import Dataset
 
 warnings.filterwarnings("ignore")
+
+logger = logging.getLogger(__name__)
 
 SEISBENCH_CACHE = os.environ.get("SEISBENCH_CACHE_ROOT", os.path.expanduser("~/.seisbench"))
 os.environ.setdefault("SEISBENCH_CACHE_ROOT", SEISBENCH_CACHE)
@@ -294,6 +297,12 @@ class ManifestDataset(Dataset):
 
         self._noise_reader    = None
         self._prephase_reader = None
+        # Counts waveform-fetch failures (see __getitem__) so they show up in
+        # training logs instead of silently becoming fake all-noise samples.
+        # Per-worker if num_workers > 0 -- each DataLoader worker gets its own
+        # copy of this Dataset, but every worker's stderr still reaches the
+        # training log, so nothing goes unseen.
+        self._fetch_fail_count = 0
 
         needed = self.manifest["dataset_name"].unique()
         for ds_name in needed:
@@ -368,7 +377,18 @@ class ManifestDataset(Dataset):
             else:
                 wf, sr = self._fetch_sbd(ds_name, trace_name)
         except Exception as exc:
-            # Return a zero sample rather than crashing a training batch
+            # Return a zero sample rather than crashing a training batch --
+            # but log it (issue #14): these were previously silent, so a
+            # systemic fetch problem (missing chunk file, bad HDF5 handle)
+            # could inject an unbounded number of fake all-noise traces into
+            # training without any visibility.
+            self._fetch_fail_count += 1
+            if self._fetch_fail_count <= 20 or self._fetch_fail_count % 500 == 0:
+                logger.warning(
+                    "waveform fetch failed (#%d so far) dataset=%s trace_name=%s chunk=%r: "
+                    "%s -- returning a zero/noise sample instead",
+                    self._fetch_fail_count, ds_name, trace_name, chunk, exc,
+                )
             wf_zero = torch.zeros(3, self.window_len)
             lbl_zero = torch.zeros(3, self.window_len)
             lbl_zero[2] = 1.0  # N channel (index 2 in PSN ordering)

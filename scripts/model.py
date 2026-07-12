@@ -49,7 +49,13 @@ class PhaseNetLightning(pl.LightningModule):
             self.model = sbm.PhaseNet(
                 in_channels=arch_config.get("in_channels", 3),
                 classes=arch_config.get("classes", 3),
-                phases=arch_config.get("phases", "NPS"),  # Noise, P, S
+                # PSN (not NPS) to match the channel order used everywhere else
+                # in this repo -- fine_tune_model.py, eval_finetuned.py,
+                # scratch_model.py, manifest_dataset.py all assume P=ch0, S=ch1,
+                # N=ch2 (issue #14: this default previously disagreed and would
+                # silently swap channel semantics for any config that omits
+                # `phases` explicitly).
+                phases=arch_config.get("phases", "PSN"),
                 sampling_rate=arch_config.get("sampling_rate", 100),
                 norm=arch_config.get("norm", "std"),
                 filter_factor=arch_config.get("filter_factor", 1)

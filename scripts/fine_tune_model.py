@@ -223,9 +223,19 @@ class PhaseNetFinetune(nn.Module):
         y_cls       = y_flat.argmax(dim=1)
 
         if self.focal_gamma > 0:
-            ce_per = F.cross_entropy(logits_flat, y_cls, weight=self.class_weight, reduction="none")
-            pt = torch.exp(-ce_per)
-            ce_loss = ((1 - pt) ** self.focal_gamma * ce_per).mean()
+            # pt must come from the UNWEIGHTED per-sample CE: F.cross_entropy's
+            # `weight` arg scales the loss value itself, not just the class
+            # probability, so exp(-ce_per) with weight set is p_t**weight[y],
+            # not p_t -- silently distorting the focal modulating factor
+            # whenever class_weights are configured (issue #14). Compute pt
+            # unweighted, apply focal modulation, then apply class weight as
+            # a separate per-sample multiplier.
+            ce_per_unweighted = F.cross_entropy(logits_flat, y_cls, weight=None, reduction="none")
+            pt = torch.exp(-ce_per_unweighted)
+            focal_per = (1 - pt) ** self.focal_gamma * ce_per_unweighted
+            if self.class_weight is not None:
+                focal_per = focal_per * self.class_weight[y_cls]
+            ce_loss = focal_per.mean()
         else:
             ce_loss = F.cross_entropy(logits_flat, y_cls, weight=self.class_weight)
 

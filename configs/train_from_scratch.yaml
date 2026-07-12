@@ -82,6 +82,6 @@ logging:
 hardware:
   accelerator: "auto"
   devices: 1
-  precision: "32-true"
+  precision: "16-mixed"  # informational only -- finetune.py does not read this key, `amp` below is the real toggle (defaults true = fp16 autocast)
 
 seed: 42

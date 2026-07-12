@@ -1,7 +1,8 @@
+import os
 import seisbench.data as sbd
 import seisbench
 
-seisbench.cache_root = "/data/wsd04/ak287/.seisbench"
+seisbench.cache_root = os.environ.get("SEISBENCH_CACHE_ROOT", os.path.expanduser("~/.seisbench"))
 
 # ── Already downloaded — skip unless you want to force refresh ────────────
 """

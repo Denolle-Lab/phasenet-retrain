@@ -1,5 +1,8 @@
 """
 Generate phasenet_retraining_summary.pptx
+
+Run from repo root:
+    python make_pptx.py
 """
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
@@ -354,7 +357,7 @@ def slide3_dataset(prs):
     r3.text = "Networks: JMA · SCEDC · ETHZ · Iquique · GEOFON · PNW · NCEDC · NEIC · and more"
     r3.font.name = FONT_NAME; r3.font.size = Pt(15); r3.font.color.rgb = RGBColor(0x40, 0x70, 0xA0)
 
-    img_path = "/home/ak287/phasenet-retrain/notebooks/training_spatial_distribution.png"
+    img_path = "notebooks/training_spatial_distribution.png"
     img_top = net_top + Inches(0.38)
     avail_h = SLIDE_H - img_top - Inches(0.15)
     add_image_centered(slide, img_path, img_top, avail_h)
@@ -496,7 +499,7 @@ def slide6_v3_curves(prs):
     top = add_header(slide, "v3 Training — Best Performing Model",
                      subtitle_text="LR = 5×10⁻⁶  |  KD α = 0.3  |  ReduceLROnPlateau  |  ~96 epochs")
 
-    img_path = "/home/ak287/phasenet-retrain/results/finetune_jma_wc_global_v3/training_dashboard.png"
+    img_path = "results/finetune_jma_wc_global_v3/training_dashboard.png"
     img_top = top + Inches(0.12)
     avail_h = SLIDE_H - img_top - Inches(0.48)
     add_image_centered(slide, img_path, img_top, avail_h)
@@ -510,8 +513,8 @@ def slide7_v4v5_curves(prs):
     top = add_header(slide, "v4 & v5 — High-LR Cosine Schedule (Problematic Runs)",
                      subtitle_text="LR = 1×10⁻⁴  |  KD α = 0.1  |  Timing β = 0.1  |  Cosine + warmup")
 
-    img_v4 = "/home/ak287/phasenet-retrain/results/finetune_jma_wc_global_v4/training_dashboard.png"
-    img_v5 = "/home/ak287/phasenet-retrain/results/finetune_jma_wc_global_v5/training_dashboard.png"
+    img_v4 = "results/finetune_jma_wc_global_v4/training_dashboard.png"
+    img_v5 = "results/finetune_jma_wc_global_v5/training_dashboard.png"
 
     panel_w = (SLIDE_W - Inches(1.0)) / 2
     panel_l_v4 = Inches(0.3)
@@ -555,7 +558,7 @@ def slide8_v6_curves(prs):
     top = add_header(slide, "v6 Training — Back to v3 LR Regime + Timing Loss",
                      subtitle_text="LR = 5×10⁻⁶  |  KD α = 0.3  |  Timing β = 0.01  |  ReduceLROnPlateau")
 
-    img_path = "/home/ak287/phasenet-retrain/results/finetune_jma_wc_global_v6/training_dashboard.png"
+    img_path = "results/finetune_jma_wc_global_v6/training_dashboard.png"
     img_top = top + Inches(0.12)
     avail_h = SLIDE_H - img_top - Inches(0.48)
     add_image_centered(slide, img_path, img_top, avail_h)
@@ -569,7 +572,7 @@ def slide9_benchmark_dashboard(prs):
     slide = blank_slide(prs)
     top = add_header(slide, "Cross-Domain Benchmark — P-MAE Ranking (all distances)")
 
-    img_path = "/home/ak287/phasenet-retrain/notebooks/step3_ft_dashboard.png"
+    img_path = "notebooks/step3_ft_dashboard.png"
     img_top = top + Inches(0.12)
     avail_h = SLIDE_H - img_top - Inches(0.5)
     add_image_centered(slide, img_path, img_top, avail_h)
@@ -583,7 +586,7 @@ def slide10_recall(prs):
     slide = blank_slide(prs)
     top = add_header(slide, "P-wave Detection Recall vs Threshold")
 
-    img_path = "/home/ak287/phasenet-retrain/notebooks/step3_ft_recall_curves.png"
+    img_path = "notebooks/step3_ft_recall_curves.png"
     img_top = top + Inches(0.18)
     avail_h = SLIDE_H - img_top - Inches(0.2)
     add_image_centered(slide, img_path, img_top, avail_h)
@@ -593,7 +596,7 @@ def slide11_distance(prs):
     slide = blank_slide(prs)
     top = add_header(slide, "Timing Error by Distance Bin")
 
-    img_path = "/home/ak287/phasenet-retrain/notebooks/step3_ft_distance_bins.png"
+    img_path = "notebooks/step3_ft_distance_bins.png"
     img_top = top + Inches(0.18)
     avail_h = SLIDE_H - img_top - Inches(0.2)
     add_image_centered(slide, img_path, img_top, avail_h)
@@ -603,7 +606,7 @@ def slide12_residuals(prs):
     slide = blank_slide(prs)
     top = add_header(slide, "Pick Residual Distributions")
 
-    img_path = "/home/ak287/phasenet-retrain/notebooks/step3_ft_residuals.png"
+    img_path = "notebooks/step3_ft_residuals.png"
     img_top = top + Inches(0.18)
     avail_h = SLIDE_H - img_top - Inches(0.2)
     add_image_centered(slide, img_path, img_top, avail_h)
@@ -770,7 +773,7 @@ def build():
     slide14_summary_table(prs)
     slide15_next_steps(prs)
 
-    out = "/home/ak287/phasenet-retrain/phasenet_retraining_summary.pptx"
+    out = "phasenet_retraining_summary.pptx"
     prs.save(out)
     print(f"Saved → {out}")
     print(f"Slides: {len(prs.slides)}")

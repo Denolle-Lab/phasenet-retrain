@@ -38,7 +38,7 @@ import pandas as pd
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-SEISBENCH_CACHE = "/data/wsd04/ak287/.seisbench"
+SEISBENCH_CACHE = os.environ.get("SEISBENCH_CACHE_ROOT", os.path.expanduser("~/.seisbench"))
 os.environ.setdefault("SEISBENCH_CACHE_ROOT", SEISBENCH_CACHE)
 import seisbench
 seisbench.cache_root = SEISBENCH_CACHE

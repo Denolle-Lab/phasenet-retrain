@@ -29,9 +29,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-os.environ.setdefault("SEISBENCH_CACHE_ROOT", "/data/wsd04/ak287/.seisbench")
+os.environ.setdefault("SEISBENCH_CACHE_ROOT", os.path.expanduser("~/.seisbench"))
 import seisbench
-seisbench.cache_root = "/data/wsd04/ak287/.seisbench"
+seisbench.cache_root = os.environ["SEISBENCH_CACHE_ROOT"]
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)

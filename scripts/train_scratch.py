@@ -17,7 +17,7 @@ Key differences from finetune.py:
 Usage
 -----
   conda activate surface
-  cd /home/ak287/phasenet-retrain
+  cd /path/to/phasenet-retrain
   nohup python scripts/train_scratch.py \\
         --config configs/phasenet_scratch_v1.yaml \\
         > results/phasenet_scratch_v1/train.log 2>&1 &
@@ -45,9 +45,9 @@ from torch.utils.data import DataLoader
 SCRIPTS_DIR = Path(__file__).parent.resolve()
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-os.environ.setdefault("SEISBENCH_CACHE_ROOT", "/data/wsd04/ak287/.seisbench")
+os.environ.setdefault("SEISBENCH_CACHE_ROOT", os.path.expanduser("~/.seisbench"))
 import seisbench
-seisbench.cache_root = "/data/wsd04/ak287/.seisbench"
+seisbench.cache_root = os.environ["SEISBENCH_CACHE_ROOT"]
 
 from scratch_model   import MetricsLogger, PhaseNetScratch, pick_residuals
 from scratch_dataset import ScratchDataset

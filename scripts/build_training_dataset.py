@@ -38,7 +38,7 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
-SEISBENCH_CACHE = "/data/wsd04/ak287/.seisbench"
+SEISBENCH_CACHE = os.environ.get("SEISBENCH_CACHE_ROOT", os.path.expanduser("~/.seisbench"))
 os.environ.setdefault("SEISBENCH_CACHE_ROOT", SEISBENCH_CACHE)
 
 import seisbench

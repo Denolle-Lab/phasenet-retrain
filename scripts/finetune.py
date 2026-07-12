@@ -13,7 +13,7 @@ Optimisations
 Usage
 -----
   conda activate surface
-  cd /home/ak287/phasenet-retrain
+  cd /path/to/phasenet-retrain
   nohup python scripts/finetune.py --test > results/finetune_jma_wc/train.log 2>&1 &
   tail -f results/finetune_jma_wc/train.log       # monitor from another shell
 
@@ -36,9 +36,9 @@ import yaml
 SCRIPTS_DIR = Path(__file__).parent.resolve()
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-os.environ.setdefault("SEISBENCH_CACHE_ROOT", "/data/wsd04/ak287/.seisbench")
+os.environ.setdefault("SEISBENCH_CACHE_ROOT", os.path.expanduser("~/.seisbench"))
 import seisbench
-seisbench.cache_root = "/data/wsd04/ak287/.seisbench"
+seisbench.cache_root = os.environ["SEISBENCH_CACHE_ROOT"]
 
 from fine_tune_model      import MetricsLogger, PhaseNetFinetune, pick_residuals
 from manifest_data_module import build_dataloaders

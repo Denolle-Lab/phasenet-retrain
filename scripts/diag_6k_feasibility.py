@@ -17,7 +17,7 @@ Run from repo root:
     python scripts/diag_6k_feasibility.py
 """
 
-import sys, re
+import sys, re, os
 import numpy as np
 import pandas as pd
 import h5py
@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 REPO_ROOT       = Path(__file__).parent.parent.resolve()
 NB_DIR          = REPO_ROOT / "notebooks"
-SEISBENCH_CACHE = Path("/data/wsd04/ak287/.seisbench/datasets")
+SEISBENCH_CACHE = Path(os.environ.get("SEISBENCH_CACHE_ROOT", os.path.expanduser("~/.seisbench"))) / "datasets"
 
 MANIFEST_PATH   = NB_DIR / "benchmark_manifest.csv"
 INDEX_PATH      = NB_DIR / "benchmark_waveforms_index.csv"

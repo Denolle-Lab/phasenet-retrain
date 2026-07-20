@@ -61,7 +61,7 @@ is defined here on first use.
 | **Phase picking** | Estimating the arrival time of a seismic phase at a station. |
 | **CNN / U-Net** | Convolutional Neural Network / an encoder–decoder CNN with skip connections. |
 | **SeisBench** | An open ML-for-seismology toolbox and dataset/model hub (Woollam et al., 2022). |
-| **jma_wc** | The pretrained PhaseNet weights we fine-tune; a SeisBench-distributed PhaseNet trained on Japan Meteorological Agency (JMA) data. *(Exact training corpus and the meaning of the "wc" suffix to be confirmed for the final methods section.)* |
+| **jma_wc** | The pretrained PhaseNet weights we fine-tune — SeisBench's "PhaseNetWC" variant (WC = wide/doubled convolutional channels per layer, for higher model capacity), trained on the JMA (Japan Meteorological Agency) unified earthquake catalog (Naoi et al. 2024, *Earth, Planets and Space* — `10.1186/s40623-024-02091-8`; added to SeisBench in v0.9). Verified 2026-07-20 (GitHub #2). |
 | **KD (Knowledge Distillation)** | Training a "student" model to stay close to a frozen "teacher" via a soft-label loss; here used to prevent catastrophic forgetting. |
 | **CE / KL** | Cross-Entropy loss / Kullback–Leibler divergence (the distillation loss). |
 | **Focal loss** | A modified CE that down-weights easy examples to focus gradient on hard ones (Lin et al., 2017). |
@@ -177,11 +177,11 @@ The hybrid **training pool** is assembled in
 SeisBench-distributed datasets below. The **benchmark/evaluation pool** (35,392
 candidate traces; 31,992 usable) is built separately and drawn from 11 of these.
 
-::: {.callout-warning appearance="simple"}
-**DOIs marked "[confirm]" must be verified before circulation.** We list the
-canonical reference where we are confident; remaining entries are SeisBench-
-distributed datasets whose primary citation should be confirmed against the
-SeisBench data documentation. Do **not** publish unverified DOIs.
+::: {.callout-note appearance="simple"}
+**Verified 2026-07-20 (GitHub #2)** against SeisBench's own dataset source
+(`seisbench/data/*.py` class docstrings on the `main` branch) and, where
+SeisBench had no citation of its own, the dataset's original paper. One
+entry (GEOFON) stays flagged — see its note below.
 :::
 
 | Dataset (SeisBench name) | Region / regime | Role | Primary reference & DOI |
@@ -191,17 +191,21 @@ SeisBench data documentation. Do **not** publish unverified DOIs.
 | **ETHZ** | Switzerland / Alpine | Train + benchmark | SED, ETH Zürich; via SeisBench (Woollam et al. 2022) — `10.1785/0220210324` |
 | **PNW** | Cascadia / Pacific NW | Train + benchmark | Ni et al. 2023, *Seismica* — `10.26443/seismica.v2i1.368` |
 | **TXED** | Texas (induced) | Train + benchmark | Chen et al. 2024, *SRL* — `10.1785/0220230327` |
-| **GEOFON** | Global / teleseismic | Train | GEOFON Data Centre, GFZ — `10.14470/TR560404` [confirm dataset DOI] |
-| **SCEDC** | Southern California | Train | SCEDC — `10.7909/C3WD3xH1` [confirm] |
+| **GEOFON** | Global / teleseismic | Train | GEOFON Data Centre (1993), GFZ — `10.14470/TR560404` — **still flagged**: this is GEOFON's general network-data DOI (geofon.gfz.de/citation), not a SeisBench-assigned dataset citation; SeisBench's own `geofon.py` has an open `# TODO: Add citation` |
+| **SCEDC** | Southern California | Train | SCEDC (2013), Southern California Earthquake Center — `10.7909/C3WD3xH1` |
 | **LEN-DB** | Global local + noise | Train + noise | Magrini et al. 2020, *AIIG*; data `10.5281/zenodo.3648232` |
-| **Iquique** | N. Chile subduction | Train + benchmark | Woollam et al. 2019; via SeisBench [confirm] |
-| **MLAAPDE** (`mlaapde`) | Global (PDE), teleseismic | Train | Cole et al. 2023, *SRL* — `10.1785/0220230021` [confirm] |
+| **Iquique** | N. Chile subduction | Train + benchmark | Woollam et al. 2019, *SRL* — `10.1785/0220180312` |
+| **MLAAPDE** (`mlaapde`) | Global (PDE), teleseismic | Train | Cole, Yeck & Benz 2023, *SRL* — `10.1785/0220230021` |
 | **Ross 2018 (GPD)** (`ross2018gpd`) | Southern California | Train | Ross et al. 2018, *BSSA* — `10.1785/0120180080` |
 | **Meier 2019** (`meier2019jgr`) | Global | Train | Meier et al. 2019, *JGR Solid Earth* — `10.1029/2018JB016661` |
-| **CEED** (`ceed`) | California (event dataset) | Train + benchmark | [provenance + DOI to confirm] |
-| **CWA** (`cwa`) | Taiwan | Train + benchmark | Taiwan CWA dataset [confirm] |
-| **OBST2024** (`obst2024`) | Ocean-bottom (Phase-2 relevant) | Train + noise | [provenance + DOI to confirm] |
-| **PISDL** (`pisdl`), **CREW** (`crew`), **VCSEIS** (`vcseis`), **AQ2009GM** (`aq2009gm`), **OBS** (`obs`) | Various (volcanic, OBS, L'Aquila) | Train / noise | [provenance + DOIs to confirm] |
+| **CEED** (`ceed`) | California (event dataset) | Train + benchmark | Zhu et al. 2025, arXiv:2502.11500 (journal DOI not yet assigned — still a preprint as of verification) |
+| **CWA** (`cwa`) | Taiwan | Train + benchmark | Tang et al. 2024, *SRL* — `10.1785/0220230393` |
+| **OBST2024** (`obst2024`) | Ocean-bottom (Phase-2 relevant) | Train + noise | Niksejel & Zhang 2024, *GJI* — `10.1093/gji/ggae049` |
+| **PISDL** (`pisdl`) | Induced seismicity | Train | Heuel et al. 2025, *Seismica* — `10.26443/seismica.v4i2.1579` |
+| **CREW** (`crew`) | Regional, curated | Train | Aguilar Suarez & Beroza 2024, *Seismica* — `10.26443/seismica.v3i1.1049` |
+| **VCSEIS** (`vcseis`) | Volcano-tectonic, non-Japan | Train + benchmark | Zhong & Tan 2024, *GRL* — `10.1029/2024GL108438` (this is also volpick's training corpus — see @sec-audit's eqt_volpick leakage verification) |
+| **AQ2009GM** (`aq2009gm`) | 2009 L'Aquila sequence | Train | Bagagli et al. 2023, INGV — `10.13127/AI/AQUILA2009` |
+| **OBS** (`obs`) | Ocean-bottom | Train / noise | Bornstein et al. 2024, *Earth and Space Science* — `10.1029/2023EA003332` |
 
 **Provenance bookkeeping is good** where implemented: each training row carries
 `dataset_name`, `trace_name`, `chunk`, source phase column, `distance_km`, and
@@ -418,14 +422,23 @@ deficit vs `jma_wc`; @sec-bydist) without the timing collapse seen in v13.
   less. Because the benchmark never measures precision (oracle ±5 s window,
   @sec-bench), the recall loss is the *only* visible detection cost.
 
-::: {.callout-warning appearance="simple"}
-**To confirm before the methods section is final.** The exact SeisBench training
-loss for the specific `jma_wc` weights is stated here from the SeisBench PhaseNet
-convention and from our from-scratch replica that explicitly mirrors it
-(`scratch_model.py:94–100`), **not** from reading SeisBench's training source in
-this review. Verify against the SeisBench PhaseNet training code (label width σ,
-exact reduction) before publication. EQTransformer task weights are described
-qualitatively for the same reason.
+::: {.callout-note appearance="simple"}
+**Verified 2026-07-20 (GitHub #2)** against SeisBench's own official PhaseNet
+training tutorial (`examples/03a_training_phasenet.ipynb`, `main` branch).
+Gaussian pick labels are generated via
+`sbg.ProbabilisticLabeller(sigma=30, dim=0)` — note this **overrides**
+`ProbabilisticLabeller`'s own class default of σ=10; the tutorial's σ=30 is
+what we've matched in `scratch_model.py`/`fine_tune_model.py`. The loss is a
+"vector cross-entropy": `h = y_true · log(y_pred + ε)`, **mean**-reduced over
+the time-sample axis, **sum**-reduced over the phase/class axis, then
+**mean**-reduced over the batch (returning `-h`) — exactly the soft-label CE
+`scratch_model.py:94–100` and the new `soft_ce` option in
+`fine_tune_model.py` (GitHub #11) implement. One residual gap: this confirms
+SeisBench's *general* PhaseNet training convention, not that Naoi et al.
+(2024) used σ=30 specifically for the shipped `jma_wc` weights — their paper
+would need to be read directly to pin that down exactly; not attempted here.
+EQTransformer task weights are still described qualitatively for the same
+reason (their training code wasn't reviewed).
 :::
 
 # How it performs: the benchmark leaderboard {#sec-results}
@@ -721,8 +734,9 @@ broader group. Items are ordered by impact on conclusions. Each cites
 
 # References {#sec-refs}
 
-*(Reference list for the broader group; DOIs marked "[confirm]" require
-verification against SeisBench/source documentation before circulation.)*
+*(Verified 2026-07-20, GitHub #2, against SeisBench's own dataset source and
+each dataset's original paper — see the Datasets table's callout for method.
+GEOFON's citation remains flagged; see its table entry.)*
 
 - **Münchmeyer, J., et al. (2022).** Which picker fits my data? A quantitative
   evaluation of deep learning based seismic pickers. *JGR Solid Earth*, 127,
@@ -745,10 +759,48 @@ verification against SeisBench/source documentation before circulation.)*
   Learning. *BSSA*, 108(5A), 2894–2901. `10.1785/0120180080`
 - **Meier, M.-A., et al. (2019).** Reliable real-time seismic signal/noise
   discrimination with machine learning. *JGR Solid Earth*. `10.1029/2018JB016661`
-- **Cole, H., et al. (2023).** MLAAPDE. *SRL*. `10.1785/0220230021` [confirm]
+- **Cole, H. M., Yeck, W. L., & Benz, H. M. (2023).** MLAAPDE: A Machine
+  Learning Dataset for Determining Global Earthquake Source Parameters. *SRL*,
+  94(5), 2489–2499. `10.1785/0220230021`
+- **Woollam, J., Rietbrock, A., Bueno, A., & De Angelis, S. (2019).**
+  Convolutional neural network for seismic phase classification, performance
+  demonstration over a local seismic network (Iquique). *SRL*, 90(2A),
+  491–502. `10.1785/0220180312`
+- **Zhu, W., et al. (2025).** California Earthquake Dataset for Machine
+  Learning and Cloud Computing (CEED). arXiv:2502.11500. (No journal DOI yet
+  — still a preprint as of verification.)
+- **Tang, K.-W., Chen, K.-Y., Chen, D.-Y., Chin, T.-L., & Hsu, T.-Y. (2024).**
+  The CWA Benchmark: A Seismic Dataset from Taiwan for Seismic Research. *SRL*,
+  96(3), 2079–2091. `10.1785/0220230393`
+- **Niksejel, A., & Zhang, M. (2024).** OBSTransformer: a deep-learning seismic
+  phase picker for OBS data using automated labelling and transfer learning.
+  *GJI*, ggae049. `10.1093/gji/ggae049`
+- **Heuel, J., Maurer, V., Frietsch, M., & Rietbrock, A. (2025).** Picking
+  Induced Seismicity with Deep Learning (piSDL). *Seismica*, 4(2).
+  `10.26443/seismica.v4i2.1579`
+- **Aguilar Suarez, A. L., & Beroza, G. (2024).** Curated Regional Earthquake
+  Waveforms (CREW) Dataset. *Seismica*, 3(1). `10.26443/seismica.v3i1.1049`
+- **Zhong, Y., & Tan, Y. J. (2024).** Deep-Learning-Based Phase Picking for
+  Volcano-Tectonic and Long-Period Earthquakes (VCSEIS / volpick training
+  corpus). *GRL*, 51, e2024GL108438. `10.1029/2024GL108438`
+- **Bagagli, M., Valoroso, L., Michelini, A., Cianetti, S., Gaviano, S.,
+  Giunchi, C., Jozinović, D., & Lauciani, V. (2023).** AQ2009 — The 2009
+  Aquila Mw 6.1 earthquake aftershocks seismic dataset for machine learning
+  application. INGV. `10.13127/AI/AQUILA2009`
+- **Bornstein, T., Lange, D., Münchmeyer, J., Woollam, J., Rietbrock, A.,
+  Barcheck, G., Grevemeyer, I., & Tilmann, F. (2024).** PickBlue: Seismic
+  phase picking for ocean bottom seismometers with deep learning. *Earth and
+  Space Science*, 11(1), e2023EA003332. `10.1029/2023EA003332`
+- **Naoi, M., et al. (2024).** Neural phase picker trained on the Japan
+  Meteorological Agency unified earthquake catalog (source of the `jma_wc`
+  weights fine-tuned throughout this work). *Earth, Planets and Space*, 76,
+  150. `10.1186/s40623-024-02091-8`
 - **Lin, T.-Y., et al. (2017).** Focal Loss for Dense Object Detection. *ICCV*.
-- **Aguilar, A. L., et al. (2025).** Pervasive label errors in seismological
-  ML datasets. arXiv:2511.09805. `github.com/albertleonardo/labelerrors`
+- **Aguilar Suarez, A. L., & Beroza, G. (2025).** Pervasive Label Errors in
+  Seismological Machine Learning Datasets. arXiv:2511.09805.
+  `github.com/albertleonardo/labelerrors` (surname is the compound "Aguilar
+  Suarez" — same author as the CREW dataset above; arXiv ID verified
+  directly against arxiv.org, GitHub #2.)
 - **Ni, Y., Denolle, M. A., Münchmeyer, J., Wang, Y., Feng, K.-F., Garcia
   Jurado Suarez, C., Thomas, A. M., Trabant, C., Hamilton, A., & Mencin, D.
   (2025a).** A review of cloud computing and storage in seismology.
@@ -757,9 +809,10 @@ verification against SeisBench/source documentation before circulation.)*
   Y., Bachelot, L., Trabant, C., & Mencin, D. (2025b).** A Global-scale Database
   of Seismic Phases from Cloud-based Picking at Petabyte Scale. *Seismica*, 4(2),
   Article 1738. `10.26443/seismica.v4i2.1738`
-- GEOFON `10.14470/TR560404` [confirm] · SCEDC `10.7909/C3WD3xH1` [confirm] ·
-  ETHZ/SED, Iquique, CEED, CWA, OBST2024, VCSEIS, AQ2009GM, PISDL, CREW, OBS —
-  provenance/DOIs to confirm against SeisBench documentation.
+- GEOFON `10.14470/TR560404` — still flagged: GFZ's general network-data DOI,
+  not a SeisBench-assigned dataset citation (SeisBench's own `geofon.py` has
+  an open `# TODO: Add citation`). SCEDC `10.7909/C3WD3xH1` — verified,
+  matches SeisBench's `scedc.py` exactly.
 
 ---
 

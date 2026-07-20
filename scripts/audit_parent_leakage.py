@@ -80,6 +80,15 @@ PARENT_DOMAINS = {
     "scedc":    "scedc",
     "iquique":  "iquique",
     "pisdl":    "pisdl",
+    # volpick (Zhong & Tan 2024): VCSEIS is "a subset of the dataset in
+    # Zhong and Tan (2024), with the data from Japan excluded" (per
+    # github.com/zhong-yy/volpick's README) -- Alaska/Hawaii/N.California/
+    # Cascades regions, already downloaded locally as the "vcseis" benchmark
+    # dataset's full corpus. This catches cross-dataset leakage for the
+    # non-Japan portion of volpick's training data; any overlap specific to
+    # its Japan-region training slice (not available locally) is NOT
+    # covered and remains unverified.
+    "volpick":  "vcseis",
 }
 UNVERIFIABLE_DOMAINS = ["obst2024", "neic"]
 

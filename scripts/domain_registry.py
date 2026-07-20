@@ -72,10 +72,21 @@ BASE_TRAINED_ON = {
     "pisdl":                     "pisdl",
     "original":                  "stead",
     "original_nonconservative":  "stead",
+    # volpick (Zhong & Tan 2024): "vcseis" is the benchmark manifest's own
+    # trained_models label AND, per the volpick repo's README, VCSEIS is
+    # literally "a subset of the dataset in Zhong and Tan (2024), with the
+    # data from Japan excluded" -- i.e. volpick's own non-Japan training
+    # data, already downloaded locally. split_masks() excludes the 200
+    # vcseis-labeled rows via this; scripts/audit_parent_leakage.py
+    # additionally spatiotemporal-audits VCSEIS's full corpus against all
+    # 12 benchmark datasets for parent_clean_cross_domain_mask() (see
+    # PARENT_DOMAINS["volpick"] there). Only gap: volpick's Japan-region
+    # training slice isn't available locally, so overlap specific to that
+    # portion remains unverified.
+    "volpick":                   "volpick",
     # Unknown / undocumented public training corpus -> treated as fully
     # cross_domain (conservative default, unchanged from prior behavior).
     "diting":                    None,
-    "volpick":                   None,
     "phasenet_sn":               None,
     "jma":                       None,
     "lendb":                     None,

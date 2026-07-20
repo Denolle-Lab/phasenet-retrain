@@ -1,0 +1,64 @@
+# v7_clean: identical recipe to v7, retrained on data/manifests_v2_clean —
+# a manifest rebuilt with the issue #32 chunk-aware event-exclusion fix, so
+# train/val no longer share earthquake events with the benchmark (mlaapde/
+# aq2009gm 95%/93%->0%, cwa 94%->~9.9% irreducible residual). Tests whether
+# v7's "still best" ranking survives training on genuinely leak-free data,
+# vs. the original v7 which trained on the pre-#32 manifests_v2 (leaky).
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 150
+  learning_rate: 0.000005
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.3
+    temperature: 4.0
+
+  timing_beta: 0.0
+
+  scheduler:
+    name: "ReduceLROnPlateau"
+    mode: "min"
+    factor: 0.5
+    patience: 5
+    min_lr: 1.0e-6
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 20
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2_clean/train.csv"
+  val_manifest:   "data/manifests_v2_clean/val.csv"
+  test_manifest:  "data/manifests_v2_clean/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global_v7_clean"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global_v7_clean"
+  metrics_csv: "results/finetune_jma_wc_global_v7_clean_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "16-mixed"
+  amp: true
+
+seed: 42

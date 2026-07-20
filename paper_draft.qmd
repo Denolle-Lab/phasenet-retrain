@@ -474,11 +474,16 @@ Best non-baseline value per column in **bold**.
 | Ensemble v3+v7 | 31,992 | 0.857 | 0.506 | 0.356 | 0.069 | 0.756 |
 | v11 | 31,992 | 0.810 | 0.517 | 0.364 | 0.068 | 0.699 |
 | v19 | 31,992 | 0.810 | 0.502 | 0.381 | 0.070 | 0.696 |
+| From-scratch (`phasenet_scratch_v1`) | 31,992 | 0.485 | 0.472 | 1.696 | 0.424 | 0.160 |
 
 **Reading of the table.** Fine-tuning **improves timing** (P-MAE 0.340 vs 0.374,
 ≈9% better; P-outlier 0.063 vs 0.071, ≈11% fewer) but **loses recall and MCC**:
 the un-fine-tuned **jma_wc parent still wins P-recall, S-recall, and MCC**. No
-single fine-tuned model dominates the baseline across all metrics.
+single fine-tuned model dominates the baseline across all metrics. The
+from-scratch model (random init, no `jma_wc` transfer learning) is far worse
+on every metric (P-MAE 1.696s, MCC 0.160) — direct evidence that the
+pretrained-then-fine-tuned approach is the right strategy for this data
+volume, not a competing alternative worth pursuing further (GitHub #13).
 
 ![Fine-tuned model dashboard vs. all baselines (`notebooks/step3_ft_dashboard.png`). Main results overview across P/S-MAE, recall, MCC, and outlier rate.](notebooks/step3_ft_dashboard.png){#fig-dashboard width=100%}
 
@@ -538,8 +543,8 @@ the final version.
 | v13 | α=0 + noise + presence loss + 2× tele | **Best recall 0.888, MCC 0.943** but P-MAE 0.967 |
 | v14–v16 | dial noise/presence, restore KD | P-MAE 0.46–1.04 (noise hurts timing) |
 | v17 | 2× tele, no noise, fresh init | Regional P-MAE worsened (tele data hurts timing) |
-| v18 | S-balanced + 1.5× tele + **focal γ=1** | *Aspirational targets; no recorded result* |
-| v19 | local+regional only, monitor val_p_mae_s | *P-MAE-focused; no recorded result* |
+| v18 | S-balanced + 1.5× tele + **focal γ=1** | *Never completed — crashed during validation-set pre-load, no checkpoint was ever saved (GitHub #13); re-running is a fresh training run, not a benchmark backfill* |
+| v19 | local+regional only, monitor val_p_mae_s | P-MAE 0.381, recall 0.810, MCC 0.696 — did **not** beat v7 on P-MAE despite being P-MAE-focused (GitHub #13, 2026-07-20) |
 
 **Key conclusions the team reached** (well-supported by the configs): (1)
 **KD distillation (α≈0.3) is the indispensable cross-domain regularizer** —
@@ -629,18 +634,22 @@ broader group. Items are ordered by impact on conclusions. Each cites
 10. **Silent data failures:** `manifest_dataset.py:370–375` swallows all
     waveform-fetch exceptions and returns an all-noise zero sample with no
     logging — corrupt traces silently become phantom noise examples.
-11. **Focal × class-weight bug** (`fine_tune_model.py:226`): `pt = exp(−ce_per)`
-    is wrong when class weights are set (latent; v18 sets no weights). The
-    canonical fix computes `pt` from an unweighted CE and applies weights
-    separately.
+11. ✅ *Fixed 2026-07-12 (#14).* **Focal × class-weight bug** (`fine_tune_model.py:226`):
+    `pt = exp(−ce_per)` was wrong when class weights were set. `pt` is now
+    computed from an unweighted CE with weights applied separately.
 12. **Hard-argmax CE** discards Gaussian-label timing information
-    (`fine_tune_model.py:223`); consider the scratch path's soft CE.
-13. **Channel-order trap:** the active path uses **PSN**, the dead Lightning path
-    (`model.py`) uses **NPS**; reconcile or delete the dead path before release.
-14. **Dead/duplicated analysis code** in `threshold_sweep_v7_teleseismic.py`
-    (unused `table_data`/`cell_colors`, dead `to_rgba` import) and duplicated
-    metric logic across the eval/sweep scripts; the from-scratch run and v18/v19
-    have **no recorded benchmark outcome** yet.
+    (`fine_tune_model.py:223`); consider the scratch path's soft CE. (Tracked
+    as GitHub #11 — soft-label CE fine-tune experiment, not yet run.)
+13. ✅ *Fixed 2026-07-20 (#12).* **Channel-order trap** — the dead Lightning
+    path (`model.py`, NPS-ordered, disagreeing with the active PSN
+    convention) has been deleted.
+14. ✅ *Fixed 2026-07-20 (#12, #13).* Dead code in
+    `threshold_sweep_v7_teleseismic.py` (unused `table_data`/`cell_colors`,
+    dead `to_rgba` import) removed. v19 and the from-scratch run now have
+    recorded benchmark outcomes (see the leaderboard and trajectory tables
+    above). v18 still has none — it crashed before ever saving a checkpoint;
+    re-running it is a fresh training job, not a backfill. Metric-logic
+    de-duplication across eval/sweep scripts is still open, folded into #8.
 
 ![Normalization fix (`notebooks/step3_norm_fix_comparison.png`): applying peak-vs-std normalization correctly changed STEAD P-MAE from 1.17→0.04 s — an example of how sensitive these metrics are to pipeline details. Belongs in a methods appendix.](notebooks/step3_norm_fix_comparison.png){#fig-norm width=85%}
 

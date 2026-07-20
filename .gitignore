@@ -79,6 +79,7 @@ models/*
 data/*
 !data/.gitkeep
 !data/README.md
+!data/manifest_checksums.csv
 
 # Large seisbench metadata files (too large for GitHub)
 notebooks/seisbench_metadata/

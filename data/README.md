@@ -5,9 +5,9 @@ large to host on GitHub** (hundreds of GB to multiple TB). They live on the
 Denolle Lab back-end Linux servers as the local **SeisBench cache**, and are
 pulled from the SeisBench data repositories on first use.
 
-- **Server cache location (current):** lab back-end Linux server
-  *(hard-coded path in the build/train/eval scripts — see "Known issue" below;
-  update to your local path before running).*
+- **Server cache location (current):** lab back-end Linux server, path set via
+  the `SEISBENCH_CACHE_ROOT` environment variable (falls back to
+  `~/.seisbench` if unset — see "Known issue" below).
 - **This `data/` directory** holds only the generated **manifest CSVs**
   (lightweight index files listing `dataset_name`, `trace_name`, picks,
   distance, split) — and even those are git-ignored because the full manifests
@@ -28,35 +28,44 @@ Source of truth: [`../scripts/build_training_dataset.py`](../scripts/build_train
 ## Dataset volumes
 
 `Full traces` = total traces in the SeisBench dataset (verified from
-`../notebooks/benchmark_pool_summary.csv` where available). `Train cap` = max
-traces drawn into the hybrid pool before distance stratification
-(`build_training_dataset.py`). `On-disk` = HDF5 waveforms + CSV metadata in the
-SeisBench cache — **measure on the server** (command below); approximate values
-are marked `~` and should be confirmed.
+`../notebooks/benchmark_pool_summary.csv` where available, otherwise from a
+direct row count of the on-disk `metadata*.csv` shard(s) — see below).
+`Train cap` = max traces drawn into the hybrid pool before distance
+stratification (`build_training_dataset.py`). `On-disk` = HDF5 waveforms + CSV
+metadata in the SeisBench cache, measured directly on the server
+(`du -sh datasets/*/`, 2026-07-20) — exact, not estimated.
 
 | Dataset (SeisBench) | Full traces | Train cap | On-disk (HDF5+CSV) | Region / regime |
 |---|--:|--:|--:|---|
-| `scedc`          | 8,035,833 | 60,000  | measure | Southern California |
-| `neic`*          | 1,354,789 | —       | measure | Global (benchmark candidate, excluded) |
-| `stead`          | 1,265,657 | 100,000 | ~75 GB  | Global |
-| `lendb`          | 1,244,942 | 40,000  | measure | Global local + noise |
-| `instancecounts` | 1,159,249 | 100,000 | ~160 GB | Italy |
-| `txed`           |   519,689 | 40,000  | measure | Texas (induced) |
-| `geofon`         |   275,274 | 150,000 | measure | Global / teleseismic |
-| `pnw`            |   183,909 | 40,000  | measure | Cascadia / Pacific NW |
-| `obst2024`       |    60,394 | 60,000  | measure | Ocean-bottom (Phase-2) |
-| `ethz`           |    36,743 | 60,000  | ~10 GB  | Switzerland / Alpine |
-| `iquique`        |    13,400 | 13,400  | measure | N. Chile subduction |
-| `ceed`           | confirm   | 100,000 | measure | California event dataset |
-| `mlaapde`        | confirm   | 80,000  | measure | Global (PDE), teleseismic |
-| `crew`           | confirm   | 30,000  | measure | confirm |
-| `cwa`            | confirm   | 30,000  | measure | Taiwan |
-| `pisdl`          | confirm   | 10,000  | measure | confirm (volcanic?) |
-| `vcseis`         | confirm   | 30,000  | measure | Volcano seismicity |
-| `aq2009gm`       | confirm   | 60,000  | measure | L'Aquila 2009 ground motion |
-| `meier2019jgr`   | confirm   | 150,000 | measure | Global |
-| `ross2018gpd`    | confirm   | 200,000 | measure | Southern California (GPD) |
-| `obs`            | confirm   | 100,000 | measure | Ocean-bottom (Phase-2) |
+| `scedc`          | 8,035,833 | 60,000  | 639 GB  | Southern California |
+| `neic`*          | 1,354,789 | —       | 588 MB  | Global (benchmark candidate, excluded) |
+| `stead`          | 1,265,657 | 100,000 | 86 GB   | Global |
+| `lendb`          | 1,244,942 | 40,000  | 16 GB   | Global local + noise |
+| `instancecounts` | 1,159,249 | 100,000 | 157 GB  | Italy |
+| `txed`           |   519,689 | 40,000  | 70 GB   | Texas (induced) |
+| `geofon`         |   275,274 | 150,000 | 26 GB   | Global / teleseismic |
+| `pnw`            |   183,909 | 40,000  | 63 GB   | Cascadia / Pacific NW |
+| `obst2024`       |    60,394 | 60,000  | 4.1 GB  | Ocean-bottom (Phase-2) |
+| `ethz`           |    36,743 | 60,000  | 22 GB   | Switzerland / Alpine |
+| `iquique`        |    13,400 | 13,400  | 5.0 GB  | N. Chile subduction |
+| `ceed`           | 5,009,718 | 100,000 | 575 GB  | California event dataset |
+| `mlaapde`        | 510,196†  | 80,000  | 62 GB   | Global (PDE), teleseismic |
+| `crew`           | 1,599,323 | 30,000  | 1.1 TB  | confirm |
+| `cwa`            | 346,959†  | 30,000  | 173 GB  | Taiwan |
+| `pisdl`          | 142,001   | 10,000  | 35 GB   | confirm (volcanic?) |
+| `vcseis`         | 160,278   | 30,000  | 47 GB   | Volcano seismicity |
+| `aq2009gm`       | 258,984†  | 60,000  | 27 GB   | L'Aquila 2009 ground motion |
+| `meier2019jgr`   | 1,060,433 | 150,000 | 24 GB   | Global |
+| `ross2018gpd`    | 4,773,750 | 200,000 | 43 GB   | Southern California (GPD) |
+| `obs`            | 109,208   | 100,000 | 33 GB   | Ocean-bottom (Phase-2) |
+
+`†` `mlaapde`, `cwa`, and `aq2009gm` each have one trailing monthly/decade shard
+with a `.partial` suffix (an interrupted SeisBench download) — their `Full
+traces` counts are a real row count of the shards present on disk, not a
+verified-complete total; a couple percent more may exist once the partial
+shard is finished.
+
+**Total cache size (all datasets + models, 2026-07-20): 3.1 TB.**
 
 `*` `neic` was surveyed as a benchmark candidate but **excluded** (0% traces with
 both P and S picks). It is not in the training pool.
@@ -66,27 +75,34 @@ both P and S picks). It is not in the training pool.
 `manifests_v3/{train,val,test}.csv` (S-balanced, ~60.5% S),
 and the oversampled variants `train_tele2x.csv` (~662k, 2× teleseismic),
 `train_v18.csv` (1.5× teleseismic), `train_p_focused.csv` / `val_p_focused.csv`
-(local+regional only). **The scripts that derive the oversampled variants are
-not yet committed — see the repo TODO list.**
+(local+regional only) — all four reproducible via
+`../scripts/build_oversampled_manifests.py --all` (fixed 2026-07-20, GitHub
+#6). Verify any regenerated manifest against the committed fingerprints with
+`../scripts/hash_manifests.py --check` (hashes in
+`manifest_checksums.csv`).
 
 **Noise corpus** (`noise_global`, ~82k traces) and the excluded `noise_prephase`
 set are built by `../scripts/build_noise_dataset.py` /
 `build_prephase_noise.py`.
 
-## Measure actual on-disk sizes (run on the server)
+## Measuring on-disk sizes
+
+The `On-disk` column above was filled in 2026-07-20 by running, on the server
+(`$SEISBENCH_CACHE_ROOT`, see "Known issue" below):
 
 ```bash
-# Per-dataset on-disk footprint in the SeisBench cache (update path for your server):
-du -sh /path/to/.seisbench/datasets/*/ | sort -h
+# Per-dataset on-disk footprint in the SeisBench cache:
+du -sh "$SEISBENCH_CACHE_ROOT/datasets/"*/ | sort -h
 
 # Total cache size:
-du -sh /path/to/.seisbench
+du -sh "$SEISBENCH_CACHE_ROOT"
 ```
 
-Paste the output into the `On-disk` column above so the inventory is exact.
+Re-run this and update the table if datasets are added, re-downloaded, or a
+`.partial` shard (see `†` note above) is completed.
 
-## Known issue — hard-coded cache path
+## Cache path (fixed 2026-07-12, GitHub #9)
 
-The SeisBench cache path is hard-coded in ~12 scripts. The repo will not run on another machine without editing those, or
-without making the path configurable via the `SEISBENCH_CACHE_ROOT` environment
-variable. Tracked in the repo TODO list.
+Every script now reads `SEISBENCH_CACHE_ROOT` (falling back to
+`~/.seisbench`) instead of a hard-coded machine-specific path — a fresh clone
+runs after setting that one env var.

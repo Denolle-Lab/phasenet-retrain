@@ -1,0 +1,79 @@
+# v20: soft-label CE experiment (GitHub #11)
+#
+#  Every v1-v19 fine-tune used hard-argmax CE: the Gaussian label's peak is
+#  collapsed to a single one-hot class before F.cross_entropy, discarding the
+#  timing information the label actually encodes (the teacher jma_wc, and
+#  every SeisBench baseline, is trained on the full Gaussian). The team then
+#  bolted on explicit timing_beta/presence_gamma losses to try to recover
+#  timing signal -- both consistently backfired (v4/v6: even beta=0.01
+#  collapsed P-recall 0.87->0.52; presence_gamma inflated p_outlier).
+#
+#  v20 tests the paper's leading hypothesis instead: keep v7's exact recipe
+#  (same data, same KD alpha=0.3/T=4, no timing/presence/focal terms) but
+#  replace hard-argmax CE with soft-label CE (-Sigma y_true . log p_pred,
+#  same formula already used by the from-scratch path, scratch_model.py:
+#  94-100). Target: close the recall gap vs jma_wc without the v13-style
+#  timing collapse that explicit timing losses caused.
+#
+#  Everything else is identical to v7 -- soft_ce: true is the only change.
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 150
+  learning_rate: 0.000005
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.3
+    temperature: 4.0
+
+  soft_ce: true
+  timing_beta: 0.0
+  presence_gamma: 0.0
+  focal_gamma: 0.0
+
+  scheduler:
+    name: "ReduceLROnPlateau"
+    mode: "min"
+    factor: 0.5
+    patience: 5
+    min_lr: 1.0e-6
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 20
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2/train.csv"
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "finetune_jma_wc_global_v20"
+  checkpoint_dir: "checkpoints/finetune_jma_wc_global_v20"
+  metrics_csv: "results/finetune_jma_wc_global_v20_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  precision: "16-mixed"  # informational only -- finetune.py does not read this key, `amp` below is the real toggle (defaults true = fp16 autocast)
+  amp: true
+
+seed: 42

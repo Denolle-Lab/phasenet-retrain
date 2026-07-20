@@ -189,6 +189,19 @@ class PhaseNetFinetune(nn.Module):
         if self.focal_gamma > 0:
             print(f"  focal loss      ON  gamma={self.focal_gamma}")
 
+        # Soft-label CE (issue #11): -Σ y_true · log(p_pred), same formula as
+        # the from-scratch path (scratch_model.py:94-100). Preserves the
+        # Gaussian label's timing information instead of collapsing it to a
+        # single hard argmax class before computing the loss. Mutually
+        # exclusive with focal_gamma: focal weighting is defined in terms of
+        # pt for a single hard target class, which soft labels don't have.
+        self.soft_ce = training_cfg.get("soft_ce", False)
+        if self.soft_ce and self.focal_gamma > 0:
+            raise ValueError("soft_ce and focal_gamma are mutually exclusive "
+                              "(focal modulation needs a hard target class)")
+        if self.soft_ce:
+            print("  soft-label CE   ON  (hard-argmax CE disabled)")
+
         # Pick-presence loss: directly penalise low model probability at the
         # true pick sample.  Unlike CE (which weights all time steps equally),
         # this term concentrates gradient on the exact pick location for traces
@@ -222,7 +235,16 @@ class PhaseNetFinetune(nn.Module):
         logits_flat = logits.permute(0, 2, 1).reshape(-1, 3)
         y_cls       = y_flat.argmax(dim=1)
 
-        if self.focal_gamma > 0:
+        if self.soft_ce:
+            # -Σ y_true · log(p_pred), computed on the full Gaussian label
+            # rather than its hard argmax (issue #11).
+            log_p = F.log_softmax(logits_flat, dim=1)
+            if self.class_weight is not None:
+                weighted_y = y_flat * self.class_weight.unsqueeze(0)
+                ce_loss = -(weighted_y * log_p).sum(dim=1).mean()
+            else:
+                ce_loss = -(y_flat * log_p).sum(dim=1).mean()
+        elif self.focal_gamma > 0:
             # pt must come from the UNWEIGHTED per-sample CE: F.cross_entropy's
             # `weight` arg scales the loss value itself, not just the class
             # probability, so exp(-ce_per) with weight set is p_t**weight[y],

@@ -144,19 +144,23 @@ deployment- or publication-ready, and are detailed in @sec-audit:
 The repository contains **two largely disconnected pipelines**, and conflating
 them is the main source of confusion:
 
-- **Pipeline A (documented, template, *not* used for the v-series):**
-  `README.md`, `docs/DATASETS.md`, `docs/LABEL_ERROR_FILTERING.md`,
-  `scripts/data_module.py`, `scripts/label_error_filter.py`. This is the
-  "5 datasets (STEAD/INSTANCE/ETHZ/PNW/TXED) + automated label-error filtering"
-  story.
+- **Pipeline A (a template scaffold, never used for the v-series):**
+  `scripts/model.py` / `data_module.py` / `train.py` / `evaluate.py`
+  (pytorch_lightning-based). This was the "5 datasets
+  (STEAD/INSTANCE/ETHZ/PNW/TXED) + automated label-error filtering" story.
+  ✅ *Deleted 2026-07-20 (GitHub #12)* — confirmed dead (never produced a
+  checkpoint, `pytorch_lightning` isn't even installed in the active conda
+  env), and `docs/DATASETS.md` / `docs/IMPLEMENTATION.md` (which documented
+  it) are retired with pointers to the real docs.
 - **Pipeline B (actually run, produced models v2–v19):**
   `scripts/build_training_dataset.py` → manifest CSVs → `scripts/manifest_dataset.py`
   → `scripts/finetune.py` + the `configs/finetune_jma_wc_global_v*.yaml`. This
   uses ~20 datasets, distance-stratified rebalancing, benchmark-trace exclusion,
-  and noise augmentation. **It does not call the label-error filter.**
+  and noise augmentation. It did not call the label-error filter for v2–v19,
+  but does now (✅ GitHub #10) — future manifest rebuilds will include it.
 
-Everything quantitative below describes **Pipeline B**. The README/docs (Pipeline
-A) should be treated as an earlier scaffold and rewritten to match.
+Everything quantitative below describes **Pipeline B**, the only one that was
+ever real.
 
 ## Datasets and provenance {#sec-datasets}
 
@@ -583,12 +587,14 @@ broader group. Items are ordered by impact on conclusions. Each cites
    construction**. *Action:* report conditional (detected-only) MAE/RMSE/outlier
    matched to Münchmeyer, alongside recall, and drop the zero-cost framing.
 
-3. **Methods/README describe a pipeline that was not used.** The README,
-   `docs/DATASETS.md`, and `docs/LABEL_ERROR_FILTERING.md` describe Pipeline A
-   (5 datasets + automated label-error filtering). The v-series were trained with
-   Pipeline B (~20 datasets, manifest-based, **no** training-side label-error
-   filtering). *Action:* rewrite the methods docs to describe what was actually
-   run, and either apply or explicitly disclaim training-side label cleaning.
+3. ✅ *Done 2026-07-20 (#12).* **Methods/README described a pipeline that was
+   not used.** `docs/DATASETS.md` documented Pipeline A (5 datasets +
+   automated label-error filtering), which the v-series never trained on
+   (Pipeline B: ~20 datasets, manifest-based). `docs/DATASETS.md` is now
+   retired with a pointer to `data/README.md` (the real, accurate inventory).
+   `docs/LABEL_ERROR_FILTERING.md` no longer describes Pipeline A at all — the
+   label-error filter it documents was fixed and wired into Pipeline B (#10),
+   so training-side label cleaning is now real, not disclaimed.
 
 ## Important (affect interpretation) {#sec-important}
 

@@ -52,21 +52,6 @@ def check_seisbench():
     print()
 
 
-def check_pytorch_lightning():
-    """Check PyTorch Lightning installation"""
-    print("=" * 60)
-    print("PyTorch Lightning Installation Check")
-    print("=" * 60)
-    try:
-        import pytorch_lightning as pl
-        print(f"PyTorch Lightning version: {pl.__version__}")
-        print("✓ PyTorch Lightning is properly installed")
-    except ImportError as e:
-        print(f"✗ PyTorch Lightning not found: {e}")
-        print("  Install with: pip install pytorch-lightning")
-    print()
-
-
 def test_model_loading():
     """Test loading a pretrained model"""
     print("=" * 60)
@@ -143,20 +128,18 @@ def main():
     print()
     
     check_pytorch()
-    check_pytorch_lightning()
     check_seisbench()
     check_dependencies()
     test_model_loading()
-    
+
     print("=" * 60)
     print("Setup Check Complete!")
     print("=" * 60)
-    print("\nNext steps:")
-    print("1. Prepare your data in the data/ directory")
-    print("2. Configure training in configs/train_config.yaml")
-    print("3. Implement data loading in scripts/data_module.py")
-    print("4. Run training: python scripts/train.py --config configs/train_config.yaml")
-    print("\nFor examples, see: notebooks/01_phasenet_intro.ipynb")
+    print("\nNext steps (real pipeline, not the pytorch_lightning path):")
+    print("1. Build training manifests: python scripts/build_training_dataset.py")
+    print("2. Pick/edit a config in configs/finetune_jma_wc_global_v*.yaml")
+    print("3. Run training: python scripts/finetune.py --config <config.yaml>")
+    print("\nFor benchmark evaluation, see: notebooks/06_step_3_inference_evaluation.ipynb")
     print()
 
 

@@ -41,12 +41,15 @@ SeisBench datasets ──build_training_dataset.py──▶ manifest CSVs (data/
 ```
 
 > **Note on the older docs.** Earlier docs in `docs/` (and prior versions of
-> this README) describe a 5-dataset, "automated label-error filtering" workflow
-> via `scripts/data_module.py` + `scripts/label_error_filter.py`. **That path
-> was a scaffold and is *not* how the v1–v19 models were trained.** The real
-> pipeline is the manifest-based one above (`build_training_dataset.py` →
-> `manifest_dataset.py` → `finetune.py`). The `docs/` files are being
-> reconciled to match; treat the paper as the source of truth.
+> this README) described a 5-dataset, pytorch_lightning-based scaffold
+> (`scripts/model.py` + `scripts/data_module.py` + `scripts/train.py` +
+> `scripts/evaluate.py`) that was never how the v1–v19 models were trained.
+> Those files were unused dead code and have been deleted (GitHub #12); the
+> real pipeline is the manifest-based one above (`build_training_dataset.py` →
+> `manifest_dataset.py` → `finetune.py`). `scripts/label_error_filter.py`
+> started life in that same scaffold but is *not* dead — it's now wired into
+> `build_training_dataset.py` (GitHub #10) and does apply to the real
+> training pool.
 
 ## Repository layout
 

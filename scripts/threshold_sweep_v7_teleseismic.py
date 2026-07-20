@@ -37,7 +37,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.colors import to_rgba
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 REPO_ROOT    = Path(__file__).parent.parent.resolve()
@@ -206,27 +205,6 @@ v7_bg      = "#FEF3E2"
 ref_bg     = "#EBF5FB"
 alt_v7     = "#FDEBD0"
 alt_ref    = "#D6EAF8"
-
-table_data  = []
-cell_colors = []
-
-for weight, _, label, _ in MODELS:
-    sub = tele_df[tele_df["weight"] == weight].copy()
-    base_bg = v7_bg if "v7" in weight else ref_bg
-    alt_bg  = alt_v7 if "v7" in weight else alt_ref
-    for i, (_, r) in enumerate(sub.iterrows()):
-        star = " ◄" if abs(r.threshold - 0.30) < 0.001 else ""
-        row  = [
-            f"{r.threshold:.2f}{star}",
-            f"{r.p_recall:.4f}",
-            f"{r.p_mae_s:.4f}",
-            f"{r.p_outlier_pct:.2f} %",
-            f"{int(r.n_picks):,}",
-            f"{int(r.n_total):,}",
-        ]
-        table_data.append(row)
-        bg = base_bg if i % 2 == 0 else alt_bg
-        cell_colors.append([bg] * len(col_labels))
 
 # Add model-label rows as section headers
 final_data, final_colors = [], []

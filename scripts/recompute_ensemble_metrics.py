@@ -9,55 +9,23 @@ import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from sklearn.metrics import matthews_corrcoef
 
 REPO_ROOT      = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from domain_registry import (
     split_masks, clean_holdout_mask, is_own_model, parent_clean_cross_domain_mask,
 )
+from metrics import compute_metrics as _compute_metrics
 
 RESULTS_PATH   = REPO_ROOT / "notebooks" / "step3_results.parquet"
 OUT_CSV        = REPO_ROOT / "results" / "eval_ensemble_eqt.csv"
 ENSEMBLE_LABEL = "eqt_ensemble_volpick_nc"
 THRESHOLD      = 0.3
-OUTLIER_THR    = 1.5
 
 
 def compute_metrics(df, weight_name, split, dist_label="all"):
-    if len(df) == 0:
-        return None
-    p_tr = df[df["p_in_window"] >= 0]
-    s_tr = df[df["s_in_window"] >= 0]
-    p_recall = (p_tr["p_prob"] >= THRESHOLD).mean() if len(p_tr) > 0 else np.nan
-    s_recall = (s_tr["s_prob"] >= THRESHOLD).mean() if len(s_tr) > 0 else np.nan
-    both = df[(df["p_in_window"] >= 0) & (df["s_in_window"] >= 0)]
-    mcc = np.nan
-    if len(both) >= 5:
-        y_true = np.concatenate([np.ones(len(both)), np.zeros(len(both))])
-        y_pred = np.concatenate([
-            (both["p_prob"] > both["s_prob"]).astype(int).values,
-            (both["s_prob"] > both["p_prob"]).astype(int).values,
-        ])
-        try:
-            mcc = matthews_corrcoef(y_true, y_pred)
-        except Exception:
-            mcc = np.nan
-    p_res = p_tr["p_residual_s"].dropna()
-    s_res = s_tr["s_residual_s"].dropna()
-    return dict(
-        weight    = weight_name,
-        split     = split,
-        dist_bin  = dist_label,
-        n_traces  = len(df),
-        p_recall  = round(p_recall, 4)                             if not np.isnan(p_recall) else np.nan,
-        s_recall  = round(s_recall, 4)                             if not np.isnan(s_recall) else np.nan,
-        p_mae_s   = round(np.abs(p_res).mean(), 4)                 if len(p_res) > 0 else np.nan,
-        s_mae_s   = round(np.abs(s_res).mean(), 4)                 if len(s_res) > 0 else np.nan,
-        p_outlier = round((np.abs(p_res) > OUTLIER_THR).mean(), 4) if len(p_res) > 0 else np.nan,
-        s_outlier = round((np.abs(s_res) > OUTLIER_THR).mean(), 4) if len(s_res) > 0 else np.nan,
-        mcc       = round(mcc, 4)                                  if not np.isnan(mcc)      else np.nan,
-    )
+    return _compute_metrics(df, weight_name, split, dist_label,
+                             p_threshold=THRESHOLD, s_threshold=THRESHOLD)
 
 
 results_df = pd.read_parquet(RESULTS_PATH)

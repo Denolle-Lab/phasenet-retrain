@@ -45,10 +45,10 @@ import h5py
 import torch
 import seisbench.models as sbm
 from domain_registry import split_masks
+from metrics import compute_metrics as _compute_metrics
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from sklearn.metrics import matthews_corrcoef
 from tqdm import tqdm
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
@@ -63,7 +63,6 @@ DEVICE       = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE   = 64      # smaller than PhaseNet — EQT is heavier (6k input)
 TARGET_SR    = 100
 SEARCH_WIN_S = 5.0
-OUTLIER_THR  = 1.5
 THRESHOLD    = 0.3
 
 print(f"Device : {DEVICE}")
@@ -252,43 +251,8 @@ print(f"\nSaved {len(combined):,} rows → {RESULTS_PATH}")
 
 def compute_metrics(df: pd.DataFrame, weight_name: str,
                     split: str, dist_label: str = "all"):
-    if len(df) == 0:
-        return None
-    p_tr = df[df["p_in_window"] >= 0]
-    s_tr = df[df["s_in_window"] >= 0]
-
-    p_recall = (p_tr["p_prob"] >= THRESHOLD).mean() if len(p_tr) > 0 else np.nan
-    s_recall = (s_tr["s_prob"] >= THRESHOLD).mean() if len(s_tr) > 0 else np.nan
-
-    both = df[(df["p_in_window"] >= 0) & (df["s_in_window"] >= 0)]
-    mcc  = np.nan
-    if len(both) >= 5:
-        y_true = np.concatenate([np.ones(len(both)), np.zeros(len(both))])
-        y_pred = np.concatenate([
-            (both["p_prob"] > both["s_prob"]).astype(int).values,
-            (both["s_prob"] > both["p_prob"]).astype(int).values,
-        ])
-        try:
-            mcc = matthews_corrcoef(y_true, y_pred)
-        except Exception:
-            mcc = np.nan
-
-    p_res = p_tr["p_residual_s"].dropna()
-    s_res = s_tr["s_residual_s"].dropna()
-
-    return dict(
-        weight     = weight_name,
-        split      = split,
-        dist_bin   = dist_label,
-        n_traces   = len(df),
-        p_recall   = round(p_recall, 4)                            if not np.isnan(p_recall)  else np.nan,
-        s_recall   = round(s_recall, 4)                            if not np.isnan(s_recall)  else np.nan,
-        p_mae_s    = round(np.abs(p_res).mean(), 4)                if len(p_res) > 0 else np.nan,
-        s_mae_s    = round(np.abs(s_res).mean(), 4)                if len(s_res) > 0 else np.nan,
-        p_outlier  = round((np.abs(p_res) > OUTLIER_THR).mean(),4) if len(p_res) > 0 else np.nan,
-        s_outlier  = round((np.abs(s_res) > OUTLIER_THR).mean(),4) if len(s_res) > 0 else np.nan,
-        mcc        = round(mcc, 4)                                  if not np.isnan(mcc)       else np.nan,
-    )
+    return _compute_metrics(df, weight_name, split, dist_label,
+                             p_threshold=THRESHOLD, s_threshold=THRESHOLD)
 
 
 results_df  = pd.read_parquet(RESULTS_PATH)

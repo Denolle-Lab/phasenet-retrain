@@ -39,11 +39,11 @@ import h5py
 import torch
 import seisbench.models as sbm
 from domain_registry import split_masks
+from metrics import compute_metrics as _compute_metrics
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from sklearn.metrics import matthews_corrcoef
 from tqdm import tqdm
 
 # ── CLI args ──────────────────────────────────────────────────────────────────
@@ -65,7 +65,6 @@ DEVICE        = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE    = 128
 TARGET_SR     = 100
 SEARCH_WIN_S  = 5.0
-OUTLIER_THR_S = 1.50
 THRESHOLD_P   = 0.3
 THRESHOLD_S   = 0.3
 FT_WEIGHT     = _args.ft_weight if _args.ft_weight else "jma_wc_ft_global_v8"
@@ -270,67 +269,12 @@ if DEGENERATE_MODELS:
 
 
 def compute_metrics(df, weight_name, split_name, dist_label=None):
-    if len(df) == 0:
-        return None
-    p_traces = df[df["p_in_window"] >= 0]
-    s_traces = df[df["s_in_window"] >= 0]
-
-    p_recalls, s_recalls = {}, {}
-    for t in [0.1, 0.2, 0.3, 0.5, 0.7]:
-        p_recalls[f"p_recall_t{int(t*10):02d}"] = (
-            (p_traces["p_prob"] >= t).mean() if len(p_traces) > 0 else np.nan)
-        s_recalls[f"s_recall_t{int(t*10):02d}"] = (
-            (s_traces["s_prob"] >= t).mean() if len(s_traces) > 0 else np.nan)
-
-    p_recall   = p_recalls["p_recall_t03"]
-    s_recall   = s_recalls["s_recall_t03"]
-    p_med_prob = p_traces["p_prob"].median() if len(p_traces) > 0 else np.nan
-    s_med_prob = s_traces["s_prob"].median() if len(s_traces) > 0 else np.nan
-
-    both = df[(df["p_in_window"] >= 0) & (df["s_in_window"] >= 0)].copy()
-    mcc  = np.nan
-    if len(both) >= 5:
-        y_true = np.concatenate([np.ones(len(both)),  np.zeros(len(both))])
-        y_pred = np.concatenate(
-            [(both["p_prob"] > both["s_prob"]).astype(int).values,
-             (both["s_prob"] > both["p_prob"]).astype(int).values])
-        try:
-            mcc = matthews_corrcoef(y_true, y_pred)
-        except Exception:
-            mcc = np.nan
-
-    p_res = df.loc[df["p_in_window"] >= 0, "p_residual_s"].dropna()
-    s_res = df.loc[df["s_in_window"] >= 0, "s_residual_s"].dropna()
-    p_mae     = np.abs(p_res).mean()       if len(p_res) > 0 else np.nan
-    p_rmse    = np.sqrt((p_res**2).mean()) if len(p_res) > 0 else np.nan
-    s_mae     = np.abs(s_res).mean()       if len(s_res) > 0 else np.nan
-    s_rmse    = np.sqrt((s_res**2).mean()) if len(s_res) > 0 else np.nan
-    p_outlier = (np.abs(p_res) > OUTLIER_THR_S).mean() if len(p_res) > 0 else np.nan
-    s_outlier = (np.abs(s_res) > OUTLIER_THR_S).mean() if len(s_res) > 0 else np.nan
-
-    row = {
-        "weight":        weight_name,
-        "tier":          PHASENET_WEIGHTS.get(weight_name, {}).get("tier", "?"),
-        "split":         split_name,
-        "dist_bin":      dist_label or "all",
-        "n_traces":      len(df),
-        "degenerate":    weight_name in DEGENERATE_MODELS,
-        "p_recall":      round(p_recall, 4)   if not np.isnan(p_recall)   else np.nan,
-        "s_recall":      round(s_recall, 4)   if not np.isnan(s_recall)   else np.nan,
-        "p_med_prob":    round(p_med_prob, 4) if not np.isnan(p_med_prob) else np.nan,
-        "s_med_prob":    round(s_med_prob, 4) if not np.isnan(s_med_prob) else np.nan,
-        "mcc":           round(mcc, 4)        if not np.isnan(mcc)        else np.nan,
-        "p_mae_s":       round(p_mae, 4)      if not np.isnan(p_mae)      else np.nan,
-        "p_rmse_s":      round(p_rmse, 4)     if not np.isnan(p_rmse)     else np.nan,
-        "s_mae_s":       round(s_mae, 4)      if not np.isnan(s_mae)      else np.nan,
-        "s_rmse_s":      round(s_rmse, 4)     if not np.isnan(s_rmse)     else np.nan,
-        "p_outlier":     round(p_outlier, 4)  if not np.isnan(p_outlier)  else np.nan,
-        "s_outlier":     round(s_outlier, 4)  if not np.isnan(s_outlier)  else np.nan,
-        "outlier_thr_s": OUTLIER_THR_S,
-    }
-    for k, v in {**p_recalls, **s_recalls}.items():
-        row[k] = round(v, 4) if not np.isnan(v) else np.nan
-    return row
+    return _compute_metrics(
+        df, weight_name, split_name, dist_label or "all",
+        p_threshold=THRESHOLD_P, s_threshold=THRESHOLD_S,
+        tier=PHASENET_WEIGHTS.get(weight_name, {}).get("tier", "?"),
+        degenerate=weight_name in DEGENERATE_MODELS,
+    )
 
 
 print("\nComputing metrics …")

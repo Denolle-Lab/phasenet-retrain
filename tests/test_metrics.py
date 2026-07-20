@@ -20,21 +20,20 @@ normal import.
 
 Metric math (compute_metrics)
 -----------------------------
-`compare_v7_thresholds.py` still runs its analysis driver (reads
-`step3_results.parquet`, writes CSV/PNG) at *import* time, so it can't be
-imported in a test. Until that driver is guarded under
-`if __name__ == "__main__":` (issue #12), we extract just `compute_metrics` via
-the AST shim below; afterwards, replace it with a plain
-`from scripts.compare_v7_thresholds import compute_metrics`.
+`compare_v7_thresholds.py`'s analysis driver (reads `step3_results.parquet`,
+writes CSV/PNG) is now guarded under `if __name__ == "__main__":` (fixed
+alongside #8), so `compute_metrics` imports cleanly with no AST-shim tricks.
 
-`compute_metrics` computes MAE/outlier UNCONDITIONALLY (over all in-window
-traces, including undetected ones), which the audit flags as not
-Münchmeyer-comparable (issue #8). One test below documents that behavior and
-should be flipped when MAE becomes detected-only.
+`compute_metrics` computes p_mae_s/p_outlier UNCONDITIONALLY (over all
+in-window traces, including undetected ones) for backward compatibility —
+this is the number the original audit flagged as not Münchmeyer-comparable
+(issue #8), kept threshold-invariant on purpose so existing reports don't
+silently change meaning. `p_mae_s_cond` is the new, conditional
+(detected-only) version added by #8's fix, and DOES vary with threshold —
+see scripts/metrics.py.
 
 Run with:  pytest tests/ -v
 """
-import ast
 import pathlib
 import sys
 
@@ -45,39 +44,10 @@ pd = pytest.importorskip("pandas")
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 SCRIPTS = REPO / "scripts"
-SRC = SCRIPTS / "compare_v7_thresholds.py"
 sys.path.insert(0, str(SCRIPTS))
 
 import domain_registry  # noqa: E402  (cleanly importable — no import-time driver)
-
-
-# ── AST shim: load only compute_metrics, skipping the import-time driver ──────
-
-def _load_compute_metrics():
-    """Exec only `compute_metrics` (+ OUTLIER_THR and its numpy/pandas/sklearn
-    imports), skipping the module-level analysis driver. TEMPORARY — remove once
-    the driver is guarded under `if __name__ == "__main__":` (issue #12)."""
-    pytest.importorskip("sklearn")  # matthews_corrcoef is imported at module top
-    tree = ast.parse(SRC.read_text())
-    body = []
-    for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and node.name == "compute_metrics":
-            body.append(node)
-        elif isinstance(node, (ast.Import, ast.ImportFrom)) and any(
-            k in ast.dump(node) for k in ("numpy", "pandas", "sklearn")
-        ):
-            body.append(node)
-        elif isinstance(node, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id == "OUTLIER_THR" for t in node.targets
-        ):
-            body.append(node)
-    module = ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
-    ns: dict = {}
-    exec(compile(module, str(SRC), "exec"), ns)  # noqa: S102 - trusted local source
-    return ns["compute_metrics"]
-
-
-compute_metrics = _load_compute_metrics()
+from compare_v7_thresholds import compute_metrics  # noqa: E402
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -122,14 +92,26 @@ def test_n_traces_counts_the_whole_slice():
     assert compute_metrics(df, 0.3, 0.3)["n_traces"] == 2
 
 
-def test_mae_is_currently_unconditional_and_threshold_independent():
-    """MAE averages over ALL in-window traces, incl. undetected ones, so it does
-    not change with the detection threshold (issue #8). When MAE becomes
-    detected-only, FLIP this to `assert hi["p_mae_s"] != lo["p_mae_s"]`."""
+def test_legacy_mae_is_unconditional_and_threshold_independent():
+    """p_mae_s averages over ALL in-window traces, incl. undetected ones, so it
+    does not change with the detection threshold -- kept this way on purpose
+    for backward compatibility with existing reports (issue #8)."""
     df = _p_only(p_prob=[0.90, 0.05], p_res=[0.1, 4.0])
     hi = compute_metrics(df, thr_p=0.90, thr_s=0.90)   # only 1 "detected"
     lo = compute_metrics(df, thr_p=0.01, thr_s=0.01)   # both "detected"
     assert hi["p_mae_s"] == lo["p_mae_s"] == pytest.approx(2.05)
+
+
+def test_conditional_mae_varies_with_threshold():
+    """p_mae_s_cond (issue #8's fix) is detected-only, so raising the threshold
+    to exclude the bad pick should improve it -- the real answer to "does a
+    lower threshold cost timing accuracy" that p_mae_s cannot give."""
+    df = _p_only(p_prob=[0.90, 0.05], p_res=[0.1, 4.0])
+    hi = compute_metrics(df, thr_p=0.90, thr_s=0.90)   # only the good pick detected
+    lo = compute_metrics(df, thr_p=0.01, thr_s=0.01)   # both detected
+    assert hi["p_mae_s_cond"] == pytest.approx(0.1)
+    assert lo["p_mae_s_cond"] == pytest.approx(2.05)
+    assert hi["p_mae_s_cond"] != lo["p_mae_s_cond"]
 
 
 # ══ domain_registry.split_masks: regression guard for the #7 fix ══════════════

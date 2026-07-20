@@ -119,22 +119,30 @@ removed** (Aguilar et al. label-error method; `albertleonardo/labelerrors`); and
 uniform coverage in space, depth, tectonic regime, and P/S feature diversity
 (travel time, spectral content, polarity).
 
-::: {.callout-important}
-**Audit headline (read first).** The work to date is a serious, well-documented
-experimental campaign (19 versioned fine-tuning runs with written post-mortems).
-However, three issues currently prevent the headline claims from being
-deployment- or publication-ready, and are detailed in @sec-audit:
+::: {.callout-note}
+**Audit headline (read first) — all three items fixed 2026-07-20.** The work
+to date is a serious, well-documented experimental campaign (19 versioned
+fine-tuning runs with written post-mortems). Three issues previously
+prevented the headline claims from being deployment- or publication-ready,
+detailed (with fix status) in @sec-audit:
 
-1. The **"cross-domain" benchmark split is a no-op** for the fine-tuned models
-   and the jma_wc baseline (it equals the full set), and the **training manifests
-   are not committed**, so train/test independence cannot yet be verified.
-2. The headline **P-MAE is *unconditional*** (averaged over undetected traces
-   whose residuals saturate at the ±5 s search window), which is **not the
-   Münchmeyer definition** and underlies a misleading "recall at zero MAE cost"
-   statement.
-3. The documented label-error cleaning and the README dataset list describe a
-   pipeline that was **not** the one used to train the v-series models. The
-   methods narrative must be reconciled with what was actually run.
+1. ✅ *#7 (no-op split, fixed earlier) + #6.* The cross-domain split no-op was
+   fixed; event-level train/test splitting is in place for datasets without a
+   derivable event key. Training manifests still aren't committed (too large,
+   machine-specific), but every derivation is now reproducible + hash-verified
+   from committed code (`build_oversampled_manifests.py`,
+   `hash_manifests.py`).
+2. ✅ *#8.* The headline P-MAE is still reported unconditionally for backward
+   compatibility, but a **conditional (detected-only)** P-MAE is now also
+   computed (`scripts/metrics.py`) — and it reveals a REAL cost the old
+   unconditional number hid: lowering v7's threshold from 0.30→0.10 raises
+   conditional P-MAE from 0.198s to 0.236s (all distances). "Recall gains at
+   zero MAE cost" was circular, not true — there is a real timing cost, now
+   measurable.
+3. ✅ *#10, #12.* Label-error cleaning is now correctly applied to the
+   training pool (not just the benchmark), and the docs/README were
+   reconciled to describe the pipeline that was actually run, with the unused
+   template scaffold deleted.
 :::
 
 # What: the data and the model {#sec-what}
@@ -581,16 +589,29 @@ broader group. Items are ordered by impact on conclusions. Each cites
    register the FT training datasets in the split logic, and re-report a genuine
    cross-domain leaderboard with event-level (not just trace-level) separation.
 
-2. **Headline MAE/RMSE/outlier are unconditional and ±5 s-saturated.**
-   `compute_metrics` averages `|residual|` over *all* in-window traces including
-   undetected ones, whose residual is the global peak within ±5 s (censored at the
-   window edge) (`eval_finetuned.py:299–305`; residuals verified to span exactly
-   [−5.0, +4.99]). This is **not** the Münchmeyer (detected-only) definition,
-   makes teleseismic MAE meaningless, and produces the misleading **"recall gains
-   at zero MAE cost"** statement (`compare_v7_thresholds.py:406–408`) — which is
-   *circular*, since unconditional MAE is threshold-independent **by
-   construction**. *Action:* report conditional (detected-only) MAE/RMSE/outlier
-   matched to Münchmeyer, alongside recall, and drop the zero-cost framing.
+2. ✅ *Done 2026-07-20 (#8).* **Headline MAE/RMSE/outlier were unconditional
+   and ±5s-saturated.** `compute_metrics` averaged `|residual|` over *all*
+   in-window traces including undetected ones, whose residual is the global
+   peak within ±5s (censored at the window edge) — not the Münchmeyer
+   (detected-only) definition, and the reason "recall gains at zero MAE cost"
+   was circular (unconditional MAE is threshold-independent by construction).
+   Fixed: `scripts/metrics.py` (the single shared implementation now used by
+   every eval/recompute script, replacing 8 duplicated copies — also closes
+   the metric-dedup half of #12) adds conditional (detected-only)
+   MAE/RMSE/outlier, a Münchmeyer-correct 1.0s outlier threshold alongside
+   the legacy 1.5s one, and bootstrap 95% CIs. The legacy unconditional
+   columns are kept (not removed) for backward compatibility with existing
+   plots/tables. Re-running `compare_v7_thresholds.py` with the fix shows the
+   real (non-circular) cost: v7's conditional P-MAE degrades 0.198s→0.236s
+   (all distances) going from threshold 0.30→0.10 — recall gains do have a
+   timing cost, the unconditional number just couldn't see it.
+
+   **Not fixed / genuinely out of scope without new data:** a real
+   Münchmeyer-style detection MCC and a precision/false-positive evaluation
+   both need negative/noise windows, which this benchmark doesn't have (every
+   benchmark trace has a true arrival). The MCC reported is honestly
+   relabeled as "P-vs-S discriminability," not detection MCC, rather than
+   silently kept mislabeled.
 
 3. ✅ *Done 2026-07-20 (#12).* **Methods/README described a pipeline that was
    not used.** `docs/DATASETS.md` documented Pipeline A (5 datasets +
@@ -603,37 +624,46 @@ broader group. Items are ordered by impact on conclusions. Each cites
 
 ## Important (affect interpretation) {#sec-important}
 
-4. **Outlier threshold mislabeled.** 1.5 s is used throughout but attributed to
-   "Münchmeyer 2022," which uses 1.0 s (`eval_finetuned.py:67`). Harmonize or
-   stop attributing.
+4. ✅ *Done 2026-07-20 (#8).* **Outlier threshold was mislabeled.** 1.5s was
+   used throughout but attributed to "Münchmeyer 2022," which uses 1.0s.
+   Fixed: `scripts/metrics.py` reports both, correctly labeled
+   (`p_outlier`/`s_outlier` = legacy 1.5s, `p_outlier_1s`/`s_outlier_1s` =
+   the real Münchmeyer 1.0s), rather than picking one silently.
 
-5. **MCC measures the wrong thing.** It is a within-window P-vs-S argmax score
-   (`eval_finetuned.py:287–297`), not noise-vs-signal classification; it yields
-   an impossible `MCC = 1.0, MAE = 3.17 s` for a degenerate model. Redefine to
-   match Münchmeyer.
+5. ✅ *Relabeled 2026-07-20 (#8), not fully fixable.* **MCC measures the wrong
+   thing.** It is a within-window P-vs-S argmax score, not noise-vs-signal
+   classification. A genuine Münchmeyer-style detection MCC needs
+   negative/noise windows, which this benchmark doesn't have (every trace has
+   a true arrival) — building that is new benchmark infrastructure, not a
+   metrics-code fix, and is not done. What's fixed: the existing score is now
+   honestly documented as "P-vs-S discriminability" (`metrics.py`'s
+   `mcc_caveat` field) instead of silently presented as Münchmeyer's MCC.
 
-6. **No uncertainty quantification.** No confidence intervals, bootstrap, or
-   significance tests anywhere; differences like 0.339 vs 0.374 are reported bare.
-   Teleseismic conditional metrics rest on ≈122–344 detected picks. *Action:* add
-   bootstrap CIs per bin.
+6. ✅ *Done 2026-07-20 (#8).* **No uncertainty quantification.** Fixed:
+   `scripts/metrics.py::bootstrap_ci()` adds 95% percentile bootstrap CIs
+   (1000 resamples) for P/S-MAE and P/S-recall, per (weight, split, dist_bin)
+   row.
 
 7. **Threshold tuned on the evaluation set.** The 0.30→0.10 threshold sweeps run
    on the same traces reported as results (`threshold_sweep_v7*.py`,
-   `compare_v7_thresholds.py`). Needs a held-out tuning split.
+   `compare_v7_thresholds.py`). Needs a held-out tuning split. *Not yet
+   addressed.*
 
-8. **AMP/precision mismatch.** Configs set `precision: "32-true"` *and*
-   `amp: true`; the pure-PyTorch driver ignores `precision` and runs **fp16
-   AMP** (`finetune.py:207`). All v-series results were produced under fp16, not
-   fp32 — relevant because the differences chased are small. Label honestly.
+8. ✅ *Fixed 2026-07-12 (#14).* **AMP/precision mismatch.** Configs set
+   `precision: "32-true"` *and* `amp: true`; the pure-PyTorch driver ignores
+   `precision` and runs fp16 AMP. All 25 finetune configs relabeled to
+   `"16-mixed"` with a comment clarifying `amp` is the real toggle.
 
 ## Correctness / hygiene (lower impact) {#sec-hygiene}
 
 9. **Reproducibility:** only `torch.manual_seed` is set; NumPy/Python `random`
    (used for all augmentation and noise-window placement) are unseeded;
    `cudnn.benchmark=True` and `torch.compile` are on. Not bit-reproducible.
-10. **Silent data failures:** `manifest_dataset.py:370–375` swallows all
-    waveform-fetch exceptions and returns an all-noise zero sample with no
-    logging — corrupt traces silently become phantom noise examples.
+   *Not yet addressed.*
+10. ✅ *Fixed 2026-07-12 (#14).* **Silent data failures:**
+    `manifest_dataset.py`'s waveform-fetch exceptions are now counted and
+    logged (throttled after the first 20, then every 500) instead of
+    silently returning a fake all-noise sample.
 11. ✅ *Fixed 2026-07-12 (#14).* **Focal × class-weight bug** (`fine_tune_model.py:226`):
     `pt = exp(−ce_per)` was wrong when class weights were set. `pt` is now
     computed from an unweighted CE with weights applied separately.
@@ -662,10 +692,13 @@ broader group. Items are ordered by impact on conclusions. Each cites
    reproducible. FT datasets are registered per-weight (#7) and event-level
    splitting is in place for datasets without a derivable event key issue
    (#32).
-2. Re-report the leaderboard with **conditional** MAE/RMSE/outlier (1.0 s
-   threshold), a corrected MCC, and **bootstrap CIs**; add a **precision/false-
-   positive** evaluation on continuous or noise windows (the reliability metric
-   the project actually needs).
+2. ✅ *Mostly done 2026-07-20 (#8):* conditional MAE/RMSE/outlier (both 1.0s
+   and legacy 1.5s thresholds) and bootstrap CIs are now computed by
+   `scripts/metrics.py` and available for re-reporting the leaderboard.
+   Genuinely not done — needs new benchmark infrastructure, not a metrics
+   fix: a **precision/false-positive** evaluation and a real detection-based
+   MCC both require negative/noise windows, which this benchmark doesn't
+   have.
 3. Lock a **held-out** test split untouched by version selection and threshold
    tuning; re-confirm the v7-vs-jma_wc comparison on it.
 

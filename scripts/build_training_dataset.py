@@ -355,7 +355,8 @@ def normalise_split(s):
 # Per-dataset processing
 # ──────────────────────────────────────────────────────────────────────────────
 
-def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_balanced=False):
+def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_balanced=False,
+                     label_error_exclude=None, label_error_report=None):
     """
     Load one dataset, filter for valid P picks, compute distances, apply cap.
     benchmark_exclude : set of trace_name strings to exclude (benchmark traces).
@@ -364,6 +365,10 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
                         DIFFERENT trace_name (issue #32), which benchmark_exclude
                         alone cannot.
     s_balanced        : if True and use_s=True, additionally require a valid S pick.
+    label_error_exclude : set of trace_name strings Aguilar's confident-learning
+                        analysis flags as bad labels (GitHub #10), or None.
+    label_error_report : optional list to append a per-dataset removal-fraction
+                        row to (dataset, n_before, n_flagged_present, pct_removed).
     Returns a standardised DataFrame or None on failure.
     """
     name = cfg["name"]
@@ -421,6 +426,23 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         n_removed = before - len(meta)
         if n_removed:
             print(f"    excluded {n_removed:,} benchmark traces → {len(meta):,} remaining")
+
+    # ── exclude Aguilar-flagged bad-label traces (issue #10) ──────────────────
+    if label_error_exclude and "trace_name" in meta.columns:
+        before = len(meta)
+        keep_le = ~meta["trace_name"].isin(label_error_exclude)
+        meta   = meta.loc[keep_le].copy()
+        p_vals = p_vals.loc[keep_le]
+        n_removed = before - len(meta)
+        if label_error_report is not None:
+            label_error_report.append({
+                "dataset": name,
+                "n_before_label_error_filter": before,
+                "n_removed": n_removed,
+                "pct_removed": round(100 * n_removed / before, 3) if before else 0.0,
+            })
+        if n_removed:
+            print(f"    excluded {n_removed:,} Aguilar bad-label traces → {len(meta):,} remaining")
 
     # ── exclude benchmark EVENTS under a different trace_name (issue #32) ────
     if event_exclude:
@@ -714,6 +736,26 @@ def print_summary(train_df, val_df, test_df):
 BENCHMARK_CSV = Path(__file__).parent.parent / "notebooks" / "benchmark_manifest.csv"
 
 
+def load_label_error_exclusions():
+    """
+    Load Aguilar's confident-learning "bad label" trace_names (GitHub #10) for
+    every dataset with a published multiplet report, so they're excluded from
+    the training pool the same way the benchmark pool already excludes them
+    (notebooks/04_creating_benchmark_dataset.ipynb §1.4b).
+
+    Returns {dataset_name: frozenset of trace_name}.
+    """
+    import label_error_filter as lef
+    exclusions = {}
+    for dataset_name in sorted(set(lef.REPORT_STEM_TO_DATASET.values())):
+        bad = lef.load_bad_trace_names(dataset_name, extra_cache_dirs=["data/labelerrors"])
+        if bad:
+            exclusions[dataset_name] = frozenset(bad)
+    total = sum(len(v) for v in exclusions.values())
+    print(f"  Loaded {total:,} Aguilar-flagged bad-label traces across {len(exclusions)} datasets")
+    return exclusions
+
+
 def load_benchmark_exclusions():
     """
     Load (dataset_name, trace_name) pairs from the benchmark manifest so they
@@ -760,29 +802,35 @@ def load_benchmark_exclusions():
     return trace_exclusions, event_exclusions
 
 
-def main(output_dir, seed, s_balanced=False):
+def main(output_dir, seed, s_balanced=False, label_error_filter=True):
     rng = np.random.default_rng(seed)
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
     print("=" * 70)
     print("Building PhaseNet training manifests")
-    print(f"  SeisBench cache : {SEISBENCH_CACHE}")
-    print(f"  Output dir      : {out_path.resolve()}")
-    print(f"  Random seed     : {seed}")
-    print(f"  S-balanced mode : {s_balanced}")
+    print(f"  SeisBench cache      : {SEISBENCH_CACHE}")
+    print(f"  Output dir           : {out_path.resolve()}")
+    print(f"  Random seed          : {seed}")
+    print(f"  S-balanced mode      : {s_balanced}")
+    print(f"  Label-error filter   : {label_error_filter}")
     print("=" * 70)
 
     # ── load benchmark exclusions ────────────────────────────────────────────
     benchmark_exclusions, benchmark_event_exclusions = load_benchmark_exclusions()
+    label_error_exclusions = load_label_error_exclusions() if label_error_filter else {}
 
     # ── process all datasets ─────────────────────────────────────────────────
     frames = []
+    label_error_report = []
     for cfg in DATASET_CONFIGS:
         exclude = benchmark_exclusions.get(cfg["name"], set())
         event_exclude = benchmark_event_exclusions.get(cfg["name"], frozenset())
+        le_exclude = label_error_exclusions.get(cfg["name"], frozenset())
         df = process_dataset(cfg, rng, benchmark_exclude=exclude,
-                              event_exclude=event_exclude, s_balanced=s_balanced)
+                              event_exclude=event_exclude, s_balanced=s_balanced,
+                              label_error_exclude=le_exclude,
+                              label_error_report=label_error_report)
         if df is not None:
             frames.append(df)
 
@@ -833,6 +881,14 @@ def main(output_dir, seed, s_balanced=False):
     summary = pd.DataFrame(rows)
     summary.to_csv(out_path / "composition_summary.csv", index=False)
 
+    if label_error_report:
+        le_df = pd.DataFrame(label_error_report)
+        le_df.to_csv(out_path / "label_error_removal_report.csv", index=False)
+        print("\n  Aguilar bad-label removal (GitHub #10):")
+        for _, r in le_df.iterrows():
+            print(f"    {r['dataset']:16s}  removed {r['n_removed']:>7,} / "
+                  f"{r['n_before_label_error_filter']:>7,}  ({r['pct_removed']:.2f}%)")
+
     print_summary(train_df, val_df, test_df)
 
     print(f"\n  Manifests written to {out_path.resolve()}/")
@@ -852,5 +908,8 @@ if __name__ == "__main__":
                         help="Random seed for reproducibility (default: 42)")
     parser.add_argument("--s-balanced", action="store_true",
                         help="Require valid S pick for datasets with use_s=True (boosts S-recall training signal)")
+    parser.add_argument("--no-label-error-filter", action="store_true",
+                        help="Skip excluding Aguilar-flagged bad-label traces (GitHub #10; on by default)")
     args = parser.parse_args()
-    main(args.output_dir, args.seed, s_balanced=args.s_balanced)
+    main(args.output_dir, args.seed, s_balanced=args.s_balanced,
+         label_error_filter=not args.no_label_error_filter)

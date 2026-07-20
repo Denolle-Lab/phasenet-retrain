@@ -196,14 +196,17 @@ SeisBench data documentation. Do **not** publish unverified DOIs.
 `distance_bin` (`build_training_dataset.py:467–483`), so a trace can be traced
 back to its source dataset.
 
-::: {.callout-warning}
-**Reproducibility gap.** The committed `data/` directory is effectively empty —
-the manifest CSVs (`manifests_v2/`, `manifests_v3/`, `train_tele2x.csv`,
-`train_p_focused.csv`, `train_v18.csv`) that actually trained v2–v19 are **not in
-the repository**, and the scripts that derived the oversampled variants are not
-committed. The SeisBench cache path is **hard-coded** to a single machine
-(`/data/wsd04/ak287/.seisbench`). The exact training composition is therefore not
-reproducible from this repo alone.
+::: {.callout-note}
+**Reproducibility gap — fixed 2026-07-20 (GitHub #6).** The manifest CSVs
+themselves (`manifests_v2/`, `manifests_v3/`, ...) still aren't committed (too
+large for GitHub, and machine-specific), but the builders that derive every
+oversampled variant now are: `scripts/build_oversampled_manifests.py`
+reproduces `train_tele2x.csv`, `train_v18.csv`, `train_p_focused.csv`, and
+`val_p_focused.csv` byte-for-byte from their base manifests, and
+`scripts/hash_manifests.py` commits a sha256 fingerprint of every deployed
+manifest's trace composition (`data/manifest_checksums.csv`) so a
+regeneration can be verified without re-uploading the manifest. The SeisBench
+cache path was also de-hardcoded (#9) — it now reads `SEISBENCH_CACHE_ROOT`.
 :::
 
 ## Label-error cleaning {#sec-labelerrors}
@@ -212,16 +215,20 @@ The intended method (Aguilar et al.; `github.com/albertleonardo/labelerrors`,
 arXiv:2511.09805) flags traces with more arrivals than labeled (multiplets) or
 seismic energy in "noise" windows, and removes them.
 
-**What is actually applied today:** label-error exclusion (~103k flagged
-`trace_name`s across STEAD/INSTANCE/PNW/TXED/ETHZ) is applied **only to the
-benchmark pool** (`notebooks/04_creating_benchmark_dataset.ipynb`, keyed on
-`trace_name` — the correct method). The standalone training-side filter
-(`scripts/label_error_filter.py`) has an index-vs-`trace_name` matching bug
-(lines 146–172) and is **not wired into Pipeline B at all**. The "expected
-removal rates" in `docs/LABEL_ERROR_FILTERING.md` are placeholder values.
-
-➡️ **Action:** apply the (correct, `trace_name`-keyed) cleaning to the *training*
-pool and report the true removal fraction per dataset.
+**What is applied now (fixed 2026-07-20, GitHub #10):** the training-side
+filter (`scripts/label_error_filter.py`) had an index-vs-`trace_name`
+matching bug (it matched the report CSV's positional row index rather than
+the actual `trace_name` string, so it silently excluded nothing) and was not
+wired into Pipeline B at all. Both are fixed:
+`scripts/build_training_dataset.py` now excludes Aguilar-flagged traces from
+the training pool by default (keyed on `trace_name`, same method as the
+benchmark pool) and writes a real per-dataset removal report
+(`label_error_removal_report.csv`) on every build. Dataset-level flagged
+fractions: INSTANCE 7.99%, AQ2009GM 10.33%, CEED 5.06%, PNW 2.70%, ETHZ
+2.44%, TXED 0.90%, STEAD 0.01% — see `docs/LABEL_ERROR_FILTERING.md` for the
+full table and methodology notes (CEED/AQ2009GM reports weren't published yet
+when the benchmark pool's cleaning pass was originally run, so those two are
+currently training-side only).
 
 ## Rebalancing — implemented vs. aspirational {#sec-rebalance}
 
@@ -635,8 +642,11 @@ broader group. Items are ordered by impact on conclusions. Each cites
 
 **Immediately, before any model is promoted:**
 
-1. Commit manifests (or trace-name hashes); register FT datasets and produce a
-   *genuine* cross-domain, **event-level** train/test split.
+1. ✅ *Done 2026-07-20 (#6):* trace-name hashes committed
+   (`data/manifest_checksums.csv`) and the oversampled-manifest builders are
+   reproducible. FT datasets are registered per-weight (#7) and event-level
+   splitting is in place for datasets without a derivable event key issue
+   (#32).
 2. Re-report the leaderboard with **conditional** MAE/RMSE/outlier (1.0 s
    threshold), a corrected MCC, and **bootstrap CIs**; add a **precision/false-
    positive** evaluation on continuous or noise windows (the reliability metric
@@ -646,8 +656,9 @@ broader group. Items are ordered by impact on conclusions. Each cites
 
 **Phase 1 (onshore) modeling directions** suggested by the trajectory:
 
-4. Apply training-side label cleaning (correct `trace_name` keying) and report
-   real removal fractions.
+4. ✅ *Done 2026-07-20 (#10):* training-side label cleaning applied (correct
+   `trace_name` keying), real per-dataset removal fractions reported in
+   `docs/LABEL_ERROR_FILTERING.md`.
 5. Replace hard-argmax CE with **soft CE** (preserving label timing) instead of
    the harmful explicit timing/presence losses; keep KD α≈0.3.
 6. Address the **recall gap** (the real weakness vs jma_wc) — especially low-SNR

@@ -408,8 +408,19 @@ when that was insufficient, added regression-style timing losses that broke
 detection. The cleaner design, already used by the cited models *and by our own
 from-scratch path*, is to **fine-tune with the same soft-label CE as the teacher**
 and keep KD purely as the forgetting regularizer. This removes the internal
-contradiction and is our leading hypothesis for closing the recall gap (the real
+contradiction and was our leading hypothesis for closing the recall gap (the real
 deficit vs `jma_wc`; @sec-bydist) without the timing collapse seen in v13.
+
+::: {.callout-important}
+**Tested 2026-07-21 and refuted (GitHub #11, config `v20` — v7's exact recipe
+plus `soft_ce: true`, the only change).** Rather than closing the recall gap,
+v20 came out worse than v7 on *both* axes: clean_holdout P-MAE 0.330 vs v7's
+0.290 (+14%), and recall 0.843 vs v7's 0.876 — no seesaw trade, just a
+regression. The soft-CE + KD combination does not obviously outperform
+hard-CE + KD for this fine-tuning setup; the engineering critique above may
+still be correct in principle, but this single-variable swap does not confirm
+it in practice, and the recall gap vs `jma_wc` remains open.
+:::
 
 ### How this maps onto the leaderboard
 
@@ -540,7 +551,7 @@ teleseismic picks better." The only model with genuine teleseismic capability in
 the pool is **geofon** (recall 0.775), the teleseismic-trained baseline.
 :::
 
-# The experimental trajectory (v1 → v19) {#sec-trajectory}
+# The experimental trajectory (v1 → v20) {#sec-trajectory}
 
 The configuration headers document a disciplined campaign of single-variable
 experiments, each with a written post-mortem. The recurring lesson is a
@@ -564,8 +575,9 @@ the final version.
 | v13 | α=0 + noise + presence loss + 2× tele | **Best recall 0.888, MCC 0.943** but P-MAE 0.967 |
 | v14–v16 | dial noise/presence, restore KD | P-MAE 0.46–1.04 (noise hurts timing) |
 | v17 | 2× tele, no noise, fresh init | Regional P-MAE worsened (tele data hurts timing) |
-| v18 | S-balanced + 1.5× tele + **focal γ=1** | *Never completed — crashed during validation-set pre-load, no checkpoint was ever saved (GitHub #13); re-running is a fresh training run, not a benchmark backfill* |
+| v18 | S-balanced + 1.5× tele + **focal γ=1** | Re-run to completion 2026-07-21 (GitHub #13) on the fixed `train_v18.csv` manifest. clean_holdout P-MAE 0.459 — worse than v7 on timing by ~58%, despite the highest recall of any single fine-tune tested (0.888) and comparable MCC (0.714). Confirms the recall↔timing seesaw again: teleseismic oversampling + focal loss buys recall at a large P-MAE cost |
 | v19 | local+regional only, monitor val_p_mae_s | P-MAE 0.381, recall 0.810, MCC 0.696 — did **not** beat v7 on P-MAE despite being P-MAE-focused (GitHub #13, 2026-07-20) |
+| v20 | **v7's exact recipe + soft-label CE** (isolates GitHub #11's hypothesis) | clean_holdout P-MAE 0.330, recall 0.843, MCC 0.714 — worse than v7 on **both** P-MAE (+14%) and recall, refuting the soft-label-CE hypothesis in @sec-audit as tested here (single-variable swap, 2026-07-21) |
 
 **Key conclusions the team reached** (well-supported by the configs): (1)
 **KD distillation (α≈0.3) is the indispensable cross-domain regularizer** —
@@ -680,19 +692,21 @@ broader group. Items are ordered by impact on conclusions. Each cites
 11. ✅ *Fixed 2026-07-12 (#14).* **Focal × class-weight bug** (`fine_tune_model.py:226`):
     `pt = exp(−ce_per)` was wrong when class weights were set. `pt` is now
     computed from an unweighted CE with weights applied separately.
-12. **Hard-argmax CE** discards Gaussian-label timing information
-    (`fine_tune_model.py:223`); consider the scratch path's soft CE. (Tracked
-    as GitHub #11 — soft-label CE fine-tune experiment, not yet run.)
+12. ✅ *Tested 2026-07-21 (#11).* **Hard-argmax CE** discards Gaussian-label
+    timing information (`fine_tune_model.py:223`); the scratch path's soft CE
+    was tried as `v20` (v7's recipe + `soft_ce: true`). Result: worse than v7
+    on both P-MAE and recall (@sec-trajectory) — the hypothesis did not pan
+    out for this fine-tuning setup.
 13. ✅ *Fixed 2026-07-20 (#12).* **Channel-order trap** — the dead Lightning
     path (`model.py`, NPS-ordered, disagreeing with the active PSN
     convention) has been deleted.
-14. ✅ *Fixed 2026-07-20 (#12, #13).* Dead code in
+14. ✅ *Fixed 2026-07-20/21 (#12, #13).* Dead code in
     `threshold_sweep_v7_teleseismic.py` (unused `table_data`/`cell_colors`,
-    dead `to_rgba` import) removed. v19 and the from-scratch run now have
-    recorded benchmark outcomes (see the leaderboard and trajectory tables
-    above). v18 still has none — it crashed before ever saving a checkpoint;
-    re-running it is a fresh training job, not a backfill. Metric-logic
-    de-duplication across eval/sweep scripts is still open, folded into #8.
+    dead `to_rgba` import) removed. v18, v19, and the from-scratch run now all
+    have recorded benchmark outcomes (see the leaderboard and trajectory
+    tables above) — v18 was re-run to completion 2026-07-21 after its earlier
+    crash. Metric-logic de-duplication across eval/sweep scripts is still
+    open, folded into #8.
 
 ![Normalization fix (`notebooks/step3_norm_fix_comparison.png`): applying peak-vs-std normalization correctly changed STEAD P-MAE from 1.17→0.04 s — an example of how sensitive these metrics are to pipeline details. Belongs in a methods appendix.](notebooks/step3_norm_fix_comparison.png){#fig-norm width=85%}
 

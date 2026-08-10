@@ -34,7 +34,70 @@ started).
 trained on Japan Meteorological Agency's unified catalog (Naoi et al. 2024,
 *Earth Planets Space*, 10.1186/s40623-024-02091-8). Empirically the
 best-performing pretrained PhaseNet weight in initial evaluation, hence chosen
-as the fine-tuning base and teacher.
+as the fine-tuning base and teacher — full comparison and reasoning below.
+
+### 1a. Why `jma_wc` — the initial pretrained-weight comparison
+
+Before any fine-tuning began, every publicly released pretrained PhaseNet
+weight in SeisBench was evaluated on the same benchmark, `all` split (this
+predates the leakage-correction work in §3, so it's the same population the
+original decision was actually made on — see the leak-corrected re-check
+below for whether the decision survives that later work). Three rows
+(`original`, `phasenet_sn`, `diting`) are **degenerate** (recall=MCC=1.0, a
+broken-eval artifact per §6) and excluded from the comparison, not just
+flagged:
+
+| Weight | n | P-recall | S-recall | P-MAE (s) | MCC (P-vs-S) | P-outlier |
+|---|--:|--:|--:|--:|--:|--:|
+| instance | 32,144 | 0.876 | 0.393 | **0.370** | 0.871 | 0.071 |
+| volpick | 32,144 | 0.830 | **0.579** | 0.373 | 0.515 | 0.071 |
+| **jma_wc** | 32,144 | **0.881** | 0.549 | 0.374 | 0.790 | 0.071 |
+| jma | 32,144 | 0.870 | 0.545 | 0.381 | 0.794 | 0.073 |
+| stead | 32,144 | 0.684 | 0.555 | 0.495 | 0.595 | 0.105 |
+| scedc | 32,144 | 0.800 | 0.386 | 0.508 | 0.770 | 0.105 |
+| neic | 32,144 | 0.551 | 0.248 | 0.528 | 0.372 | 0.106 |
+| ethz | 32,144 | 0.833 | 0.303 | 0.541 | 0.831 | 0.114 |
+| iquique | 32,144 | 0.725 | 0.484 | 0.658 | 0.655 | 0.139 |
+| obs | 32,144 | 0.610 | 0.382 | 0.891 | 0.527 | 0.200 |
+| geofon | 32,144 | 0.649 | 0.064 | 1.053 | 0.777 | 0.233 |
+| lendb | 32,144 | 0.322 | 0.000 | 2.634 | 0.783 | 0.665 |
+
+**Not simply "lowest MAE"** — `instance` and `volpick` actually edge out
+`jma_wc` on raw P-MAE by <1% (0.370/0.373 vs 0.374, within noise). `jma_wc`
+was chosen because it's the only weight in the top tier with **no clear
+weakness on any axis**: outright best P-recall (0.881), 2nd-best S-recall
+(0.549, behind only volpick), and a strong MCC (0.790). Its two closest MAE
+competitors each have one: `instance`'s S-recall (0.393) is ~16 points below
+`jma_wc`'s, and `volpick`'s MCC (0.515) is barely above chance — a P-vs-S
+discriminability weakness that resurfaces later as its true detection-MCC
+gap in §4f. `jma` (the same catalog without the wide-channel architecture) is
+close behind on every axis, consistent with the catalog mattering more than
+the architecture width, but doesn't beat `jma_wc` on any of them.
+
+**Does this survive leakage correction?** `jma_wc`'s own comparable
+leak-corrected number is `clean_holdout` (§4a: P-MAE 0.319, P-recall 0.909,
+MCC 0.781 — better than the pre-correction row above on every metric here,
+since `clean_holdout` is a stricter, smaller, harder population, not a
+looser one). For the other pretrained weights with a verifiable training
+corpus, `cross_domain_clean` gives the analogous check:
+
+| Weight | n | P-recall | S-recall | P-MAE (s) | MCC |
+|---|--:|--:|--:|--:|--:|
+| volpick | 32,022 | 0.829 | 0.577 | 0.374 | 0.515 |
+| instance | 23,098 | 0.837 | 0.354 | 0.461 | 0.848 |
+| scedc | 31,389 | 0.800 | 0.388 | 0.505 | 0.774 |
+| ethz | 30,727 | 0.828 | 0.283 | 0.558 | 0.827 |
+| stead | 21,278 | 0.555 | 0.663 | 0.653 | 0.388 |
+| iquique | 32,142 | 0.724 | 0.484 | 0.658 | 0.655 |
+
+`clean_holdout` and `cross_domain_clean` aren't the same population-size
+methodology (§4a/§4b already flag this), so this isn't a strict
+apples-to-apples re-ranking — but the pattern that mattered for the original
+decision holds: `instance`'s S-recall weakness gets *worse*, not better
+(0.354 vs the pre-correction 0.393), and `volpick`'s MCC is essentially
+unchanged (0.515, confirming it wasn't a leakage artifact propping up an
+otherwise-strong candidate). Nothing in this recheck overturns the original
+choice.
 
 **Design requirements:** metrics reported comparably to Münchmeyer et al.
 (2022); a hybrid training set with spurious labels removed (Aguilar et al.

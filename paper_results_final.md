@@ -410,54 +410,76 @@ then combined it with the existing leak-corrected positive population
 a Münchmeyer-style **detection MCC**, not the P-vs-S discriminability proxy
 used everywhere above.
 
-**Caveat, applies to every number below:** the positive:negative ratio here
-(~21–32k : ~94k) reflects benchmark/noise-pool *construction*, not the true
-earthquake:noise ratio of real continuous data (far more noise-dominated) —
-this is a real, computed detection score on a pooled test set, not a
-deployment-accurate false-alarm rate.
+**Threshold, corrected 2026-08-10:** the first pass through this analysis
+scored every model at one shared, arbitrary threshold (0.30). That is not a
+fair comparison — different models' probability outputs are calibrated
+differently, so 0.30 is each model's own natural operating point only by
+coincidence. The numbers below instead sweep a threshold grid (0.05–0.95,
+step 0.05) per model and report each model **at its own best-detection-MCC
+threshold** (`scripts/compute_detection_metrics.py`, full sweep in
+`results/detection_metrics_sweep.csv`). This changed two conclusions below
+outright — see the numbered list.
 
-| Weight | Precision | Recall | Detection MCC [95% CI] |
-|---|--:|--:|--:|
-| **Ensemble v7+v11** | **0.845** | 0.856 | **0.816** [0.811, 0.820] |
-| v11 | 0.838 | 0.828 | 0.797 [0.792, 0.801] |
-| eqt_scedc | 0.794 | 0.866 | 0.770 [0.766, 0.774] |
-| **v7 (champion fine-tune)** | 0.725 | 0.876 | **0.748** [0.743, 0.752] |
-| v7_eventclean | 0.685 | 0.881 | 0.723 [0.718, 0.728] |
-| eqt_volpick | 0.708 | 0.897 | 0.719 [0.715, 0.724] |
-| eqt_ensemble (volpick+nc) | 0.636 | 0.911 | 0.699 [0.694, 0.704] |
-| Ensemble v3+v7 | 0.657 | 0.881 | 0.696 [0.692, 0.701] |
-| **jma_wc (parent/teacher)** | 0.607 | 0.909 | **0.671** [0.666, 0.676] |
-| volpick | 0.649 | 0.829 | 0.629 [0.625, 0.634] |
-| **eqt_original_nonconservative** | 0.466 | 0.918 | **0.550** [0.546, 0.555] |
-| eqt_instance | 0.501 | 0.833 | 0.535 [0.530, 0.540] |
-| v20 | 0.450 | 0.843 | 0.501 [0.496, 0.506] |
-| v3 | 0.392 | 0.886 | 0.456 [0.451, 0.460] |
-| v18 | 0.211 | 0.888 | 0.047 [0.042, 0.052] |
+**Caveats, apply to every number below:** (1) the positive:negative ratio
+here (~21–32k : ~94k) reflects benchmark/noise-pool *construction*, not the
+true earthquake:noise ratio of real continuous data (far more
+noise-dominated) — this is a real, computed detection score on a pooled test
+set, not a deployment-accurate false-alarm rate. (2) Picking each model's
+best threshold *on this same pooled test set* is itself a mild form of the
+threshold-tuned-on-eval-set issue flagged in §6 — the reported MCC per model
+is an upper bound achievable on this population, not a threshold chosen
+independently in advance.
+
+| Weight | Best thr. | Precision | Recall | Detection MCC [95% CI] |
+|---|--:|--:|--:|--:|
+| **eqt_ensemble (volpick+nc)** | 0.50 | 0.956 | 0.814 | **0.859** [0.855, 0.863] |
+| **Ensemble v7+v11** | 0.35 | 0.883 | 0.827 | **0.823** [0.819, 0.827] |
+| **eqt_original_nonconservative** | 0.85 | 0.895 | 0.801 | **0.815** [0.811, 0.820] |
+| v11 | 0.40 | 0.891 | 0.786 | 0.804 [0.799, 0.808] |
+| eqt_volpick | 0.55 | 0.902 | 0.791 | 0.798 [0.794, 0.801] |
+| eqt_scedc | 0.40 | 0.859 | 0.820 | 0.788 [0.784, 0.793] |
+| Ensemble v3+v7 | 0.40 | 0.823 | 0.820 | 0.780 [0.776, 0.785] |
+| **jma_wc (parent/teacher)** | 0.50 | 0.834 | 0.800 | 0.776 [0.771, 0.780] |
+| **v7 (champion fine-tune)** | 0.45 | 0.842 | 0.781 | **0.771** [0.766, 0.776] |
+| v7_eventclean | 0.45 | 0.799 | 0.780 | 0.745 [0.740, 0.750] |
+| eqt_instance | 0.75 | 0.972 | 0.570 | 0.705 [0.700, 0.710] |
+| v20 | 0.50 | 0.825 | 0.632 | 0.671 [0.666, 0.676] |
+| volpick | 0.50 | 0.741 | 0.745 | 0.656 [0.651, 0.661] |
+| v3 | 0.65 | 0.846 | 0.577 | 0.648 [0.642, 0.654] |
+| v18 | 0.65 | 0.857 | 0.458 | 0.567 [0.561, 0.574] |
 
 **What this changes, not just confirms:**
 
-1. **v18's recall was fool's gold.** 2nd-best recall of any single fine-tune
-   (0.888) — but it fires on **85% of pure-noise windows**. Detection MCC
-   0.047, barely above chance. High recall alone was never sufficient
-   evidence of a good detector, exactly as this benchmark design couldn't
-   previously rule out.
-2. **`eqt_original_nonconservative`'s "decisive MCC win" over v7 (§4b: 0.930
-   vs 0.753) does not survive this check.** That 0.930 is P-vs-S
-   discriminability, not detection. Its real detection MCC (0.550) is
-   *substantially worse* than v7's (0.748) — part of its recall advantage was
-   bought with a false-positive rate ~3× v7's. **This supersedes §4b's
-   "eqt wins recall/MCC by a wide margin" framing.**
-3. **v7 beats its own `jma_wc` teacher on real detection MCC** (0.748 vs
-   0.671), despite losing on raw recall (0.876 vs 0.909). Fine-tuning traded
-   some recall for a measured drop in false triggers — the opposite of
-   "made the model worse at its primary job" (abstract-critique Q3), now that
-   the false-positive axis is no longer invisible.
-4. **Ensemble v7+v11 is the strongest single entry by this metric** (MCC
-   0.816, precision 0.845) — a better-balanced detector than v7 alone, worth
-   promoting to co-headline status rather than a secondary row.
+1. **v18's recall was fool's gold, and no threshold fixes it.** At a shared
+   0.30 threshold it fires on 85% of pure-noise windows; at its own
+   best-MCC threshold (0.65) that drops, but recall collapses to 0.458 and
+   detection MCC still bottoms the table (0.567) — the worst of any headline
+   model even given its best possible operating point. High recall alone was
+   never sufficient evidence of a good detector.
+2. **`eqt_original_nonconservative`'s detection MCC was previously reported
+   as decisively worse than v7's (0.550 vs 0.748) — that comparison was an
+   artifact of the shared 0.30 threshold, not a real property of the model.**
+   Its natural operating point is a high threshold (0.85); scored fairly
+   there, its detection MCC (0.815) is **better than v7's (0.771)**, closer
+   to §4b's original "eqt wins recall/MCC" framing than the fixed-threshold
+   correction suggested. Net effect across both passes: eqt's raw P-vs-S MCC
+   (§4b, 0.930) overstates its detection performance, but a fair detection
+   comparison still favors it over v7, just by a smaller margin (0.815 vs
+   0.771, not 0.930 vs 0.753).
+3. **v7 no longer beats its own `jma_wc` teacher on detection MCC** (0.771 vs
+   0.776) — the two are statistically indistinguishable at their own best
+   thresholds (overlapping 95% CIs), reversing the fixed-threshold-only
+   finding that fine-tuning measurably reduced false triggers relative to the
+   teacher.
+4. **`eqt_ensemble_volpick_nc` is the strongest single entry by this metric**
+   (MCC 0.859), ahead of `jma_wc_ft_ensemble_v7v11` (0.823, the best entry
+   among this project's own fine-tunes) and `eqt_original_nonconservative`
+   alone (0.815).
 
 Full data: `results/noise_fp_audit.csv` (1.4M per-trace rows),
-`results/noise_fp_leaderboard.csv`, `results/detection_metrics.csv`.
+`results/noise_fp_leaderboard.csv`, `results/detection_metrics_sweep.csv`
+(full per-model threshold sweep), `results/detection_metrics.csv`
+(best-threshold summary, superseded fixed-0.30 numbers no longer used).
 
 ## 5. Experimental trajectory (v1 → v20) — the recall↔timing seesaw
 
@@ -508,13 +530,18 @@ that check.
   classification — that limitation stands for those sections specifically,
   but a genuine detection MCC (needing a noise/negative-window benchmark
   subset) has now been built and is reported in §4f.
-- **Threshold selection on the evaluation set.** ✅ *Partially resolved (§4e).*
-  Whether model *rankings* depend on the arbitrary 0.30 cutoff was checked
-  directly via an exact threshold-independent metric (AUC-recall) — rankings
-  hold. **Still open:** the specific 0.30-vs-0.10 sweep numbers cited for v7
-  earlier in this document were tuned on the same traces used for reporting
-  results, and a genuine F1-optimal threshold still can't be computed at all
-  (needs precision, which needs negative windows — see the bullet above).
+- **Threshold selection on the evaluation set.** ✅ *Partially resolved (§4e,
+  §4f).* Whether model *rankings* depend on the arbitrary 0.30 cutoff was
+  checked directly via an exact threshold-independent metric (AUC-recall) —
+  rankings hold. §4f went further and, once precision became computable,
+  swept a full threshold grid to find each model's own best-MCC operating
+  point rather than judging every model at one shared 0.30 cutoff — this
+  reversed two of §4f's own fixed-threshold conclusions (see §4f's numbered
+  list). **Still open:** that best-threshold selection is itself made on the
+  same pooled test set being reported on (a mild version of this same
+  issue — see §4f's caveat 2), and the specific 0.30-vs-0.10 sweep numbers
+  cited for v7 earlier in this document were tuned on the same traces used
+  for reporting results.
 - **Residual, quantified leakage:** CWA ~9.9% (irreducible catalog ambiguity);
   volpick's Japan-region training data unverified (only non-Japan corpus
   auditable locally); `obst2024`/`neic` unverifiable (no usable ID / no
@@ -538,10 +565,12 @@ that check.
    — this specific number is leaky-trained; the leak-free-matched comparison
    is closer to a wash) but **does not close the recall gap** (0.876 vs 0.909
    at threshold 0.30; 0.669 vs 0.705 on the exact threshold-independent
-   AUC-recall, §4e). **New (§4f): v7 beats the parent on real detection MCC**
-   (0.748 vs 0.671) — the lost recall comes with a measured drop in false
-   triggers, so this is a genuine trade with a quantified upside, not simply
-   "worse at the primary job."
+   AUC-recall, §4e). At each model's own best detection-MCC threshold (§4f,
+   corrected 2026-08-10) v7 and the parent are statistically indistinguishable
+   on detection MCC (0.771 vs 0.776, overlapping CIs) — fine-tuning's timing
+   gain does not come with a measurable false-trigger tradeoff in either
+   direction, superseding an earlier draft's claim that v7 measurably beat
+   the parent on this axis.
 2. The best hypothesis for closing the recall gap (matching the teacher's
    original soft-label training objective instead of the fine-tune path's
    hard-argmax CE) was tested directly (v20) and **failed on both P-MAE and
@@ -561,16 +590,22 @@ that check.
 4. No released or fine-tuned PhaseNet/EQTransformer variant in this study
    dominates on every metric — different models win on timing vs. recall vs.
    detection MCC, and the "best model" answer depends on which axis a
-   deployment prioritizes. **`eqt_original_nonconservative`'s apparent
-   dominance on recall/MCC is the weakest of these wins** — §4f shows its
-   real detection MCC (0.550) trails v7 (0.748) and the v7+v11 ensemble
-   (0.816) once false positives are counted.
+   deployment prioritizes. Once each model is scored at its own fair best
+   threshold (§4f, corrected 2026-08-10), `eqt_original_nonconservative`'s
+   recall/MCC dominance holds up better than an earlier single-threshold pass
+   suggested: its detection MCC (0.815) beats v7's (0.771), though by a
+   smaller margin than its raw P-vs-S MCC (§4b, 0.930 vs 0.753) implies. The
+   single best detector overall is an ensemble, not any single weight —
+   `eqt_ensemble_volpick_nc` (MCC 0.859), ahead of this project's own best
+   ensemble `jma_wc_ft_ensemble_v7v11` (0.823).
 5. The evaluation methodology's biggest gap — no precision/FP measurement,
    MCC ≠ detection MCC — is ✅ **substantially resolved (§4f)**: a real
-   detection precision/MCC now exists for the headline models. What remains
-   open is deployment-accurate false-positive *rate* (the pooled test's
-   noise:arrival ratio isn't the real-world one) and the still-unaddressed
-   threshold-tuned-on-eval-set issue (§6).
+   detection precision/MCC now exists for the headline models, each scored at
+   its own fair operating threshold rather than one shared arbitrary cutoff.
+   What remains open is deployment-accurate false-positive *rate* (the pooled
+   test's noise:arrival ratio isn't the real-world one) and selecting that
+   per-model threshold on held-out data rather than the reported test set
+   (§6).
 6. Stating any single percentage (e.g. "9% better timing") next to an
    admission of iterated model selection across 19+ variants is only
    defensible if the selection-bias caveat (§5) travels with it every time —
@@ -581,6 +616,6 @@ that check.
 ---
 *Source data: `notebooks/step3_metrics.csv`, `results/leakfree_retrain_report.txt`,
 `results/threshold_independent_ranking.csv`, `results/noise_fp_audit.csv`,
-`results/noise_fp_leaderboard.csv`, `results/detection_metrics.csv`, project
-git history through commit `40582f9` plus this session's uncommitted work
-(2026-08-10 snapshot).*
+`results/noise_fp_leaderboard.csv`, `results/detection_metrics.csv`,
+`results/detection_metrics_sweep.csv`, project git history through commit
+`1cad964` plus this session's uncommitted work (2026-08-10 snapshot).*

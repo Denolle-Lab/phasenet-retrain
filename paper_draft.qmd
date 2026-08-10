@@ -468,10 +468,18 @@ S metrics are undefined by construction). Magnitude: mean M≈2.95; large events
 ::: {.callout-warning}
 **This is an oracle-windowed evaluation.** Because picks are searched only within
 ±5 s of the true arrival, **no false positives are possible and precision is
-never measured.** Recall is the only detection metric. This systematically
-flatters every model relative to a real continuous-data deployment, and means the
-benchmark cannot currently speak to the *reliability* (false-positive rate) that
-motivated the project.
+never measured** on this benchmark population itself. Recall is the only
+detection metric computable directly from it. This systematically flatters every
+model relative to a real continuous-data deployment.
+
+**Partially resolved 2026-08-10 (@sec-detection, closes #8's remaining gap):** a
+separate pure-noise pool (~94k traces, no true arrival, built from
+STEAD/LenDB/TXED/VCSEIS/OBST2024's own noise classes) now supplies the missing
+negative population, giving a real detection precision/recall/MCC for the
+headline models. This is still not a deployment-accurate false-positive *rate* —
+the noise:arrival ratio in the pooled test (~94k:~21-32k) does not match real
+continuous-data base rates — but it is a genuine, computed confusion matrix
+where before there was none.
 :::
 
 ![Benchmark composition by dataset and distance bin (`notebooks/bin_composition_by_dataset.png`).](notebooks/bin_composition_by_dataset.png){#fig-bincomp width=90%}
@@ -486,11 +494,12 @@ motivated the project.
 | P/S-MAE, RMSE | **Unconditional** — over *all* in-window traces incl. misses ⚠️ | **Conditional** — detected/matched picks only |
 | Outlier fraction | `\|residual\| > 1.5 s` ⚠️ | `> 1.0 s` |
 | MCC | Within-window **P-vs-S** argmax comparison ⚠️ | Noise-vs-signal classification |
-| Precision / F1 | **Not computed** (oracle window) | Reported |
+| Precision / F1 | **Not computed** on the arrival benchmark alone (oracle window); real detection precision/F1/MCC now computed against a separate noise pool — @sec-detection | Reported |
 
 These deviations (⚠️) are the subject of @sec-audit. The relative *ordering* of
 models is probably robust; the *absolute* values and some headline claims are
-not yet Münchmeyer-comparable.
+not yet Münchmeyer-comparable. @sec-detection closes the precision/detection-MCC
+gap specifically; the rest of this table's caveats stand.
 
 ## Leaderboard — all distances (cross-domain split) {#sec-leaderboard}
 
@@ -550,6 +559,74 @@ few easy picks), but the headline number must not be read as "v7 times
 teleseismic picks better." The only model with genuine teleseismic capability in
 the pool is **geofon** (recall 0.775), the teleseismic-trained baseline.
 :::
+
+## Detection precision — closing the false-positive gap {#sec-detection}
+
+*Added 2026-08-10.* Every metric above (recall, MAE, MCC) is measured on
+traces that **always contain a true arrival** — the benchmark has no
+negative/noise windows, so none of them can tell a well-calibrated model
+apart from one that fires constantly. `scripts/audit_noise_fp_leaderboard.py`
+built the missing negative population from datasets' own noise classes
+(STEAD, LenDB, TXED, VCSEIS, OBST2024 — ~94,405 pure-noise traces, no true
+arrival) and ran the 15 headline models over it, recording the max P/S
+probability each model assigns anywhere in each noise window.
+`scripts/compute_detection_metrics.py` then combines this negative population
+with the existing leak-corrected positive population (`clean_holdout` for own
+fine-tunes, `cross_domain_clean` for parent weights) into a real confusion
+matrix — precision, recall, F1, and a genuine Münchmeyer-style detection MCC,
+not the P-vs-S discriminability proxy used elsewhere in this document.
+
+**Caveat, stated once, applies everywhere below:** the positive:negative
+ratio here (~21–32k : ~94k) reflects benchmark/noise-pool *construction*, not
+the true earthquake:noise ratio of real continuous data (far more
+noise-dominated) — so this is a real, computed detection score on a pooled
+test set, not a deployment-accurate false-alarm rate.
+
+| Weight | Precision | Recall | Detection MCC [95% CI] |
+|---|--:|--:|--:|
+| **Ensemble v7+v11** | **0.845** | 0.856 | **0.816** [0.811, 0.820] |
+| v11 | 0.838 | 0.828 | 0.797 [0.792, 0.801] |
+| eqt_scedc | 0.794 | 0.866 | 0.770 [0.766, 0.774] |
+| **v7 (champion fine-tune)** | 0.725 | 0.876 | **0.748** [0.743, 0.752] |
+| v7_eventclean | 0.685 | 0.881 | 0.723 [0.718, 0.728] |
+| eqt_volpick | 0.708 | 0.897 | 0.719 [0.715, 0.724] |
+| eqt_ensemble (volpick+nc) | 0.636 | 0.911 | 0.699 [0.694, 0.704] |
+| Ensemble v3+v7 | 0.657 | 0.881 | 0.696 [0.692, 0.701] |
+| **jma_wc (parent/teacher)** | 0.607 | 0.909 | **0.671** [0.666, 0.676] |
+| volpick | 0.649 | 0.829 | 0.629 [0.625, 0.634] |
+| **eqt_original_nonconservative** | 0.466 | 0.918 | **0.550** [0.546, 0.555] |
+| eqt_instance | 0.501 | 0.833 | 0.535 [0.530, 0.540] |
+| v20 | 0.450 | 0.843 | 0.501 [0.496, 0.506] |
+| v3 | 0.392 | 0.886 | 0.456 [0.451, 0.460] |
+| v18 | 0.211 | 0.888 | 0.047 [0.042, 0.052] |
+
+**What this changes, not just confirms:**
+
+1. **v18's recall was fool's gold.** It had the 2nd-best recall of any single
+   fine-tune (0.888) — but fires on **85% of pure-noise windows**. Detection
+   MCC 0.047, barely above chance. High recall alone, exactly as suspected
+   before building this, was never sufficient evidence of a good detector.
+2. **`eqt_original_nonconservative`'s "decisive MCC win" (§sec-leaderboard,
+   0.930 vs v7's 0.753) does not survive this check.** That 0.930 is P-vs-S
+   discriminability, not detection. Its real detection MCC (0.550) is
+   *substantially worse* than v7's (0.748) — its recall advantage was
+   partly bought with a false-positive rate ~3× v7's. This is a materially
+   different conclusion from anything stated earlier in this document, and
+   supersedes the "eqt wins recall/MCC by a wide margin" framing wherever it
+   appears above.
+3. **v7 beats its own `jma_wc` teacher on real detection MCC** (0.748 vs
+   0.671), despite losing on raw recall (0.876 vs 0.909). Fine-tuning traded
+   some recall for a measured drop in false triggers — the opposite of "made
+   the model worse at its primary job," now that the false-positive side is
+   no longer invisible.
+4. **Ensemble v7+v11 is the strongest single model by this metric** (MCC
+   0.816, precision 0.845) — better-balanced than v7 alone, and worth
+   promoting alongside v7 as a candidate headline result, not just a
+   secondary row.
+
+Full per-trace data: `results/noise_fp_audit.csv` (1.4M rows);
+per-model summary: `results/noise_fp_leaderboard.csv`,
+`results/detection_metrics.csv`.
 
 # The experimental trajectory (v1 → v20) {#sec-trajectory}
 
@@ -631,12 +708,15 @@ broader group. Items are ordered by impact on conclusions. Each cites
    (all distances) going from threshold 0.30→0.10 — recall gains do have a
    timing cost, the unconditional number just couldn't see it.
 
-   **Not fixed / genuinely out of scope without new data:** a real
-   Münchmeyer-style detection MCC and a precision/false-positive evaluation
-   both need negative/noise windows, which this benchmark doesn't have (every
-   benchmark trace has a true arrival). The MCC reported is honestly
-   relabeled as "P-vs-S discriminability," not detection MCC, rather than
-   silently kept mislabeled.
+   ✅ *Remaining gap closed 2026-08-10.* A real Münchmeyer-style detection MCC
+   and a precision/false-positive evaluation both needed negative/noise
+   windows, which this benchmark doesn't have (every benchmark trace has a
+   true arrival). Built the missing negative population from datasets' own
+   noise classes (~94k pure-noise traces) and computed a genuine detection
+   confusion matrix against it — see @sec-detection. The within-window P-vs-S
+   MCC used elsewhere in this document remains honestly relabeled as
+   "P-vs-S discriminability," not detection MCC, since it's a distinct,
+   still-useful metric, not a mislabeled one.
 
 3. ✅ *Done 2026-07-20 (#12).* **Methods/README described a pipeline that was
    not used.** `docs/DATASETS.md` documented Pipeline A (5 datasets +
@@ -655,14 +735,16 @@ broader group. Items are ordered by impact on conclusions. Each cites
    (`p_outlier`/`s_outlier` = legacy 1.5s, `p_outlier_1s`/`s_outlier_1s` =
    the real Münchmeyer 1.0s), rather than picking one silently.
 
-5. ✅ *Relabeled 2026-07-20 (#8), not fully fixable.* **MCC measures the wrong
-   thing.** It is a within-window P-vs-S argmax score, not noise-vs-signal
-   classification. A genuine Münchmeyer-style detection MCC needs
+5. ✅ *Relabeled 2026-07-20 (#8); genuine detection MCC added 2026-08-10.*
+   **MCC measures the wrong thing.** The score reported throughout most of
+   this document is a within-window P-vs-S argmax score, not noise-vs-signal
+   classification — now honestly documented as "P-vs-S discriminability"
+   (`metrics.py`'s `mcc_caveat` field) rather than silently presented as
+   Münchmeyer's MCC. A genuine Münchmeyer-style detection MCC needed
    negative/noise windows, which this benchmark doesn't have (every trace has
-   a true arrival) — building that is new benchmark infrastructure, not a
-   metrics-code fix, and is not done. What's fixed: the existing score is now
-   honestly documented as "P-vs-S discriminability" (`metrics.py`'s
-   `mcc_caveat` field) instead of silently presented as Münchmeyer's MCC.
+   a true arrival) — built that new benchmark infrastructure (a pure-noise
+   pool) rather than leaving it as a permanent gap; see @sec-detection for
+   the real detection-MCC leaderboard.
 
 6. ✅ *Done 2026-07-20 (#8).* **No uncertainty quantification.** Fixed:
    `scripts/metrics.py::bootstrap_ci()` adds 95% percentile bootstrap CIs

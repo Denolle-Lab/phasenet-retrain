@@ -74,6 +74,7 @@ results/*
 !results/.gitkeep
 models/*
 !models/.gitkeep
+!models/jma_wc_ft_global_v7.pt
 
 # Data files (datasets can be large)
 data/*

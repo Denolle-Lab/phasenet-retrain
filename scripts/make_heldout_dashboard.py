@@ -183,7 +183,12 @@ def load_sequence(seq, idx):
 
 def main():
     idx = pd.read_csv(DATA / "index.csv").set_index("key")
+    refs = pd.read_csv(DATA / "references.csv") if (DATA / "references.csv").exists() else pd.DataFrame(columns=["key"])
     seqs = [load_sequence(s, idx) for s in reg.SEQUENCES]
+    for s in seqs:
+        rr = refs[refs.key == s["key"]]
+        s["refs"] = [dict(kind=r.kind, citation=r.citation, doi=(r.doi if isinstance(r.doi, str) else ""),
+                          status=r.status) for r in rr.itertuples()]
     totals = dict(n=len(seqs), arrivals=sum(s["arrivals"] for s in seqs),
                   stations=sum(sum(1 for st in s["stations"] if st["wf"]) for s in seqs),
                   events=sum(s["n_events_windows"] for s in seqs),
@@ -278,6 +283,11 @@ section.detail {{ display: grid; grid-template-columns: 300px minmax(0, 1fr); ga
 .tags {{ display: flex; flex-wrap: wrap; gap: 5px; }}
 .tag {{ font-size: 12px; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px; color: var(--ink-2); background: var(--ground); }}
 .gap {{ color: var(--ink-3); }}
+.refs {{ display: grid; gap: 3px; }}
+.refs a {{ color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--rule); }}
+.refs a:hover, .refs a:focus-visible {{ color: var(--ink); border-bottom-color: var(--ink); outline: none; }}
+.refs .k {{ font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); margin-right: 6px; }}
+.refs .doi {{ font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-3); margin-left: 6px; }}
 footer {{ margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--ink-3); max-width: 84ch; }}
 footer code {{ font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-2); }}
 </style>
@@ -347,12 +357,14 @@ footer code {{ font-family: "IBM Plex Mono", monospace; font-size: 12px; color: 
         <dt>Picks</dt><dd id="d-picks"></dd>
         <dt>Tests</dt><dd class="tags" id="d-tags"></dd>
         <dt id="d-gap-dt">Gap</dt><dd class="gap" id="d-gap"></dd>
+        <dt>Papers</dt><dd class="refs" id="d-refs"></dd>
       </dl>
     </div>
   </section>
 
   <footer>
     Events are the stage-1 catalogue inside the scoring windows (the largest {MAX_EVENTS} where there are more); stations are those with fetched waveforms or with reference picks, up to {MAX_STATIONS}. Coastlines are Natural Earth 1:50m, coarse at this scale.
+    Papers and data sets are listed in <code>data/heldout_testset/references.csv</code>, every DOI checked against Crossref or DataCite by <code>scripts/heldout_references.py</code>.
     Built from <code>data/heldout_testset/</code> by <code>scripts/make_heldout_dashboard.py</code>; rebuild a sequence with <code>python scripts/build_heldout_testset.py --sequence KEY all</code>.
   </footer>
 </div>
@@ -432,6 +444,9 @@ footer code {{ font-family: "IBM Plex Mono", monospace; font-size: 12px; color: 
     document.getElementById("d-tags").innerHTML = s.tags.map((t) => `<span class="tag">${{t}}</span>`).join("");
     const gap = document.getElementById("d-gap"), gdt = document.getElementById("d-gap-dt");
     gap.textContent = s.gap || ""; gap.hidden = gdt.hidden = !s.gap;
+    document.getElementById("d-refs").innerHTML = (s.refs || []).map((r) => r.doi
+      ? `<div><span class="k">${{r.kind}}</span><a href="https://doi.org/${{r.doi}}" target="_blank" rel="noopener">${{r.citation}}</a><span class="doi">${{r.doi}}</span></div>`
+      : `<div><span class="k">${{r.kind}}</span>${{r.citation}}<span class="doi">no DOI found</span></div>`).join("");
   }}
   function select(key, scroll) {{
     const s = BY[key]; if (!s) return; current = key;

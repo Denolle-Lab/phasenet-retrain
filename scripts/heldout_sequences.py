@@ -107,8 +107,6 @@ WINDOWS = [
          start=None, end=None, regime="vt", tier=1),
     dict(name="etna", lat=37.75, lon=15.0, radius_deg=0.5,
          start=None, end=None, regime="vt", tier=1),
-    dict(name="mayotte", lat=-12.8, lon=45.5, radius_deg=1.0,
-         start=None, end=None, regime="vt", tier=1),
     # ── 2026-09-08: fluid-driven swarm places, all times ───────────────────
     dict(name="campi_flegrei", lat=40.83, lon=14.14, radius_deg=0.15,  # 17 km: the caldera, not Vesuvius
          start=None, end=None, regime="swarm", tier=1),

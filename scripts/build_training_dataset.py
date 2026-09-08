@@ -871,7 +871,13 @@ def load_benchmark_exclusions():
     return trace_exclusions, event_exclusions
 
 
-def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_year_holdout=False):
+# 2026-09-08 scope decision: no ocean-bottom observations this round.
+# Both OBS sources are skipped unless --include-obs is passed.
+SKIP_SOURCES_THIS_ROUND = frozenset({"obst2024", "obs"})
+
+
+def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_year_holdout=False,
+         include_obs=False):
     rng = np.random.default_rng(seed)
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -900,6 +906,9 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_yea
     label_error_report = []
     holdout_report = []
     for cfg in DATASET_CONFIGS:
+        if cfg["name"] in SKIP_SOURCES_THIS_ROUND and not include_obs:
+            print(f"\n  [{cfg['name']}]\n    SKIP — ocean-bottom data are out of scope this round (2026-09-08); pass --include-obs to override")
+            continue
         exclude = benchmark_exclusions.get(cfg["name"], set())
         event_exclude = benchmark_event_exclusions.get(cfg["name"], frozenset())
         le_exclude = label_error_exclusions.get(cfg["name"], frozenset())
@@ -1007,7 +1016,10 @@ if __name__ == "__main__":
                         help="Skip excluding Aguilar-flagged bad-label traces (GitHub #10; on by default)")
     parser.add_argument("--strict-year-holdout", action="store_true",
                         help="Also drop rows with no source_origin_time (cannot be proven outside 2016/2021)")
+    parser.add_argument("--include-obs", action="store_true",
+                        help="Include obst2024 and obs (ocean-bottom) sources, which are skipped this round (2026-09-08)")
     args = parser.parse_args()
     main(args.output_dir, args.seed, s_balanced=args.s_balanced,
          label_error_filter=not args.no_label_error_filter,
-         strict_year_holdout=args.strict_year_holdout)
+         strict_year_holdout=args.strict_year_holdout,
+         include_obs=args.include_obs)

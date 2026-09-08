@@ -56,7 +56,7 @@ stay in the acceptance suite as already held out.
 | **La Palma 2021** (Canary Islands) | 2021-09-11 to 2021-12 | IGN catalogue (manual), relocations and tomography (D'Auria et al. 2022, *Sci. Rep.*); fully automated pre-eruptive series (*JVGR* 2023) | IGN FDSN services; 2021 is a held-out year anyway | acceptance, tier 1 (place) |
 | **Santorini–Amorgos 2025** (Greece) | 2025-01 to 2025-03 | Manually picked catalogue from AUTH and NOA relocated with NLL-SSST-coherence, plus a 34,442-event ML catalogue (*Seismica* 2025; *Science* 2025 on the dike) | NOA FDSN, proven | acceptance, tier 1 (place); magmatic dike with triggered tectonic seismicity, the mixed case |
 | **Etna** (Italy) | 2022–2024 | INGV-OE catalogue; multi-scale relocations 2014–2023 (*Annals of Geophysics* 2024) | INGV FDSN, proven; Etna removed from INSTANCE by the place hold-out | development, tier 1 (place) |
-| **Mayotte 2018–19** (Comoros, offshore) | 2018-05 to 2019-05 | GFZ catalogue of 6,990 VT events (Cesca et al. 2019, doi:10.5880/GFZ.2.1.2019.004); BRGM catalogues; >3,000 events manually reviewed on OBS during MAYOBS (*GJI* 2021) | RESIF/EIDA for land stations; OBS data on request; must be checked against the OBST2024 deployment list | development, tier 1 (place); the offshore OBS case |
+| Mayotte 2018–19 (Comoros, offshore) | 2018-05 to 2019-05 | GFZ catalogue of 6,990 VT events (Cesca et al. 2019, doi:10.5880/GFZ.2.1.2019.004); BRGM catalogues; >3,000 events manually reviewed on OBS during MAYOBS (*GJI* 2021) | RESIF/EIDA for land stations; OBS data on request | **out of scope this round** (2026-09-08: no ocean-bottom observations); the reference rests on OBS picks |
 | Mauna Loa 2022, Kīlauea 2023–24 (Hawaii) | 2022-09 to 2024 | HVO catalogue (ComCat with arrivals); precursory seismicity 2013–2022 (*Bull. Volcanol.* 2025) | open (HV on EarthScope, ComCat) | development, **tier 2**: Hawaii is in VCSEIS; usable only if the VCSEIS traces end before these dates, to be read from its metadata on the server |
 | Mount Spurr 2024–25 (Alaska) | 2024-04 to 2025-08 | AVO/AEC catalogue; no paper yet | open | development, **tier 2**: Alaska is in VCSEIS |
 
@@ -69,15 +69,16 @@ stay in the acceptance suite as already held out.
 | **Noto swarm 2020–23** (Japan) | 2020-12 to 2023-12 | JMA unified catalogue; >20,000 relocated events, updip migration (Yoshida et al. 2023, *GRL*; Shelly 2024, *GRL*; *EPS* 2024) | as Noto 2024 | acceptance, tier 1 (time window); 2022–23 also after the parent's training years |
 | **Campi Flegrei 2023–24** (Italy) | 2023-01 to 2024-12 | INGV-OV manual picks; ML catalogue of ~8,400 events (PhaseNet+GaMMA) and a located catalogue 2000–2023 (*Nat. Commun.* 2025; *Commun. Earth Environ.* 2025) | INGV FDSN, proven; removed from INSTANCE by the place hold-out | acceptance, tier 1 (place); hydrothermal-magmatic |
 | **Corinth–Thiva 2020–22** (Greece): Perachora and Thiva | 2020-01 to 2022-06 | NOA/AUTH relocated catalogues; template-matching to 24,000 events at Perachora (*Sensors* 2023); Thiva clustering (*Entropy* 2025) | NOA FDSN, proven | development, tier 1 (place) |
-| Mayotte 2018–19 | see regime 2 | | | also a deep magmatic swarm |
+| Mayotte 2018–19 | see regime 2 | | | also a deep magmatic swarm; out of scope this round |
 
 ## What the exclusion does
 
-`scripts/heldout_sequences.py` now carries 24 windows: the original eight,
+`scripts/heldout_sequences.py` now carries 23 windows: the original eight,
 seven new time-bounded ones (Kahramanmaraş, Noto 2024, Hualien, Petrinja,
-Samos, Adriatic, the Noto swarm) and nine places with no time bound
-(Reykjanes Peninsula, La Palma, Santorini–Amorgos, Etna, Mayotte, Campi
-Flegrei, West Bohemia, Maurienne, Corinth–Thiva). Each carries a `regime`
+Samos, Adriatic, the Noto swarm) and eight places with no time bound
+(Reykjanes Peninsula, La Palma, Santorini–Amorgos, Etna, Campi Flegrei,
+West Bohemia, Maurienne, Corinth–Thiva). Mayotte was removed on
+2026-09-08 with the ocean-bottom scope. Each carries a `regime`
 and a `tier`. A training trace is dropped if its source origin falls in
 any of them, and the 2016 and 2021 whole-year hold-out stands. The same
 windows must be applied to the noise pool (§5 of the plan): noise windows
@@ -93,11 +94,73 @@ events is cheap; leaving one aftershock in is not.
   will remove Etna and Campi Flegrei from INSTANCE and whatever CREW holds
   around the other places; the numbers decide whether any of them is too
   costly.
-- `vcseis` and `crew` metadata date ranges, and the `obst2024` deployment
-  list, to settle the tier of Hawaii, Alaska and Mayotte.
+- `vcseis` and `crew` metadata date ranges, to settle the tier of Hawaii
+  and Alaska.
 - Waveform and pick access for Noto (NIED), Hualien (CWA GDMS), Petrinja
   (Croatian Seismological Survey), Reykjanes (IMO) and Maurienne
   (BCSF-RENASS); the rest are on FDSN services already used.
+
+## Where the picks are, and what USGS stations sit nearby
+
+*Added 2026-09-08 on Marine's request. "Server" is the service that holds
+the manual picks; "waveforms" the open archive; "GSN" the nearest
+USGS-operated Global Seismographic Network station, whose picks the NEIC
+publishes for the events it locates.*
+
+Two servers hold picks for most of these sequences regardless of the
+operator, and are the first place to look:
+
+- **ISC Bulletin** (`https://www.isc.ac.uk/fdsnws/event/1/` with
+  `includearrivals=true`, and the dedicated arrivals service
+  `https://www.isc.ac.uk/iscbulletin/search/arrivals/`): the archive of
+  phase readings the operators report, including JMA, AFAD and KOERI,
+  CWA, IMO (agency REY), Zagreb (ZAG) and Strasbourg (STR). The reviewed
+  bulletin runs about two years behind real time, so 2023 sequences are
+  reviewed and 2024 ones may still be preliminary.
+- **USGS ComCat** (`https://earthquake.usgs.gov/fdsnws/event/1/` with
+  `includearrivals=true`; the `phase-data` product): picks for every
+  event the NEIC locates, which outside the United States means roughly
+  M ≥ 4.5, on GSN stations and on stations contributed to the NEIC. This
+  covers the larger aftershocks of every sequence below, not the small
+  ones a picker is judged on, but it is open and needs no account.
+
+| Sequence | Picks (server) | Waveforms | Nearest USGS GSN station |
+|---|---|---|---|
+| **Noto 2024** and the **Noto swarm** | JMA publishes the unified catalogue's arrival-time files ("検測値データ") itself: `https://www.data.jma.go.jp/eqev/data/bulletin/deck_e.html`, monthly files with a documented format (`.../data/format/datfmt_e.html`), no account. The same files come through Hi-net with a free NIED account, and **HinetPy** (`github.com/seisman/HinetPy`, `Client.get_arrivaltime(startdate, span)`) downloads them in Python; `Client.get_waveform` fetches Hi-net continuous data. | Hi-net and F-net through NIED (account; HinetPy), IU.MAJO and the JP-contributed stations on EarthScope | IU.MAJO, 1.2° (130 km) from the Noto epicentre: JMA and NEIC both pick it |
+| **Kahramanmaraş 2023** | AFAD event catalogue (`https://deprem.afad.gov.tr/event-catalog`, web service `apiv2/event/filter`; phase readings on the event pages, bulk access to confirm with AFAD); KOERI bulletin; ISC (ISK, AFAD). The ESSD 2025 data set (Colavitti et al., Zenodo 10.5281/zenodo.13838992) has 9,442 events and 270,704 phases 2019–2024 with 271 stations, but the picks are from an automatic processor with quality control, not analysts, so they are a check, not the reference. | KOERI EIDA node (KO network, open); AFAD TDVMS (TK, request); the 2023 SmartSolo nodal deployment on EarthScope (embargo to check) | IU.ANTO, 4.7° (520 km): NEIC picks for M ≥ 4.5 aftershocks only |
+| **Hualien 2024** | CWA GDMS (`https://gdms.cwa.gov.tw`, registration; event catalogue and phase files since 1991; bulk membership via `opendata.cwa.gov.tw`); ISC (CWB) | CWASN via GDMS; BATS (TW network, Academia Sinica) open on EarthScope | IU.TATO, 1.2° (130 km): NEIC picks for M ≥ 4.5 |
+| **Petrinja 2020–21** | Croatian Seismological Survey, Zagreb (`pmf.unizg.hr/geof`): the 255,729 hand-picked onsets of the *Tectonophysics* 2023 catalogue, on request to the authors; ISC (ZAG) | CR network on ORFEUS EIDA (open per the EIDA network list); SL (Slovenia), HU, OE and IV neighbours open on EIDA | none within 500 km; ComCat has the mainshock and the few M ≥ 4.5 aftershocks |
+| **Samos 2020** | NOA FDSN event service with arrivals (proven at Thessaly); KOERI; AUTH relocated catalogues on request | NOA EIDA node (HL), KOERI EIDA (KO), open | IU.ANTO, 5.4° (600 km): M ≥ 4.5 only |
+| **Reykjanes 2021, 2023–25** | IMO: SIL manual picks; a "Quakes API" is replacing the SIL web pages as IMO moves to SeisComP; bulk picks on request to IMO; ISC (REY) | IMO permanent stations: only project periods on EIDA until an Icelandic node exists; the 2021 dense local networks on EarthScope with embargo to check | IU.BORG, 1.0° (110 km): NEIC picks for the many M ≥ 4.5 of the November 2023 dike |
+| **Maurienne 2017–19** | BCSF-RENASS: `api.franceseisme.fr` fdsnws-event (arrival support to test); the Minetto et al. 2022 catalogue on request; ISC (STR) | RESIF FDSN (FR, RA), open | none nearby |
+| **West Bohemia 2018** | Zenodo 10.5281/zenodo.3741465: waveforms, StationXML and the relocated catalogue with picks, open | in the Zenodo record; WEBNET (WB) on EIDA | none nearby; GR (BGR) open |
+| **Santorini–Amorgos 2025**, **Corinth–Thiva** | NOA FDSN event service with arrivals; AUTH manual picks on request | NOA EIDA node, open | none nearby |
+| **Campi Flegrei 2023–24**, **Etna**, **Adriatic 2022** | INGV FDSN event service with arrivals (proven at Norcia); INGV-OV and INGV-OE bulletins | INGV EIDA node (IV), open | none nearby; MN (MedNet) is INGV, not USGS |
+| **La Palma 2021** | IGN catalogue (`https://www.ign.es/web/ign/portal/sis-catalogo-terremotos`; FDSN event service to test) | IGN (ES network) open | none nearby |
+
+GSN distances computed from the FDSN station book coordinates:
+
+| Station | Sequence | Distance | |
+|---|---|---|---|
+| IU.BORG (Borgarnes, Iceland) | Reykjanes (Sundhnúkur) | 1.0° | 110 km |
+| IU.MAJO (Matsushiro, Japan) | Noto 2024 | 1.2° | 134 km |
+| IU.TATO (Taipei, Taiwan) | Hualien 2024 | 1.2° | 129 km |
+| IU.ANTO (Ankara, Türkiye) | Kahramanmaraş 2023 (Mw7.8 epicentre) | 4.2° | 470 km |
+| IU.ANTO (Ankara, Türkiye) | Samos 2020 | 5.1° | 564 km |
+
+What follows from this. The Japanese cases need no negotiation: the JMA
+arrival-time files are public, and HinetPy turns them and the Hi-net
+waveforms into a script. Kahramanmaraş has three independent pick sets
+(AFAD manual, KOERI, and the automatic ESSD set), which is more than any
+other case; the ISC copy of AFAD's readings is the bulk route. Hualien and
+Petrinja need an account or an email. Reykjanes is the one where the
+operator's own archive is in transition, and where the GSN station is
+close enough that the NEIC's picks on BORG give an independent reference
+for the M ≥ 4.5 events of the 2023 dike, which were dozens in eight hours.
+The USGS stations never replace the operator's picks below M 4.5, which is
+where a picker is judged; they add an open, consistently picked reference
+for the largest events of each sequence and a station whose waveform
+character is the same across all of them.
 
 ## Sources
 
@@ -118,4 +181,4 @@ events is cheap; leaving one aftershock in is not.
 - Noto swarm: [Yoshida et al. 2023, GRL](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2023GL106023); [Shelly 2024, GRL](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2023GL107897)
 - Campi Flegrei: [Nat. Commun. 2025](https://www.nature.com/articles/s41467-025-59821-z); [Commun. Earth Environ. 2025](https://www.nature.com/articles/s43247-025-02045-2)
 - Corinth–Thiva: [Sensors 2023 Perachora](https://pmc.ncbi.nlm.nih.gov/articles/PMC10056727/); [Acta Geophysica 2022](https://link.springer.com/article/10.1007/s11600-022-00864-x); [Entropy 2025 Thiva](https://pmc.ncbi.nlm.nih.gov/articles/PMC12468699/)
-- Training-set coverage: [VCSEIS / volpick](https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2024GL108438); [PNW 2002–2022](https://seismica.library.mcgill.ca/article/view/368); [CWA 2011–2021](https://pubs.geoscienceworld.org/ssa/srl/article/96/3/2079/650394/The-CWA-Benchmark-A-Seismic-Dataset-from-Taiwan); [CREW](https://seismica.library.mcgill.ca/article/view/1049); [OBST2024 / PickBlue](https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2023EA003332)
+- Training-set coverage: [VCSEIS / volpick](https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2024GL108438); [PNW 2002–2022](https://seismica.library.mcgill.ca/article/view/368); [CWA 2011–2021](https://pubs.geoscienceworld.org/ssa/srl/article/96/3/2079/650394/The-CWA-Benchmark-A-Seismic-Dataset-from-Taiwan); [CREW](https://seismica.library.mcgill.ca/article/view/1049)

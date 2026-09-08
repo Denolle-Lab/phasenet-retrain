@@ -14,6 +14,13 @@ scoring. The acceptance suite is rebuilt around three regimes
 are held out as places, not time windows. Akash's curated benchmark stays
 as a unit test of timing on isolated arrivals.
 
+**Scope decision, 2026-09-08.** Ocean-bottom observations are out of this
+round: no OBST2024 or `obs` traces in the signal corpus, no ocean-bottom
+noise class, and the obst2024 portion of the existing `data/noise_global`
+pool (about 25,000 traces, identifiable by the `obst2024_` prefix of
+`trace_name`) is dropped. Offshore *events* recorded on land and island
+stations stay in scope; that is what the distant-P model of §7 is for.
+
 ## 1. What the audit fixes about the design
 
 Twenty finetunes of `jma_wc` on 527,477 windows from twenty sources did
@@ -64,10 +71,10 @@ it has to do well, in order:
    for weeks to months, have emergent onsets, weak S, and tremor
    underneath. Scored as events recovered against the published catalogue
    by magnitude and by day, with the migration front recovered or not.
-4. **Distant P for completeness where there are no stations**, offshore
-   and in sparse regions such as most of Africa. A separate model (§7),
-   scored against ISC and NEIC by completeness magnitude versus nearest
-   station distance.
+4. **Distant P for completeness where there are no stations**: offshore
+   events recorded on land and island stations, and sparse regions such as
+   most of Africa. A separate model (§7), scored against ISC and NEIC by
+   completeness magnitude versus nearest station distance.
 
 The acceptance suite is fixed now and never read during development: the
 five sequences already held out, the years 2016 and 2021, and the tier-1
@@ -75,19 +82,20 @@ cases of `docs/2026-09-08_heldout_test_cases.md` marked "acceptance"
 (Kahramanmaraş 2023, Noto 2024, Hualien 2024, Petrinja 2020–21; Reykjanes,
 La Palma, Santorini–Amorgos; West Bohemia 2018, Maurienne 2017–19, the
 Noto swarm, Campi Flegrei 2023–24). The cases marked "development" (Samos,
-Adriatic 2022, Etna, Mayotte, Corinth–Thiva, and the tier-2 Hawaii and
-Alaska cases) serve every decision before the final one. All of them are
+Adriatic 2022, Etna, Corinth–Thiva, and the tier-2 Hawaii and Alaska
+cases) serve every decision before the final one. Mayotte, whose
+reference catalogue rests on ocean-bottom instruments, waits for the OBS
+round. All of them are
 now enforced as exclusions in `scripts/heldout_sequences.py`.
 
 ## 3. Phase 0, before any training (two to three weeks)
 
 1. **Run task 1 on the server** (`python scripts/audit_heldout_sequences.py`)
-   with the 24 windows now defined; commit the list and the counts. The
+   with the 23 windows now defined; commit the list and the counts. The
    place hold-outs will cost INSTANCE its Etna and Campi Flegrei traces
    and CREW whatever it holds around the other places; the counts say
-   whether that is affordable. Read the `vcseis`, `crew` and `obst2024`
-   metadata for their date ranges and deployments to settle the Hawaii,
-   Alaska and Mayotte tiers.
+   whether that is affordable. Read the `vcseis` and `crew` metadata for
+   their date ranges to settle the Hawaii and Alaska tiers.
 2. **Rank the candidates that already exist at matched budget** on the
    external suite: `jma_wc`, `instance`, `jma_wc_ft_global_v11` (the only
    finetune above the parent on the noise pool, 0.804 [0.799, 0.808]
@@ -117,7 +125,9 @@ IGN. Only manual P and S, only open waveforms. The SeisBench sets with
 analyst P and S (ETHZ, PNW, CWA, SCEDC and CEED, TXED, Iquique, INSTANCE
 where the pick status says manual, VCSEIS for its volcano-tectonic and
 long-period supervision) are added with the exclusions and the
-label-error filter. No P-only sets; nothing beyond 2000 km.
+label-error filter. No P-only sets; nothing beyond 2000 km; no
+ocean-bottom data (OBST2024 and `obs` are skipped by
+`scripts/build_training_dataset.py` this round).
 
 **Windows.** Cut from continuous data at native sampling rate, 60 s long,
 with every arrival of every catalogued event inside the window labelled.
@@ -140,7 +150,7 @@ observatories other than the held-out places, PNW Cascades); a distance
 mix that matches the campaign's station geometry, regional-heavy; no
 operator above 30 %.
 
-**Exclusions and hygiene.** The 24 windows and places, the 2016 and 2021
+**Exclusions and hygiene.** The 23 windows and places, the 2016 and 2021
 years, the development suite, benchmark traces and events, the label-error
 filter; `scripts/hash_manifests.py` fingerprints;
 `scripts/audit_heldout_sequences.py --check-manifest` must pass on train
@@ -155,8 +165,11 @@ often impulsive, and site-specific. The noise corpus is built with the
 same care as the signal corpus, and the mixing recipe is what carries the
 low-SNR objective.
 
-**5.1 Taxonomy.** Twelve flavours, each a class the pool is balanced over
-and the false-pick rate is reported by.
+**5.1 Taxonomy.** Eleven flavours this round, each a class the pool is
+balanced over and the false-pick rate is reported by. The ocean-bottom
+flavour (current-induced tilt, compliance, whale calls, ship harmonics,
+airguns, hydrophone self-noise) is defined for the OBS round and not
+harvested now.
 
 | Class | What it is | Where it comes from |
 |---|---|---|
@@ -168,7 +181,6 @@ and the false-pick rate is reported by.
 | Volcanic tremor and hydrothermal noise | harmonic and spasmodic tremor, hydrothermal boiling noise, gas-piston events | INGV-OE and INGV-OV, HVO, IMO and AVO during eruptions and unrest, outside the held-out places |
 | Tectonic tremor and LFEs | Cascadia ETS and Nankai tremor bursts, hours long | PNSN tremor catalogue windows; Hi-net where accessible |
 | Earthquake coda and sequence hum | regional coda minutes after M5+, teleseismic coda hours after M7+, the continuous overlap of small aftershocks | continuous data from aftershock sequences NOT held out (e.g. Ridgecrest 2019 is held out; use Monte Cristo 2020, Sparta 2020, Zagreb 2020) |
-| Ocean-bottom | current-induced tilt, compliance, fin and blue whale calls at 15–25 Hz, ship harmonics, airguns, hydrophone self-noise | OBST2024 noise class; the lab's OBS benchmark deployments; OOI cabled stations |
 | Polar and ice | icequakes, calving, sea-ice noise, wind on ice | Antarctic and Greenland stations of the campaign |
 | Instrument and telemetry | spikes, DC steps, mass recentring pulses, calibration pulses, clipping, gaps, dropouts, timing glitches, aliasing from decimation, 4.5 Hz geophone and low-cost sensor self-noise, accelerometer noise floor, temperature drift | synthesised on the fly from a small set of rules, plus real examples harvested from station-day QC flags |
 | Quiet baseline | the station at its quietest, all instrument types and rates | every station in the campaign, lowest 10 % power windows |
@@ -176,10 +188,9 @@ and the false-pick rate is reported by.
 **5.2 Harvest.** From the campaign's own archives (SCEDC and NCEDC S3,
 EarthScope, the operators' FDSN services), windows of 120 s at native
 rate, from stations chosen to span instrument type (broadband,
-short-period, strong-motion, geophone, OBS, low-cost), sampling rate (20
-to 250 Hz), site (urban, rural, coastal, island, high-elevation, polar,
-ocean floor) and continent, with an explicit quota for Africa, South
-America and Oceania. A window is noise when no catalogued event, global
+short-period, strong-motion, geophone, low-cost), sampling rate (20 to
+250 Hz), site (urban, rural, coastal, island, high-elevation, polar) and
+continent, with an explicit quota for Africa, South America and Oceania. A window is noise when no catalogued event, global
 M ≥ 2.5 or local M ≥ 0 where a local catalogue exists, has a predicted P or
 S at the station inside the window or the 120 s before it. No
 model-based screening: running `jma_wc` to reject windows it fires on
@@ -277,8 +288,8 @@ A 30 s window at 100 Hz is the wrong instrument for P at 10 to 30°. Train
 a second PhaseNet at 20 Hz on 120 s windows, P only, from GEOFON, MLAAPDE,
 CREW and ISC-labelled P at 3 to 30° from M ≥ 4, initialised from the
 SeisBench `geofon` weights, with the §5 noise recipe restricted to the
-ocean-bottom, microseism, polar and quiet classes. It runs only where it
-earns its cost: ocean-bottom deployments, oceanic islands, and regions
+microseism, polar and quiet classes. It runs only where it earns its
+cost: oceanic islands, coasts facing offshore seismicity, and regions
 where the nearest station is more than 300 km away. Its picks enter the
 associator with a global velocity model. Scored against ISC and NEIC by
 completeness magnitude versus nearest station distance, on offshore and
@@ -307,8 +318,8 @@ cases, the campaign stays on `jma_wc` or the Phase 0 winner.
 
 ## 10. What this plan does not do
 
-No EQTransformer, no multi-station models. No more single-variable
-changes on the v7 corpus. No teleseismic rebalancing inside the regional
+No EQTransformer, no multi-station models. No ocean-bottom data or noise
+this round. No more single-variable changes on the v7 corpus. No teleseismic rebalancing inside the regional
 model. No white noise. No selection on `notebooks/step3_metrics.csv`. No
 claim of a better picker before the acceptance run.
 
@@ -320,6 +331,5 @@ claim of a better picker before the acceptance run.
 - Naoi, M., et al. (2024). PhaseNet models trained on the JMA unified catalogue. *EPS* 76, doi:10.1186/s40623-024-02091-8.
 - Ni, Y., et al. (2023). Curated Pacific Northwest AI-ready seismic dataset. *Seismica* 2(1).
 - Zhong, Y., & Tan, Y. J. (2024). Deep-learning-based phase picking for volcano-tectonic and long-period earthquakes. *GRL* 51, e2024GL108438.
-- Bornstein, T., et al. (2024). PickBlue. *Earth and Space Science* 11, e2023EA003332.
 - Aguilar Suarez, A. L., & Beroza, G. C. (2024). CREW dataset. *Seismica* 3(1).
 - Münchmeyer, J. (2024). PyOcto. *Seismica* 3(1).

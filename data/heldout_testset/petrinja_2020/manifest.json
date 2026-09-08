@@ -1,8 +1,8 @@
 {
  "key": "petrinja_2020",
  "label": "Petrinja 2020",
- "built": "2026-09-08T16:21:25+00:00",
- "git_commit": "41dc53b0e1075d35f86e977c831718bac144d149",
+ "built": "2026-09-08T17:52:57+00:00",
+ "git_commit": "efd4b68a7c215f6d3054aa91e8076b9e68148f58",
  "python": "3.9.20",
  "obspy": "1.4.2",
  "pandas": "2.3.2",
@@ -44,80 +44,10 @@
  "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
  "queries": [
   {
-   "kind": "get_events",
-   "client": "ISC",
-   "base_url": "http://www.isc.ac.uk",
-   "when": "2026-09-08T16:20:02+00:00",
-   "params": {
-    "starttime": "2020-12-29T11:26:54.000000Z",
-    "endtime": "2020-12-29T14:29:54.000000Z",
-    "includearrivals": "False",
-    "latitude": "45.42",
-    "longitude": "16.26",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "ISC",
-   "base_url": "http://www.isc.ac.uk",
-   "when": "2026-09-08T16:20:03+00:00",
-   "params": {
-    "starttime": "2020-12-29T11:26:54.000000Z",
-    "endtime": "2020-12-29T12:26:54.000000Z",
-    "includearrivals": "True",
-    "latitude": "45.42",
-    "longitude": "16.26",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "ISC",
-   "base_url": "http://www.isc.ac.uk",
-   "when": "2026-09-08T16:20:07+00:00",
-   "params": {
-    "starttime": "2020-12-29T12:26:54.000000Z",
-    "endtime": "2020-12-29T13:26:54.000000Z",
-    "includearrivals": "True",
-    "latitude": "45.42",
-    "longitude": "16.26",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "ISC",
-   "base_url": "http://www.isc.ac.uk",
-   "when": "2026-09-08T16:20:11+00:00",
-   "params": {
-    "starttime": "2020-12-29T13:26:54.000000Z",
-    "endtime": "2020-12-29T14:26:54.000000Z",
-    "includearrivals": "True",
-    "latitude": "45.42",
-    "longitude": "16.26",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "ISC",
-   "base_url": "http://www.isc.ac.uk",
-   "when": "2026-09-08T16:20:13+00:00",
-   "params": {
-    "starttime": "2020-12-29T14:26:54.000000Z",
-    "endtime": "2020-12-29T14:29:54.000000Z",
-    "includearrivals": "True",
-    "latitude": "45.42",
-    "longitude": "16.26",
-    "maxradius": "0.7"
-   }
-  },
-  {
    "kind": "get_stations",
    "client": "eida",
    "base_url": "routing:eida",
-   "when": "2026-09-08T16:20:15+00:00",
+   "when": "2026-09-08T17:52:39+00:00",
    "params": {
     "latitude": "45.42",
     "longitude": "16.26",
@@ -130,35 +60,9 @@
   },
   {
    "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:20:28+00:00",
-   "params": {
-    "network": "MN",
-    "station": "BLY",
-    "channel": "HH?",
-    "starttime": "2020-12-29T11:29:54.000000Z",
-    "endtime": "2020-12-29T14:29:54.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
    "client": "eida",
    "base_url": "routing:eida",
-   "when": "2026-09-08T16:20:48+00:00",
-   "params": {
-    "network": "HU",
-    "station": "BEHE",
-    "channel": "HH?",
-    "starttime": "2020-12-29T11:29:54.000000Z",
-    "endtime": "2020-12-29T14:29:54.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "eida",
-   "base_url": "routing:eida",
-   "when": "2026-09-08T16:20:53+00:00",
+   "when": "2026-09-08T17:52:51+00:00",
    "params": {
     "network": "CR",
     "station": "MOSL",
@@ -171,7 +75,7 @@
    "kind": "get_waveforms",
    "client": "eida",
    "base_url": "routing:eida",
-   "when": "2026-09-08T16:20:55+00:00",
+   "when": "2026-09-08T17:52:53+00:00",
    "params": {
     "network": "CR",
     "station": "OZLJ",
@@ -184,7 +88,7 @@
    "kind": "get_waveforms",
    "client": "eida",
    "base_url": "routing:eida",
-   "when": "2026-09-08T16:20:57+00:00",
+   "when": "2026-09-08T17:52:55+00:00",
    "params": {
     "network": "CR",
     "station": "ZAG",
@@ -192,61 +96,9 @@
     "starttime": "2020-12-29T11:29:54.000000Z",
     "endtime": "2020-12-29T14:29:54.000000Z"
    }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "eida",
-   "base_url": "routing:eida",
-   "when": "2026-09-08T16:20:59+00:00",
-   "params": {
-    "network": "SL",
-    "station": "BOJS",
-    "channel": "HH?",
-    "starttime": "2020-12-29T11:29:54.000000Z",
-    "endtime": "2020-12-29T14:29:54.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "eida",
-   "base_url": "routing:eida",
-   "when": "2026-09-08T16:21:05+00:00",
-   "params": {
-    "network": "SL",
-    "station": "CRES",
-    "channel": "HH?",
-    "starttime": "2020-12-29T11:29:54.000000Z",
-    "endtime": "2020-12-29T14:29:54.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "eida",
-   "base_url": "routing:eida",
-   "when": "2026-09-08T16:21:12+00:00",
-   "params": {
-    "network": "SL",
-    "station": "GCIS",
-    "channel": "HH?",
-    "starttime": "2020-12-29T11:29:54.000000Z",
-    "endtime": "2020-12-29T14:29:54.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "eida",
-   "base_url": "routing:eida",
-   "when": "2026-09-08T16:21:18+00:00",
-   "params": {
-    "network": "SL",
-    "station": "KOGS",
-    "channel": "HH?",
-    "starttime": "2020-12-29T11:29:54.000000Z",
-    "endtime": "2020-12-29T14:29:54.000000Z"
-   }
   }
  ],
- "n_queries": 15,
+ "n_queries": 4,
  "counts": {
   "catalog_events": 59,
   "picks": 4042,
@@ -265,12 +117,12 @@
    "bytes": 76399
   },
   "station_map.csv": {
-   "sha256": "ef37eadde874728813921a67081ac1ae55b50be9ad1545d2d3ac482c0b41097c",
-   "bytes": 2389
+   "sha256": "78b8ae41485f7dd63c6e238b0d057ad5d5b37d19027e53a72a8e680d52afda93",
+   "bytes": 2137
   },
   "stations.csv": {
-   "sha256": "44b0b78d5cfc23cba3b5ceee0c97c8ce884e8927804b208cd627d278d8d27ef1",
-   "bytes": 1302
+   "sha256": "e5f84dc38704d196d972155206b7c087a609ad62da66f644b0825e1cf8e0af22",
+   "bytes": 1767
   },
   "waveforms/HU.BEHE__HH__20201229T112954__20201229T142954.mseed": {
    "sha256": "9f124e06cfe8b449fc1f99c0598b85c7845802f9ff472ba7b356a3ec548249fc",

@@ -602,16 +602,24 @@ def station_table(seq, picks: pd.DataFrame, windows, routes):
                     continue
                 key = f"{net.code}.{sta.code}"
                 rows.append(dict(station=key, network=net.code, code=sta.code, band=band, rate=bands[band],
+                                 lat=sta.latitude, lon=sta.longitude, elev_m=sta.elevation,
                                  km=locations2degrees(seq["lat"], seq["lon"], sta.latitude, sta.longitude) * 111.19,
                                  route=reg.NETWORK_ROUTE.get(net.code, route)))
                 by_code.setdefault(sta.code, []).append(key)
     for extra in seq.get("extra_stations", []):
         net, code = extra.split(".")
         if not any(r["station"] == extra for r in rows):
-            rows.append(dict(station=extra, network=net, code=code, band="BH", rate=np.nan, km=np.nan,
+            lat = lon = elev = np.nan
+            try:                                          # the GSN station's own coordinates
+                inv = client_for(reg.NETWORK_ROUTE.get(net, "IRIS")).get_stations(network=net, station=code, level="station")
+                lat, lon, elev = inv[0][0].latitude, inv[0][0].longitude, inv[0][0].elevation
+            except Exception:  # noqa: BLE001
+                pass
+            rows.append(dict(station=extra, network=net, code=code, band="BH", rate=np.nan, lat=lat, lon=lon, elev_m=elev,
+                             km=(locations2degrees(seq["lat"], seq["lon"], lat, lon) * 111.19 if lat == lat else np.nan),
                              route=reg.NETWORK_ROUTE.get(net, "IRIS")))
     table = pd.DataFrame(rows).drop_duplicates("station") if rows else pd.DataFrame(
-        columns=["station", "network", "code", "band", "rate", "km", "route"])
+        columns=["station", "network", "code", "band", "rate", "lat", "lon", "elev_m", "km", "route"])
 
     # resolve bare station codes in the picks
     resolved, ambiguous = {}, {}
@@ -669,7 +677,7 @@ def fetch_station(route, key, band, t0, t1):
 
 # ── the build ────────────────────────────────────────────────────────────────
 
-def build(key: str, steps: list, force: bool):
+def build(key: str, steps: list, force: bool, refetch: bool = False):
     global _log_fh
     seq = reg.BY_KEY[key]
     out = OUT_ROOT / key; out.mkdir(parents=True, exist_ok=True)
@@ -775,7 +783,7 @@ def build(key: str, steps: list, force: bool):
                 if n_ok >= seq["n_stations"] and r.station not in seq.get("extra_stations", []):
                     continue
                 f = out / "waveforms" / f"{r.station}__{r.band}__{tag}.mseed"
-                if f.exists() and not force:
+                if f.exists() and not refetch:          # --force recomputes tables; --refetch re-downloads
                     n_ok += 1; got[r.station] = True; continue
                 st = fetch_station(r.route, r.station, r.band, w["t0"], w["t1"])
                 if st is None and r.route not in seq["waveform_routes"]:
@@ -850,7 +858,8 @@ def main():
     ap.add_argument("steps", nargs="*", default=["all"])
     ap.add_argument("--sequence", action="append", default=[])
     ap.add_argument("--all", action="store_true")
-    ap.add_argument("--force", action="store_true")
+    ap.add_argument("--force", action="store_true", help="Recompute the listed steps' outputs (waveform files are kept)")
+    ap.add_argument("--refetch", action="store_true", help="Re-download waveform files that already exist")
     ap.add_argument("--index", action="store_true")
     ap.add_argument("--verify", metavar="KEY")
     a = ap.parse_args()
@@ -863,7 +872,7 @@ def main():
     failed = []
     for k in keys:
         try:
-            build(k, steps, a.force)
+            build(k, steps, a.force, a.refetch)
         except Exception as exc:  # noqa: BLE001  one sequence must not take the others down
             import traceback
             log(f"!!! {k} failed: {type(exc).__name__}: {exc}"); traceback.print_exc()

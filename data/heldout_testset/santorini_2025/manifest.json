@@ -1,8 +1,8 @@
 {
  "key": "santorini_2025",
  "label": "Santorini-Amorgos 2025",
- "built": "2026-09-08T16:41:53+00:00",
- "git_commit": "c9d3b91d6698a1bede5c504343e658ac4f78c928",
+ "built": "2026-09-08T17:52:55+00:00",
+ "git_commit": "efd4b68a7c215f6d3054aa91e8076b9e68148f58",
  "python": "3.9.20",
  "obspy": "1.4.2",
  "pandas": "2.3.2",
@@ -54,332 +54,107 @@
  "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
  "queries": [
   {
-   "kind": "get_events",
+   "kind": "get_stations",
    "client": "NOA",
    "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:30:58+00:00",
+   "when": "2026-09-08T17:52:47+00:00",
    "params": {
-    "starttime": "2025-01-28T00:00:00.000000Z",
-    "endtime": "2025-01-29T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:31:02+00:00",
-   "params": {
-    "starttime": "2025-01-29T00:00:00.000000Z",
-    "endtime": "2025-01-30T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:31:15+00:00",
-   "params": {
-    "starttime": "2025-01-30T00:00:00.000000Z",
-    "endtime": "2025-01-31T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:31:26+00:00",
-   "params": {
-    "starttime": "2025-01-31T00:00:00.000000Z",
-    "endtime": "2025-02-01T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:31:33+00:00",
-   "params": {
-    "starttime": "2025-02-01T00:00:00.000000Z",
-    "endtime": "2025-02-02T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:31:50+00:00",
-   "params": {
-    "starttime": "2025-02-02T00:00:00.000000Z",
-    "endtime": "2025-02-03T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:33:05+00:00",
-   "params": {
-    "starttime": "2025-02-03T00:00:00.000000Z",
-    "endtime": "2025-02-04T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:33:51+00:00",
-   "params": {
-    "starttime": "2025-02-04T00:00:00.000000Z",
-    "endtime": "2025-02-05T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:34:28+00:00",
-   "params": {
-    "starttime": "2025-02-05T00:00:00.000000Z",
-    "endtime": "2025-02-06T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:35:31+00:00",
-   "params": {
-    "starttime": "2025-02-06T00:00:00.000000Z",
-    "endtime": "2025-02-07T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:36:17+00:00",
-   "params": {
-    "starttime": "2025-02-07T00:00:00.000000Z",
-    "endtime": "2025-02-08T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:36:37+00:00",
-   "params": {
-    "starttime": "2025-02-08T00:00:00.000000Z",
-    "endtime": "2025-02-09T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:36:56+00:00",
-   "params": {
-    "starttime": "2025-02-09T00:00:00.000000Z",
-    "endtime": "2025-02-10T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:37:32+00:00",
-   "params": {
-    "starttime": "2025-02-10T00:00:00.000000Z",
-    "endtime": "2025-02-11T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:37:42+00:00",
-   "params": {
-    "starttime": "2025-02-11T00:00:00.000000Z",
-    "endtime": "2025-02-12T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:37:56+00:00",
-   "params": {
-    "starttime": "2025-02-02T23:42:00.000000Z",
-    "endtime": "2025-02-03T00:42:00.000000Z",
-    "includearrivals": "True",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:38:48+00:00",
-   "params": {
-    "starttime": "2025-02-03T00:42:00.000000Z",
-    "endtime": "2025-02-03T01:42:00.000000Z",
-    "includearrivals": "True",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:38:59+00:00",
-   "params": {
-    "starttime": "2025-02-03T01:42:00.000000Z",
-    "endtime": "2025-02-03T02:42:00.000000Z",
-    "includearrivals": "True",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:39:31+00:00",
-   "params": {
-    "starttime": "2025-02-03T02:42:00.000000Z",
-    "endtime": "2025-02-03T02:45:00.000000Z",
-    "includearrivals": "True",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:39:33+00:00",
-   "params": {
-    "starttime": "2025-02-03T07:57:00.000000Z",
-    "endtime": "2025-02-03T08:57:00.000000Z",
-    "includearrivals": "True",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:39:46+00:00",
-   "params": {
-    "starttime": "2025-02-03T08:57:00.000000Z",
-    "endtime": "2025-02-03T09:57:00.000000Z",
-    "includearrivals": "True",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:40:27+00:00",
-   "params": {
-    "starttime": "2025-02-03T09:57:00.000000Z",
-    "endtime": "2025-02-03T10:57:00.000000Z",
-    "includearrivals": "True",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:40:49+00:00",
-   "params": {
-    "starttime": "2025-02-03T10:57:00.000000Z",
-    "endtime": "2025-02-03T11:00:00.000000Z",
-    "includearrivals": "True",
-    "latitude": "36.6",
-    "longitude": "25.6",
-    "maxradius": "0.7"
+    "latitude": "39.75",
+    "longitude": "22.2",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2021-03-03T10:26:08.000000Z",
+    "endtime": "2021-03-03T13:26:08.000000Z",
+    "level": "channel"
    }
   },
   {
    "kind": "get_stations",
    "client": "NOA",
    "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:40:51+00:00",
+   "when": "2026-09-08T17:52:48+00:00",
+   "params": {
+    "latitude": "37.9",
+    "longitude": "26.79",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "KOERI",
+   "base_url": "http://eida.koeri.boun.edu.tr",
+   "when": "2026-09-08T17:52:50+00:00",
+   "params": {
+    "latitude": "37.9",
+    "longitude": "26.79",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:52+00:00",
+   "params": {
+    "network": "HL",
+    "station": "SMG",
+    "channel": "HH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:53+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:53+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "KOERI",
+   "base_url": "http://eida.koeri.boun.edu.tr",
+   "when": "2026-09-08T17:52:54+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:55+00:00",
    "params": {
     "latitude": "36.6",
     "longitude": "25.6",
@@ -389,165 +164,9 @@
     "endtime": "2025-02-03T11:00:00.000000Z",
     "level": "channel"
    }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:40:52+00:00",
-   "params": {
-    "network": "HT",
-    "station": "THR2",
-    "channel": "EH?",
-    "starttime": "2025-02-02T23:45:00.000000Z",
-    "endtime": "2025-02-03T02:45:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:40:56+00:00",
-   "params": {
-    "network": "HL",
-    "station": "SANT",
-    "channel": "HH?",
-    "starttime": "2025-02-02T23:45:00.000000Z",
-    "endtime": "2025-02-03T02:45:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:40:59+00:00",
-   "params": {
-    "network": "HA",
-    "station": "SNT1",
-    "channel": "HH?",
-    "starttime": "2025-02-02T23:45:00.000000Z",
-    "endtime": "2025-02-03T02:45:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:01+00:00",
-   "params": {
-    "network": "HT",
-    "station": "CMBO",
-    "channel": "HH?",
-    "starttime": "2025-02-02T23:45:00.000000Z",
-    "endtime": "2025-02-03T02:45:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:15+00:00",
-   "params": {
-    "network": "HL",
-    "station": "SAP3",
-    "channel": "HH?",
-    "starttime": "2025-02-02T23:45:00.000000Z",
-    "endtime": "2025-02-03T02:45:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:21+00:00",
-   "params": {
-    "network": "HT",
-    "station": "THR9",
-    "channel": "EH?",
-    "starttime": "2025-02-02T23:45:00.000000Z",
-    "endtime": "2025-02-03T02:45:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:28+00:00",
-   "params": {
-    "network": "HT",
-    "station": "THR2",
-    "channel": "EH?",
-    "starttime": "2025-02-03T08:00:00.000000Z",
-    "endtime": "2025-02-03T11:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:33+00:00",
-   "params": {
-    "network": "HL",
-    "station": "SANT",
-    "channel": "HH?",
-    "starttime": "2025-02-03T08:00:00.000000Z",
-    "endtime": "2025-02-03T11:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:37+00:00",
-   "params": {
-    "network": "HA",
-    "station": "SNT1",
-    "channel": "HH?",
-    "starttime": "2025-02-03T08:00:00.000000Z",
-    "endtime": "2025-02-03T11:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:40+00:00",
-   "params": {
-    "network": "HT",
-    "station": "CMBO",
-    "channel": "HH?",
-    "starttime": "2025-02-03T08:00:00.000000Z",
-    "endtime": "2025-02-03T11:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:44+00:00",
-   "params": {
-    "network": "HL",
-    "station": "SAP3",
-    "channel": "HH?",
-    "starttime": "2025-02-03T08:00:00.000000Z",
-    "endtime": "2025-02-03T11:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "NOA",
-   "base_url": "http://eida.gein.noa.gr",
-   "when": "2026-09-08T16:41:48+00:00",
-   "params": {
-    "network": "HT",
-    "station": "THR9",
-    "channel": "EH?",
-    "starttime": "2025-02-03T08:00:00.000000Z",
-    "endtime": "2025-02-03T11:00:00.000000Z"
-   }
   }
  ],
- "n_queries": 36,
+ "n_queries": 8,
  "counts": {
   "catalog_events": 3440,
   "picks": 9053,
@@ -566,8 +185,8 @@
    "bytes": 253328
   },
   "stations.csv": {
-   "sha256": "9198a671c6aade9d7bc5ca81eebfca16835bcf000fdcaee444c29c7fbb5a1217",
-   "bytes": 1440
+   "sha256": "8a0b635d9f1dd7af22d1446a762aeb5ad308364702f146489db4553b54ef3443",
+   "bytes": 1966
   },
   "waveforms/HA.SNT1__HH__20250202T234500__20250203T024500.mseed": {
    "sha256": "ca7ddecf128d12b37407a19def69c2fa08cd4c73549f297c4c4a346bf55fcc2c",

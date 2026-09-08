@@ -1,8 +1,8 @@
 {
  "key": "campi_flegrei_2023",
  "label": "Campi Flegrei 2023",
- "built": "2026-09-08T16:26:51+00:00",
- "git_commit": "c9d3b91d6698a1bede5c504343e658ac4f78c928",
+ "built": "2026-09-08T17:53:11+00:00",
+ "git_commit": "efd4b68a7c215f6d3054aa91e8076b9e68148f58",
  "python": "3.9.20",
  "obspy": "1.4.2",
  "pandas": "2.3.2",
@@ -54,38 +54,25 @@
  "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
  "queries": [
   {
-   "kind": "get_events",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:19:57+00:00",
+   "kind": "get_stations",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T17:52:34+00:00",
    "params": {
-    "starttime": "2016-10-30T06:47:18.000000Z",
-    "endtime": "2016-10-30T08:50:18.000000Z",
-    "latitude": "42.83",
-    "longitude": "13.11",
-    "maxradius": "0.8",
-    "minmagnitude": "2.0"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:20:13+00:00",
-   "params": {
-    "starttime": "2016-10-30T06:47:18.000000Z",
-    "endtime": "2016-10-30T08:50:18.000000Z",
-    "latitude": "42.83",
-    "longitude": "13.11",
-    "maxradius": "0.8",
-    "minmagnitude": "2.0"
+    "latitude": "-42.69",
+    "longitude": "173.02",
+    "maxradius": "2.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z",
+    "level": "channel"
    }
   },
   {
    "kind": "get_stations",
    "client": "INGV",
    "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:21:51+00:00",
+   "when": "2026-09-08T17:52:35+00:00",
    "params": {
     "latitude": "42.83",
     "longitude": "13.11",
@@ -97,129 +84,25 @@
    }
   },
   {
-   "kind": "get_waveforms",
+   "kind": "get_stations",
    "client": "INGV",
    "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:22:03+00:00",
+   "when": "2026-09-08T17:52:48+00:00",
    "params": {
-    "network": "IV",
-    "station": "GUMA",
-    "channel": "HH?",
-    "starttime": "2016-10-30T06:50:18.000000Z",
-    "endtime": "2016-10-30T08:50:18.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:22:19+00:00",
-   "params": {
-    "network": "XO",
-    "station": "AM05",
-    "channel": "EH?",
-    "starttime": "2016-10-30T06:50:18.000000Z",
-    "endtime": "2016-10-30T08:50:18.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:22:36+00:00",
-   "params": {
-    "network": "IV",
-    "station": "LNSS",
-    "channel": "HH?",
-    "starttime": "2016-10-30T06:50:18.000000Z",
-    "endtime": "2016-10-30T08:50:18.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:22:47+00:00",
-   "params": {
-    "network": "IV",
-    "station": "RM33",
-    "channel": "EH?",
-    "starttime": "2016-10-30T06:50:18.000000Z",
-    "endtime": "2016-10-30T08:50:18.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:22:53+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CAMP",
-    "channel": "HH?",
-    "starttime": "2016-10-30T06:50:18.000000Z",
-    "endtime": "2016-10-30T08:50:18.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:23:02+00:00",
-   "params": {
-    "network": "IV",
-    "station": "MC2",
-    "channel": "EH?",
-    "starttime": "2016-10-30T06:50:18.000000Z",
-    "endtime": "2016-10-30T08:50:18.000000Z"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:23:11+00:00",
-   "params": {
-    "starttime": "2023-09-26T00:00:00.000000Z",
-    "endtime": "2023-10-05T00:00:00.000000Z",
-    "includearrivals": "False",
-    "latitude": "40.83",
-    "longitude": "14.14",
-    "maxradius": "0.15",
-    "minmagnitude": "0.5"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:23:23+00:00",
-   "params": {
-    "starttime": "2023-09-26T00:57:00.000000Z",
-    "endtime": "2023-09-26T04:00:00.000000Z",
-    "latitude": "40.83",
-    "longitude": "14.14",
-    "maxradius": "0.15"
-   }
-  },
-  {
-   "kind": "get_events",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:23:37+00:00",
-   "params": {
-    "starttime": "2023-09-27T19:27:00.000000Z",
-    "endtime": "2023-09-27T22:30:00.000000Z",
-    "latitude": "40.83",
-    "longitude": "14.14",
-    "maxradius": "0.15"
+    "latitude": "43.96",
+    "longitude": "13.32",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z",
+    "level": "channel"
    }
   },
   {
    "kind": "get_stations",
    "client": "INGV",
    "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:23:53+00:00",
+   "when": "2026-09-08T17:53:00+00:00",
    "params": {
     "latitude": "40.83",
     "longitude": "14.14",
@@ -229,165 +112,9 @@
     "endtime": "2023-09-27T22:30:00.000000Z",
     "level": "channel"
    }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:24:03+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CSTH",
-    "channel": "HH?",
-    "starttime": "2023-09-26T01:00:00.000000Z",
-    "endtime": "2023-09-26T04:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:24:14+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CAAM",
-    "channel": "HH?",
-    "starttime": "2023-09-26T01:00:00.000000Z",
-    "endtime": "2023-09-26T04:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:24:28+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CPOZ",
-    "channel": "HH?",
-    "starttime": "2023-09-26T01:00:00.000000Z",
-    "endtime": "2023-09-26T04:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:24:39+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CSFT",
-    "channel": "HH?",
-    "starttime": "2023-09-26T01:00:00.000000Z",
-    "endtime": "2023-09-26T04:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:24:50+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CSOB",
-    "channel": "HH?",
-    "starttime": "2023-09-26T01:00:00.000000Z",
-    "endtime": "2023-09-26T04:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:24:57+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CFMN",
-    "channel": "HH?",
-    "starttime": "2023-09-26T01:00:00.000000Z",
-    "endtime": "2023-09-26T04:00:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:25:11+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CSTH",
-    "channel": "HH?",
-    "starttime": "2023-09-27T19:30:00.000000Z",
-    "endtime": "2023-09-27T22:30:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:25:29+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CAAM",
-    "channel": "HH?",
-    "starttime": "2023-09-27T19:30:00.000000Z",
-    "endtime": "2023-09-27T22:30:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:25:54+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CPOZ",
-    "channel": "HH?",
-    "starttime": "2023-09-27T19:30:00.000000Z",
-    "endtime": "2023-09-27T22:30:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:26:08+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CSFT",
-    "channel": "HH?",
-    "starttime": "2023-09-27T19:30:00.000000Z",
-    "endtime": "2023-09-27T22:30:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:26:28+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CSOB",
-    "channel": "HH?",
-    "starttime": "2023-09-27T19:30:00.000000Z",
-    "endtime": "2023-09-27T22:30:00.000000Z"
-   }
-  },
-  {
-   "kind": "get_waveforms",
-   "client": "INGV",
-   "base_url": "http://webservices.ingv.it",
-   "when": "2026-09-08T16:26:38+00:00",
-   "params": {
-    "network": "IV",
-    "station": "CFMN",
-    "channel": "HH?",
-    "starttime": "2023-09-27T19:30:00.000000Z",
-    "endtime": "2023-09-27T22:30:00.000000Z"
-   }
   }
  ],
- "n_queries": 25,
+ "n_queries": 4,
  "counts": {
   "catalog_events": 71,
   "picks": 95,
@@ -406,8 +133,8 @@
    "bytes": 12996
   },
   "stations.csv": {
-   "sha256": "ac85b3c9c78e060857000bbfd51f119ee8a0f2a6f3d75230ab42eb021ac1e5fe",
-   "bytes": 2890
+   "sha256": "5817691d155d94966c6ae3ea16f6a62bf572ff8e36268c477a79c23885643630",
+   "bytes": 4079
   },
   "waveforms/IV.CAAM__HH__20230926T010000__20230926T040000.mseed": {
    "sha256": "63dca6a495191346e3f8ebf74d74c91e4af9a9278b53a4c6b6ab6fdfeeebfa75",

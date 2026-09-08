@@ -197,7 +197,7 @@ def main():
     rows = resolve()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with open(OUT, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["key", "kind", "citation", "doi", "url", "resolved_title", "status"])
+        w = csv.DictWriter(f, fieldnames=["key", "kind", "citation", "doi", "url", "resolved_title", "status"], lineterminator="\n")
         w.writeheader(); w.writerows(rows)
     n_ok = sum(r["status"] == "verified" for r in rows)
     print(f"\n{len(rows)} references, {n_ok} verified -> {OUT}")

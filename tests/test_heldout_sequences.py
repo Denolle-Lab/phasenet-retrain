@@ -119,3 +119,38 @@ def test_windows_csv_roundtrip_matches_definitions():
     wf = hs.windows_frame()
     assert list(wf.name) == hs.WINDOW_NAMES
     assert set(wf.columns) >= {"name", "lat", "lon", "radius_deg", "start", "end"}
+
+
+def test_place_holdouts_ignore_time_and_accept_missing_time():
+    df = _frame([
+        ("etna_2012", "2012-05-01T00:00:00", 37.7, 15.0),
+        ("campi_flegrei_no_time", None, 40.83, 14.14),
+        ("vesuvius_outside_campi_radius", "2023-01-01T00:00:00", 40.82, 14.43),
+        ("naples_tectonic_far", "2023-01-01T00:00:00", 41.5, 14.1),
+    ])
+    got = dict(zip(df.trace_name, hs.flag_rows(df).window))
+    assert got["etna_2012"] == "etna"
+    assert got["campi_flegrei_no_time"] == "campi_flegrei"
+    assert got["vesuvius_outside_campi_radius"] == ""
+    assert got["naples_tectonic_far"] == ""
+    assert "etna" in hs.PLACE_NAMES and "kahramanmaras_2023" not in hs.PLACE_NAMES
+
+
+def test_new_mainshock_windows_are_time_bounded():
+    df = _frame([
+        ("kahramanmaras_day1", "2023-02-07T00:00:00", 37.2, 37.0),
+        ("kahramanmaras_2022", "2022-02-07T00:00:00", 37.2, 37.0),
+        ("noto_swarm_2022", "2022-06-01T00:00:00", 37.5, 137.3),
+        ("noto_mainshock", "2024-01-01T07:10:00", 37.5, 137.3),
+        ("noto_2019_before_swarm", "2019-06-01T00:00:00", 37.5, 137.3),
+    ])
+    got = dict(zip(df.trace_name, hs.flag_rows(df).window))
+    assert got["kahramanmaras_day1"] == "kahramanmaras_2023" and got["kahramanmaras_2022"] == ""
+    assert got["noto_swarm_2022"] == "noto_swarm_2020_2023"
+    assert got["noto_mainshock"] == "noto_2024"
+    assert got["noto_2019_before_swarm"] == ""
+
+
+def test_every_window_has_regime_and_tier():
+    for w in hs.WINDOWS:
+        assert w["regime"] in {"msas", "vt", "swarm", "mixed"} and w["tier"] in {1, 2}

@@ -24,6 +24,21 @@ falls in either.
 
 Whole-year hold-out: no 2016 and no 2021 origin in any training manifest,
 so a future sequence from those years is clean too.
+
+2026-09-08 extension (docs/2026-09-08_heldout_test_cases.md): three test
+regimes, each with its own hold-outs.
+  * mainshock-aftershock sequences: time-bounded windows as above
+    (Kahramanmaras 2023, Noto 2024, Hualien 2024, Petrinja 2020-21,
+    Samos 2020, Adriatic 2022);
+  * volcano-tectonic sequences and fluid-driven swarms: PLACE hold-outs
+    with no time bound (start/end None), because the same volcano or
+    swarm zone recurs across years and appears in the SeisBench sets
+    (Etna and Campi Flegrei in INSTANCE, for instance). A trace is
+    excluded if its source lies inside the radius at any time.
+Every window carries a `regime` and a `tier`: tier 1 places were never in
+any training set and count for the generalisation claim; tier 2 are
+known places at new times and are listed in the catalogue but not
+enforced here.
 """
 
 from __future__ import annotations
@@ -47,7 +62,9 @@ LON_COL = "source_longitude_deg"
 
 HOLDOUT_YEARS = frozenset({2016, 2021})
 
-# name, lat, lon, radius (deg of arc), start (UTC), end (UTC, inclusive)
+# name, lat, lon, radius (deg of arc), start (UTC), end (UTC, inclusive);
+# start/end None = place hold-out at all times. regime: msas | vt | swarm |
+# mixed; tier: 1 (never in any training set) | 2 (known place, new time).
 WINDOWS = [
     dict(name="norcia_2016_mainshock", lat=42.83, lon=13.11, radius_deg=1.0,
          start="2016-10-30T06:50:00Z", end="2016-10-30T08:50:00Z"),
@@ -65,8 +82,47 @@ WINDOWS = [
          start="2019-07-06T00:00:00Z", end="2019-08-06T23:59:59Z"),
     dict(name="monroe_2019", lat=47.87, lon=-122.02, radius_deg=1.0,
          start="2019-07-12T00:00:00Z", end="2019-07-19T23:59:59Z"),
+    # ── 2026-09-08: mainshock-aftershock sequences (time-bounded) ────────
+    dict(name="kahramanmaras_2023", lat=37.4, lon=37.2, radius_deg=2.5,
+         start="2023-02-06T00:00:00Z", end="2023-12-31T23:59:59Z", regime="msas", tier=1),
+    dict(name="noto_2024", lat=37.5, lon=137.27, radius_deg=1.0,
+         start="2024-01-01T00:00:00Z", end="2024-12-31T23:59:59Z", regime="msas", tier=1),
+    dict(name="hualien_2024", lat=23.82, lon=121.56, radius_deg=1.0,
+         start="2024-04-02T00:00:00Z", end="2024-12-31T23:59:59Z", regime="msas", tier=1),
+    dict(name="petrinja_2020", lat=45.42, lon=16.26, radius_deg=0.7,
+         start="2020-12-28T00:00:00Z", end="2021-06-30T23:59:59Z", regime="msas", tier=1),
+    dict(name="samos_2020", lat=37.90, lon=26.79, radius_deg=1.0,
+         start="2020-10-30T00:00:00Z", end="2021-02-28T23:59:59Z", regime="msas", tier=1),
+    dict(name="adriatic_2022", lat=43.96, lon=13.32, radius_deg=0.7,
+         start="2022-11-09T00:00:00Z", end="2023-03-31T23:59:59Z", regime="msas", tier=1),
+    # ── 2026-09-08: fluid-driven swarm, time-bounded (Noto, before the 2024 mainshock)
+    dict(name="noto_swarm_2020_2023", lat=37.5, lon=137.27, radius_deg=1.0,
+         start="2020-12-01T00:00:00Z", end="2023-12-31T23:59:59Z", regime="swarm", tier=1),
+    # ── 2026-09-08: volcano-tectonic places, all times ─────────────────────
+    dict(name="reykjanes_peninsula", lat=63.9, lon=-22.3, radius_deg=0.7,
+         start=None, end=None, regime="vt", tier=1),
+    dict(name="la_palma", lat=28.61, lon=-17.87, radius_deg=0.5,
+         start=None, end=None, regime="vt", tier=1),
+    dict(name="santorini_amorgos", lat=36.6, lon=25.6, radius_deg=0.7,
+         start=None, end=None, regime="vt", tier=1),
+    dict(name="etna", lat=37.75, lon=15.0, radius_deg=0.5,
+         start=None, end=None, regime="vt", tier=1),
+    dict(name="mayotte", lat=-12.8, lon=45.5, radius_deg=1.0,
+         start=None, end=None, regime="vt", tier=1),
+    # ── 2026-09-08: fluid-driven swarm places, all times ───────────────────
+    dict(name="campi_flegrei", lat=40.83, lon=14.14, radius_deg=0.15,  # 17 km: the caldera, not Vesuvius
+         start=None, end=None, regime="swarm", tier=1),
+    dict(name="west_bohemia", lat=50.24, lon=12.45, radius_deg=0.5,
+         start=None, end=None, regime="swarm", tier=1),
+    dict(name="maurienne", lat=45.30, lon=6.30, radius_deg=0.5,
+         start=None, end=None, regime="swarm", tier=1),
+    dict(name="corinth_thiva", lat=38.2, lon=23.1, radius_deg=0.7,
+         start=None, end=None, regime="swarm", tier=1),
 ]
+for _w in WINDOWS:
+    _w.setdefault("regime", "msas"); _w.setdefault("tier", 1)
 WINDOW_NAMES = [w["name"] for w in WINDOWS]
+PLACE_NAMES = [w["name"] for w in WINDOWS if w["start"] is None]
 
 
 def windows_frame() -> pd.DataFrame:
@@ -95,11 +151,14 @@ def window_hits(origin_time, lat, lon) -> pd.DataFrame:
     lon = pd.to_numeric(pd.Series(lon), errors="coerce").to_numpy(dtype=float)
     out = {}
     for w in WINDOWS:
+        d = gc_distance_deg(w["lat"], w["lon"], lat, lon)
+        in_space = np.isfinite(d) & (d <= w["radius_deg"])
+        if w["start"] is None:            # place hold-out: any time, even unknown
+            out[w["name"]] = in_space
+            continue
         t0 = pd.Timestamp(w["start"])
         t1 = pd.Timestamp(w["end"])
         in_time = (t >= t0) & (t <= t1)
-        d = gc_distance_deg(w["lat"], w["lon"], lat, lon)
-        in_space = np.isfinite(d) & (d <= w["radius_deg"])
         out[w["name"]] = (in_time.to_numpy() & in_space)
     return pd.DataFrame(out, index=t.index)
 

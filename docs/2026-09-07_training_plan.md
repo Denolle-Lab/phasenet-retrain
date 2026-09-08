@@ -1,244 +1,325 @@
-# Plan: a general picker for a global run with local resolution
+# Plan: a general PhaseNet for a global run with local resolution
 
-*2026-09-07, Marine Denolle with Claude, branch `audit/2026-09-07-generalization`.
-Supersedes the conditional v21 proposal of the same date as the thing to
-act on; that proposal survives as the recipe for the training arms in §5.
-Nothing here has been run.*
+*v2, 2026-09-08. Marine Denolle with Claude, branch
+`audit/2026-09-07-generalization`. Re-audited after Marine's decisions of
+2026-09-08: PhaseNet only, natural noise as a first-class part of the
+training data, and three held-out test regimes. Nothing here has been run.*
+
+**Changes from v1 (2026-09-07).** EQTransformer arms removed; the
+architecture question is now width and input length inside PhaseNet, and
+ensembles are PhaseNet-only. The single line on "real-noise superposition"
+became §5, a noise corpus with its own taxonomy, harvest, hold-outs and
+scoring. The acceptance suite is rebuilt around three regimes
+(`docs/2026-09-08_heldout_test_cases.md`) and the volcano and swarm cases
+are held out as places, not time windows. Akash's curated benchmark stays
+as a unit test of timing on isolated arrivals.
 
 ## 1. What the audit fixes about the design
 
-Twenty finetunes of `jma_wc` on 527,477 windows drawn from twenty sources
-did not beat the parent, which was trained on 6.1 million waveforms with
-one labelling convention (Naoi et al. 2024). The one gain that survived a
-paired comparison was 19 ms of P timing on picks both models make, and it
-did not show on continuous data. Recipe changes were tried one variable at
-a time and the recall never came back. The conclusion is about data, not
-optimisation: half a million heterogeneous windows can perturb a model of
-this size but not re-teach it, and every version paid for the perturbation
-in recall.
+Twenty finetunes of `jma_wc` on 527,477 windows from twenty sources did
+not beat the parent, which was trained on 6.1 million waveforms with one
+labelling convention. The one gain that survived a paired comparison was
+19 ms of P timing on picks both models make, and it did not show on
+continuous data. The conclusion is about data, not optimisation: half a
+million heterogeneous windows can perturb a model of this size but not
+re-teach it, and every version paid for the perturbation in recall.
 
-Four things about the parent itself did surface, and they are the targets.
+The parent's own weaknesses, measured, are the targets.
 
-| Weakness of `jma_wc` | Where it was measured | Size |
+| Weakness of `jma_wc` | Where measured | Size |
 |---|---|--:|
 | Regional S | benchmark, 150–1500 km | S recall 0.36 [0.35, 0.38] |
 | Low-SNR P | benchmark, below 0 dB | P recall 0.66 [0.64, 0.67] |
-| Precision per pick | Kaikōura, Norcia, Thessaly, matched budget | `instance` leads by 3–12 points of P along the whole budget overlap |
-| False triggers on noise | noise pool, own best threshold | precision 0.83; the EQTransformer ensemble reaches 0.96 at similar recall |
+| Precision per pick | Kaikōura, Norcia, Thessaly at matched budget | `instance` leads P by 3–12 points along the whole overlap |
+| False triggers on noise | noise pool, own best threshold | precision 0.83 |
 
 Two more were built into the training pipeline and never measured. The
-training windows were cut with one labelled pick each
+training windows carried one labelled pick each
 (`scripts/manifest_dataset.py:227-247`); a second event in the same 30 s
-was present in the waveform and absent from the label, which teaches the
-model to ignore it. That is the aftershock regime. And every waveform was
-resampled to 100 Hz once, so nothing saw the 20, 40 and 50 Hz instruments
-the campaign upsamples.
+was in the waveform and absent from the label, which teaches the model to
+suppress exactly the arrivals an aftershock sequence is made of. And every
+waveform was resampled to 100 Hz once, so nothing saw the 20, 40 and 50 Hz
+instruments the campaign upsamples.
 
 The teleseismic objective fought the regional one every time it was
-raised (v13, v16, v17: teleseismic oversampling cost regional timing and
-recall). Those two jobs get two models.
+raised (v13, v16, v17). Those two jobs get two models (§7).
 
 ## 2. The target, written so it can be scored
 
-The campaign runs one picker over every network EarthScope holds. What it
-has to do well, in order:
+The campaign runs one PhaseNet over every network EarthScope holds. What
+it has to do well, in order:
 
 1. **Local and regional sensitivity**, 0 to 300 km, down to the operator's
    completeness in dense networks and below it in sparse ones. Scored as
-   recall at matched pick budget against the operator's manual picks, per
-   phase and per distance bin, and as the false-pick rate per station-day
-   on quiet days.
-2. **Aftershock sequences.** The first 48 hours after an M6+ mainshock,
-   events seconds apart, coda everywhere. Scored at the event level: the
-   fraction of the operator's located events the pipeline recovers after
-   association, by magnitude and by hour after the mainshock, plus picks
-   per station-hour and the analyst residual.
-3. **Distant P for completeness where there are no stations.** Offshore
-   events and sparse regions such as most of Africa are recorded at 3 to
-   30° on whatever exists. Scored as events located against the ISC and
-   NEIC bulletins and as the completeness magnitude versus distance to the
-   nearest station. This is a separate model (§6), not a property demanded
-   of the regional picker.
+   recall at matched pick budget against manual picks per phase and
+   distance bin, and as false picks per station-day on quiet days, by
+   noise class.
+2. **Mainshock-aftershock sequences.** The first 48 hours after an M6+,
+   events seconds apart, coda everywhere. Scored at the event level after
+   association: the fraction of the operator's located events recovered,
+   by magnitude and by hour after the mainshock; picks per station-hour;
+   residuals against the manual picks.
+3. **Volcano-tectonic sequences** (dike intrusions, pre-eruptive unrest)
+   and **fluid-driven swarms** (magmatic and hydrothermal), which migrate
+   for weeks to months, have emergent onsets, weak S, and tremor
+   underneath. Scored as events recovered against the published catalogue
+   by magnitude and by day, with the migration front recovered or not.
+4. **Distant P for completeness where there are no stations**, offshore
+   and in sparse regions such as most of Africa. A separate model (§7),
+   scored against ISC and NEIC by completeness magnitude versus nearest
+   station distance.
 
-The acceptance suite is fixed before training and never read during
-development. It is the five sequences already held out (Kaikōura, Norcia,
-Thessaly, Ridgecrest, Monroe), the whole years 2016 and 2021, and six more
-sequences chosen for coverage of the campaign, each with an operator that
-publishes manual arrivals through an FDSN event service: candidates are
-Kahramanmaraş 2023 (KOERI or AFAD), Illapel 2015 (CSN Chile), Anchorage
-2018 (AEC through USGS), Puebla 2017 (SSN Mexico), the Reykjanes 2021
-swarm (IMO) and Botswana 2017 (sparse; ISC picks). Which services actually
-return arrivals has to be tested with the harvest code of
-`~/GitHub/QuakeScope/tutorials/phasenet_global_sequences.ipynb`; the
-three proven ones are GeoNet, INGV and NOA. A development suite of
-different sequences and years serves every decision before the final one.
+The acceptance suite is fixed now and never read during development: the
+five sequences already held out, the years 2016 and 2021, and the tier-1
+cases of `docs/2026-09-08_heldout_test_cases.md` marked "acceptance"
+(Kahramanmaraş 2023, Noto 2024, Hualien 2024, Petrinja 2020–21; Reykjanes,
+La Palma, Santorini–Amorgos; West Bohemia 2018, Maurienne 2017–19, the
+Noto swarm, Campi Flegrei 2023–24). The cases marked "development" (Samos,
+Adriatic 2022, Etna, Mayotte, Corinth–Thiva, and the tier-2 Hawaii and
+Alaska cases) serve every decision before the final one. All of them are
+now enforced as exclusions in `scripts/heldout_sequences.py`.
 
 ## 3. Phase 0, before any training (two to three weeks)
 
-Most of what the campaign needs this quarter is available without a GPU.
-
-1. **Run task 1 on the server** (`python scripts/audit_heldout_sequences.py`),
-   commit `data/exclusions/heldout_sequences.csv`. Nothing is built
-   without it.
+1. **Run task 1 on the server** (`python scripts/audit_heldout_sequences.py`)
+   with the 24 windows now defined; commit the list and the counts. The
+   place hold-outs will cost INSTANCE its Etna and Campi Flegrei traces
+   and CREW whatever it holds around the other places; the counts say
+   whether that is affordable. Read the `vcseis`, `crew` and `obst2024`
+   metadata for their date ranges and deployments to settle the Hawaii,
+   Alaska and Mayotte tiers.
 2. **Rank the candidates that already exist at matched budget** on the
    external suite: `jma_wc`, `instance`, `jma_wc_ft_global_v11` (the only
-   finetune above the parent on the noise pool, 0.804 [0.799, 0.808] against
-   0.776 [0.771, 0.780]), and three ensembles that cost no training:
-   `jma_wc` + `instance`, `jma_wc` + `eqt_original_nonconservative`, and
-   v7 + v11. Probability curves averaged, one threshold per ensemble.
-   Ensembles were the best entries on the noise pool (0.823 to 0.859) and
-   no one has scored them on continuous data.
+   finetune above the parent on the noise pool, 0.804 [0.799, 0.808]
+   against 0.776 [0.771, 0.780]), and two PhaseNet-only ensembles that
+   cost no training, `jma_wc` + `instance` and v7 + v11, probability
+   curves averaged. Ensembles were the best PhaseNet entries on the noise
+   pool and no one has scored one on continuous data.
 3. **Set thresholds per weight and per region** to a false-pick target on
-   quiet station-days, not to 0.3. The notebooks showed the threshold, not
-   the model, produced most of the apparent ranking.
+   quiet station-days, not to 0.3.
 4. **Build the event-level scorer**: PyOcto over the picks, matched to the
-   operator catalogue, events recovered by magnitude and by hour.
+   reference catalogue, events recovered by magnitude, hour and day.
+5. **Run the two extra regimes on the existing weights** (West Bohemia
+   2018 and Campi Flegrei 2023 are open and small) to have the baseline
+   numbers the training has to beat.
 
 Gate: whichever candidate leads at matched budget on at least five of the
 six non-US pairs and lowers the quiet-day false-pick rate replaces
-`jma_wc` in the campaign now. Training continues regardless, because none
-of these fixes regional S or low-SNR P.
+`jma_wc` in the campaign now. Training continues regardless.
 
-## 4. Phase 1, the corpus (six to eight weeks)
-
-The parent was taught by six million analyst picks with one convention.
-The nearest thing available outside Japan is the operators' own reviewed
-bulletins, which is also what the campaign is judged against. The corpus
-is built from them.
+## 4. Phase 1, the signal corpus (six to eight weeks)
 
 **Sources.** Arrivals harvested from every operator whose FDSN event
-service returns manual picks, the same code path as the notebooks: GeoNet,
-INGV, NOA, USGS ComCat for the US networks (NC, CI, UW, NN, AK, HV and the
-rest it covers), and, to be tested one by one, NRCan, Geoscience
-Australia, IMO, SED, KOERI, CSN, SSN, GFZ, RESIF. Only picks flagged
-manual, only P and S, only stations whose waveforms are open. The
-SeisBench sets with analyst P and S (ETHZ, PNW, CWA, SCEDC and CEED,
-TXED, Iquique, INSTANCE where the pick status says manual) are added with
-the same exclusions and the label-error filter. No P-only sets; nothing
-beyond 2000 km.
+service returns manual picks, the code path of the notebooks: GeoNet,
+INGV, NOA, USGS ComCat for the US networks, and, tested one by one,
+NRCan, Geoscience Australia, IMO, SED, KOERI, AFAD, CSN, SSN, GFZ, RESIF,
+IGN. Only manual P and S, only open waveforms. The SeisBench sets with
+analyst P and S (ETHZ, PNW, CWA, SCEDC and CEED, TXED, Iquique, INSTANCE
+where the pick status says manual, VCSEIS for its volcano-tectonic and
+long-period supervision) are added with the exclusions and the
+label-error filter. No P-only sets; nothing beyond 2000 km.
 
 **Windows.** Cut from continuous data at native sampling rate, 60 s long,
 with every arrival of every catalogued event inside the window labelled.
-This is the single most important change for aftershock sequences, and
-the bulletin harvest gives it for free: all picks on a station in a time
+This is the change that addresses the aftershock regime directly, and the
+bulletin harvest gives it for free: all picks on a station in a time
 range, not one pick per trace. Each window carries SNR, epicentral
-distance, magnitude, sampling rate, instrument, operator, year and the
+distance, magnitude, sampling rate, instrument, operator, year, event
+type where the operator gives one (VT, LP, hybrid, tectonic) and the
 number of events it contains.
 
-**Size.** A one-week census first: events per year times stations with
-picks per event, per operator, over the years the waveforms are open.
-INGV and GeoNet alone review tens of thousands of events a year at
-roughly ten picked stations each, so 3 to 5 million windows over a decade
-of bulletins is the target to verify, not a guess to build on.
+**Size.** A one-week census first: events per year times picked stations
+per event, per operator, over the years the waveforms are open; 3 to 5
+million windows over a decade is the target to verify.
 
 **Composition targets**, enforced by stratified sampling: at least 35 % of
-windows below 5 dB on the P window (the benchmark's share is 33 % and the
-low-SNR loss is where v7 fell behind); at least 30 % of windows with more
-than one event; an S label in at least 60 % of windows; a distance mix
-that matches the campaign's station geometry, which at Kaikōura and
-Thessaly is regional-heavy, 80 to 120 km for most reviewed picks; no
-single operator above 30 % of the corpus.
+windows below 5 dB on the P window; at least 30 % with more than one
+event; an S label in at least 60 %; at least 15 % from volcano-tectonic
+and swarm settings (VCSEIS, Hawaii and Alaska if tier 2, INGV volcano
+observatories other than the held-out places, PNW Cascades); a distance
+mix that matches the campaign's station geometry, regional-heavy; no
+operator above 30 %.
 
-**Exclusions and hygiene.** Held-out sequences, 2016, 2021, the
-development suite, benchmark traces and events; `scripts/hash_manifests.py`
-fingerprints; `scripts/audit_heldout_sequences.py --check-manifest` must
-pass on train and val; the acceptance suite is never opened.
+**Exclusions and hygiene.** The 24 windows and places, the 2016 and 2021
+years, the development suite, benchmark traces and events, the label-error
+filter; `scripts/hash_manifests.py` fingerprints;
+`scripts/audit_heldout_sequences.py --check-manifest` must pass on train
+and val.
 
-**Label checks.** The confident-learning filter as before, plus two
-physical ones the audit found wanting: S minus P against distance for
-every operator, and a per-operator recall cap test of the kind that
-exposed Thessaly's S at 0.5 for every model, which points at the reference
-rather than the pickers.
+## 5. Phase 1b, the noise corpus and how it is used
 
-## 5. Phase 2, training experiments (eight to twelve weeks)
+The parent's failure mode outside Japan is low-SNR P, and the campaign's
+false picks come from noise it never saw. White Gaussian noise (v13 to
+v16) is the wrong model of either: real noise is coloured, non-stationary,
+often impulsive, and site-specific. The noise corpus is built with the
+same care as the signal corpus, and the mixing recipe is what carries the
+low-SNR objective.
 
-Every run uses the recipe of `docs/2026-09-07_v21_proposal.md` §2 and §3:
-random window position, real-noise superposition from `data/noise_global`
-at 0 to 25 dB, band-limiting and resampling across 20 to 100 Hz, channel
-dropout, soft Gaussian targets, LR 5e-6, early stopping on a validation
-loss and nothing else. Selection is on the development suite at matched
-budget with paired intervals; the acceptance suite is run once, at the
-end.
+**5.1 Taxonomy.** Twelve flavours, each a class the pool is balanced over
+and the false-pick rate is reported by.
 
-**E1, the data-scaling curve, before anything else.** Initialise from
-`jma_wc`, distillation at T = 1.5 and α = 0.3, and train on nested subsets
-of 0.25, 0.5, 1, 2 and 4 million windows. Plot matched-budget recall
-against the parent on the development suite versus corpus size. This is
-the experiment the twenty versions never ran, and it answers the question
-that decides everything else: does more data of this kind move the parent
-at all? If the curve is flat at or below the parent by 2 million, the
-PhaseNet finetune line stops here and the campaign keeps the Phase 0
-winner; the remaining effort goes to §6 and to the associator.
+| Class | What it is | Where it comes from |
+|---|---|---|
+| Ocean microseism, storm-modulated | primary 0.05–0.1 Hz and secondary 0.1–0.5 Hz peaks, weeks-long modulation; dominates islands and coasts | coastal and island stations of the campaign; sampled by the station's own 0.1–0.5 Hz power percentile so storms are over-represented |
+| Wind and site tilt | broadband 1–10 Hz gusts, horizontal tilt below 0.1 Hz on shallow vaults | exposed and high-elevation stations; sampled on horizontal-to-vertical low-frequency ratio and spectral flatness |
+| Cultural, diurnal | traffic, machinery, trains, pumps; 50/60 Hz mains and harmonics; HVAC lines; wind turbines at 1–5 Hz | urban and industrial stations, day and night separately, by hour of day |
+| Hydrological | rivers, waterfalls, rain on the enclosure, snowmelt | stations near rivers and glaciers, spring and monsoon months |
+| Impulsive non-earthquake | thunder, sonic booms, explosions and quarry blasts, surface events (rockfalls, avalanches), plane and vehicle impacts | PNW exotic classes (Ni et al. 2023), operator "explosion" and "landslide" labels, VCSEIS long-period class where it should not be picked as P/S |
+| Volcanic tremor and hydrothermal noise | harmonic and spasmodic tremor, hydrothermal boiling noise, gas-piston events | INGV-OE and INGV-OV, HVO, IMO and AVO during eruptions and unrest, outside the held-out places |
+| Tectonic tremor and LFEs | Cascadia ETS and Nankai tremor bursts, hours long | PNSN tremor catalogue windows; Hi-net where accessible |
+| Earthquake coda and sequence hum | regional coda minutes after M5+, teleseismic coda hours after M7+, the continuous overlap of small aftershocks | continuous data from aftershock sequences NOT held out (e.g. Ridgecrest 2019 is held out; use Monte Cristo 2020, Sparta 2020, Zagreb 2020) |
+| Ocean-bottom | current-induced tilt, compliance, fin and blue whale calls at 15–25 Hz, ship harmonics, airguns, hydrophone self-noise | OBST2024 noise class; the lab's OBS benchmark deployments; OOI cabled stations |
+| Polar and ice | icequakes, calving, sea-ice noise, wind on ice | Antarctic and Greenland stations of the campaign |
+| Instrument and telemetry | spikes, DC steps, mass recentring pulses, calibration pulses, clipping, gaps, dropouts, timing glitches, aliasing from decimation, 4.5 Hz geophone and low-cost sensor self-noise, accelerometer noise floor, temperature drift | synthesised on the fly from a small set of rules, plus real examples harvested from station-day QC flags |
+| Quiet baseline | the station at its quietest, all instrument types and rates | every station in the campaign, lowest 10 % power windows |
 
-**E2, initialisation and anchor**, at the largest size that helped in E1:
-`jma_wc` init against a from-scratch PhaseNetWC (from scratch lost badly at
-527k; at millions it may not), and α = 0 against α = 0.3.
+**5.2 Harvest.** From the campaign's own archives (SCEDC and NCEDC S3,
+EarthScope, the operators' FDSN services), windows of 120 s at native
+rate, from stations chosen to span instrument type (broadband,
+short-period, strong-motion, geophone, OBS, low-cost), sampling rate (20
+to 250 Hz), site (urban, rural, coastal, island, high-elevation, polar,
+ocean floor) and continent, with an explicit quota for Africa, South
+America and Oceania. A window is noise when no catalogued event, global
+M ≥ 2.5 or local M ≥ 0 where a local catalogue exists, has a predicted P or
+S at the station inside the window or the 120 s before it. No
+model-based screening: running `jma_wc` to reject windows it fires on
+would bias the pool toward what the model already ignores, which is the
+opposite of what is needed. A separate flag records what `jma_wc` fires
+on, for scoring.
 
-**E3, augmentation ablation**, one arm each without real-noise
-superposition, without resampling, without multi-event windows. The
-multi-event arm is scored on the aftershock metric only.
+Class labels come from the source (PNW exotic, tremor catalogues, eruption
+periods, OBS deployments) or from simple spectral features (microseism
+band power, mains line power, horizontal-to-vertical ratio, kurtosis for
+impulsiveness, hour of day). Target: 1 million windows, at least 20,000
+per class, the held-out places and times excluded exactly as for the
+signal corpus, and a held-out noise split by station, never by window, so
+the false-pick rate is measured on stations the model never saw.
 
-**E4, architecture.** EQTransformer finetuned on the same corpus, and the
-ensemble of the best PhaseNet arm with it. On the noise pool the
-EQTransformer ensembles were the best detectors by a margin no PhaseNet
-variant approached; whether that holds at matched budget on continuous
-data is unknown and cheap to learn once the corpus exists.
+**5.3 Mixing recipe**, applied on the fly in `CachedManifestDataset.__getitem__`
+to a signal window drawn from Phase 1.
+
+- *Class-balanced draw.* With probability 0.6 a noise window is drawn
+  from a class chosen uniformly, then a window uniformly within it, so
+  rare flavours are seen as often as common ones.
+- *SNR-controlled superposition.* The noise is resampled to the signal's
+  rate, scaled to a target SNR on the P window drawn from a distribution
+  weighted toward the hard end (40 % of draws in 0 to 5 dB, 30 % in 5 to
+  10 dB, 30 % in 10 to 25 dB), and added. Labels unchanged.
+- *Non-stationarity.* With probability 0.3 the noise level ramps or steps
+  inside the window, or a second noise window from a different class is
+  added over part of it, because real noise changes within 60 s.
+- *Event superposition.* With probability 0.3 a second labelled signal
+  window is added with a random offset of 2 to 40 s and the labels
+  merged, on top of the multi-event windows the harvest already
+  contains. This is the aftershock regime in the loss.
+- *Coda background.* With probability 0.1 the signal window is placed on
+  a sequence-hum window rather than a quiet one.
+- *Instrument artefacts*, each with probability 0.02 to 0.05: spike, DC
+  step, gap of 0.1 to 3 s, clipping at a random level, mains hum, slow
+  drift, a channel zeroed, decimation-then-upsampling through 20, 40 or
+  50 Hz.
+- *Band-limiting and rate.* With probability 0.3 a low-pass corner from 8
+  to 20 Hz, then resampling through 20 to 100 Hz and back.
+- *Pure-noise windows* as negatives, 15 % of every batch, all-zero
+  labels, drawn class-balanced.
+- *Untouched fraction.* 30 % of signal windows receive no augmentation at
+  all, so the model keeps its behaviour on clean data.
+- Random window position, amplitude jitter and polarity flip as before.
+
+**5.4 What the noise buys and how it is checked.** False picks per
+station-day by noise class on the held-out noise stations; recall versus
+SNR on the development sequences; and the noise-pool detection MCC of
+`scripts/compute_detection_metrics.py` extended per class. A flavour that
+the model fires on after training is a flavour the pool under-represents,
+and the census is adjusted, not the threshold.
+
+## 6. Phase 2, training experiments (eight to twelve weeks)
+
+PhaseNet only. Every run uses soft Gaussian targets, LR 5e-6, early
+stopping on a validation loss, the §5 mixing recipe, and distillation
+from `jma_wc` at T = 1.5, α = 0.3 unless the arm says otherwise. Selection
+is on the development suite at matched budget with paired intervals; the
+acceptance suite is run once, at the end.
+
+**E1, the data-scaling curve, first.** Initialise from `jma_wc` and train
+on nested subsets of 0.25, 0.5, 1, 2 and 4 million windows. Plot
+matched-budget recall against the parent on the development suite versus
+corpus size, per regime. This is the experiment the twenty versions never
+ran. If the curve is flat at or below the parent by 2 million, the
+finetune line stops and the effort goes to §7 and the associator.
+
+**E2, initialisation and anchor**, at the largest size that helped:
+`jma_wc` init against from-scratch PhaseNetWC, and α = 0 against 0.3.
+
+**E3, noise ablation.** Arms without the class-balanced draw (uniform over
+windows), without event superposition, without the non-stationary and
+artefact groups, and with white Gaussian noise in place of the corpus.
+Each arm is scored on the false-pick rate by class and on the aftershock
+regime, which is where they should differ.
+
+**E4, PhaseNet width and context.** PhaseNetWC (the parent's 2× filters)
+against standard width at the same data, and 60 s input against 30 s.
+Longer context is what regional S and overlapping events ask for; the
+architecture is fully convolutional so the change is in the window
+length, not the weights. Ensembles of the best arm with `jma_wc` are the
+deployment option if they win at matched budget; two PhaseNets still cost
+less than one EQTransformer.
 
 Compute: v7 reached epoch 44 on 527k windows in one server session; the
 per-epoch time is in `results/finetune_jma_wc_global_v7_metrics.csv` on
-the server and sets the budget. Assume a 4 million window run is eight
-times v7 per epoch and plan the E1 subsets to fit the GPUs available; E2
-to E4 are three to five runs at one size.
+the server. A 4 million window run is about eight times v7 per epoch;
+E1's subsets are planned to fit the GPUs available; E2 to E4 are ten to
+twelve runs at one size.
 
-## 6. Phase 3, a distant-P model for offshore and sparse regions
+## 7. Phase 3, a distant-P model for offshore and sparse regions
 
-A 30 s window at 100 Hz is the wrong instrument for P at 10 to 30°. Rather
-than pull the regional model toward it again, train a second PhaseNet at
-20 Hz on 120 s windows, P only, from GEOFON, MLAAPDE, CREW and ISC-labelled
-P at 3 to 30° from M ≥ 4, initialised from the SeisBench `geofon` weights
-(the only model in the pool with teleseismic recall, 0.78 on the
-benchmark). It runs only where it earns its cost: ocean-bottom
-deployments, oceanic islands, and station-sparse regions defined by
-nearest-neighbour station distance above 300 km. Its picks enter the
-associator with a global velocity model. It is scored by events located
-against ISC and NEIC and by the completeness magnitude versus nearest
-station distance, on offshore and African test regions held out by year.
+A 30 s window at 100 Hz is the wrong instrument for P at 10 to 30°. Train
+a second PhaseNet at 20 Hz on 120 s windows, P only, from GEOFON, MLAAPDE,
+CREW and ISC-labelled P at 3 to 30° from M ≥ 4, initialised from the
+SeisBench `geofon` weights, with the §5 noise recipe restricted to the
+ocean-bottom, microseism, polar and quiet classes. It runs only where it
+earns its cost: ocean-bottom deployments, oceanic islands, and regions
+where the nearest station is more than 300 km away. Its picks enter the
+associator with a global velocity model. Scored against ISC and NEIC by
+completeness magnitude versus nearest station distance, on offshore and
+African test regions held out by year.
 
-## 7. Phase 4, deployment
+## 8. Phase 4, deployment
 
 Thresholds belong to the weight and the region, set to a false-pick target
 and recorded with the campaign. Association settings for sequences are
-tuned on the aftershock metric, not on picks. Every change of weights
-re-runs the two QuakeScope notebooks and the event-level scorer on the
-acceptance suite; that is the standing acceptance test, and until a
-candidate beats `jma_wc` at matched budget on the non-US sequences the
-campaign stays on `jma_wc` or the Phase 0 ensemble.
+tuned on the aftershock and swarm metrics, not on picks. Every change of
+weights re-runs the two QuakeScope notebooks and the event-level scorer
+on the acceptance suite; until a candidate beats `jma_wc` at matched
+budget on the non-US sequences and does not lose on the volcano and swarm
+cases, the campaign stays on `jma_wc` or the Phase 0 winner.
 
-## 8. Gates and timeline
+## 9. Gates and timeline
 
 | When | Deliverable | Decision |
 |---|---|---|
-| Week 3 | Task 1 list; matched-budget ranking of existing weights and ensembles; per-region thresholds; event scorer | Campaign picker for this quarter |
-| Week 4 | Harvest census per operator | Corpus size and operator list |
-| Week 11 | Corpus built, checked, fingerprinted; development and acceptance suites frozen | Go to E1 |
-| Week 15 | E1 scaling curve | Continue the finetune line, or stop it and keep the Phase 0 winner |
+| Week 3 | Task 1 counts with the 24 windows; matched-budget ranking of existing weights and PhaseNet ensembles; per-region thresholds; event scorer; baselines on West Bohemia and Campi Flegrei | Campaign picker for this quarter; affordability of the place hold-outs |
+| Week 4 | Signal and noise harvest census per operator and per noise class | Corpus sizes and operator list |
+| Week 11 | Signal corpus and noise corpus built, checked, fingerprinted; suites frozen | Go to E1 |
+| Week 15 | E1 scaling curve, per regime | Continue, or stop the finetune line |
 | Week 22 | E2 to E4; one candidate per line | Acceptance run, once |
-| Week 24 | Distant-P model first version | Offshore and sparse-region deployment |
+| Week 24 | Distant-P model, first version | Offshore and sparse-region deployment |
 
-## 9. What this plan does not do
+## 10. What this plan does not do
 
-No more single-variable changes on the v7 corpus; the corpus was the
-problem. No teleseismic rebalancing inside the regional model. No
-selection on `notebooks/step3_metrics.csv`; the benchmark stays as a unit
-test of timing on single-arrival windows, which is what it measures.
-No claim of a better picker before the acceptance run.
+No EQTransformer, no multi-station models. No more single-variable
+changes on the v7 corpus. No teleseismic rebalancing inside the regional
+model. No white noise. No selection on `notebooks/step3_metrics.csv`. No
+claim of a better picker before the acceptance run.
 
 ## References
 
 - Zhu, W., & Beroza, G. C. (2019). PhaseNet. *GJI* 216, 261–273.
-- Mousavi, S. M., et al. (2020). EQTransformer. *Nat. Commun.* 11, 3952.
 - Münchmeyer, J., et al. (2022). Which picker fits my data? *JGR Solid Earth* 127, e2021JB023499.
 - Woollam, J., et al. (2022). SeisBench. *SRL* 93, 1695–1709.
 - Naoi, M., et al. (2024). PhaseNet models trained on the JMA unified catalogue. *EPS* 76, doi:10.1186/s40623-024-02091-8.
+- Ni, Y., et al. (2023). Curated Pacific Northwest AI-ready seismic dataset. *Seismica* 2(1).
+- Zhong, Y., & Tan, Y. J. (2024). Deep-learning-based phase picking for volcano-tectonic and long-period earthquakes. *GRL* 51, e2024GL108438.
+- Bornstein, T., et al. (2024). PickBlue. *Earth and Space Science* 11, e2023EA003332.
+- Aguilar Suarez, A. L., & Beroza, G. C. (2024). CREW dataset. *Seismica* 3(1).
 - Münchmeyer, J. (2024). PyOcto. *Seismica* 3(1).
-- Sun, H., et al. (2023). Phase neural operator for multi-station picking. *Nat. Commun.* 14, 8283.

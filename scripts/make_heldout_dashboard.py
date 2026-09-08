@@ -206,7 +206,12 @@ def main():
           <span class="nm">{s["label"]}</span><span class="cnt mono">{s["n_events_windows"]} ev · {sum(1 for st in s["stations"] if st["wf"])} sta</span><span class="pill {pill}">{s["suite"][:3]}</span></button>''')
         return "\n".join(items)
 
-    html = f'''<title>Held-Out Sequence Atlas</title>
+    html = f'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Held-Out Sequence Atlas</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root {{
@@ -236,11 +241,11 @@ def main():
 body {{ margin: 0; background: var(--ground); color: var(--ink); font: 14.5px/1.5 "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; }}
 .mono {{ font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }}
 .wrap {{ max-width: 1320px; margin: 0 auto; padding: 24px 22px 40px; }}
-header.top {{ display: grid; grid-template-columns: 1fr auto; gap: 12px 28px; align-items: end; border-bottom: 1px solid var(--rule); padding-bottom: 16px; }}
+header.top {{ display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid var(--rule); padding-bottom: 16px; }}
 .eyebrow {{ font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; }}
 h1 {{ font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 32px; line-height: 1.1; margin: 0 0 6px; letter-spacing: -.01em; text-wrap: balance; }}
 .lede {{ margin: 0; max-width: 64ch; color: var(--ink-2); }}
-.chips {{ display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }}
+.chips {{ display: flex; flex-wrap: wrap; gap: 8px; }}
 .chip {{ display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); font-size: 13px; color: var(--ink-2); }}
 .chip b {{ font-family: "IBM Plex Mono", monospace; font-weight: 500; color: var(--ink); }}
 .dot {{ width: 9px; height: 9px; border-radius: 50%; display: inline-block; align-self: center; }}
@@ -255,7 +260,7 @@ section.overview {{ margin-top: 16px; background: var(--surface); border: 1px so
 .legend i.ring {{ width: 12px; height: 12px; border: 1.5px dashed var(--ink-3); border-radius: 50%; display: inline-block; }}
 #overview {{ width: 100%; height: 300px; }}
 section.detail {{ display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; margin-top: 18px; align-items: start; }}
-@media (max-width: 960px) {{ section.detail {{ grid-template-columns: 1fr; }} header.top {{ grid-template-columns: 1fr; }} .chips {{ justify-content: flex-start; }} }}
+@media (max-width: 960px) {{ section.detail {{ grid-template-columns: 1fr; }} }}
 .navcol h2 {{ font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; font-size: 14px; letter-spacing: .02em; margin: 14px 0 6px; display: flex; gap: 8px; align-items: center; color: var(--ink-2); }}
 .navcol h2:first-child {{ margin-top: 0; }}
 .navcol h2 i {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; }}
@@ -291,6 +296,8 @@ section.detail {{ display: grid; grid-template-columns: 300px minmax(0, 1fr); ga
 footer {{ margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--ink-3); max-width: 84ch; }}
 footer code {{ font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-2); }}
 </style>
+</head>
+<body>
 <div class="wrap">
   <header class="top">
     <div>
@@ -398,7 +405,7 @@ footer code {{ font-family: "IBM Plex Mono", monospace; font-size: 12px; color: 
                       lataxis: {{ range: [-60, 80], showgrid: true, gridcolor: css("--grid"), dtick: 30 }}, showcountries: false, resolution: 110 }}) }},
       {{ displayModeBar: false, responsive: true }});
   }}
-  ov.on && drawOverview();
+  drawOverview();                                   // Plotly attaches .on only after the first plot
   ov.on("plotly_click", (ev) => select(ev.points[0].customdata, true));
 
   // ── detail ──
@@ -462,6 +469,8 @@ footer code {{ font-family: "IBM Plex Mono", monospace; font-size: 12px; color: 
   new MutationObserver(redraw).observe(document.documentElement, {{ attributes: true, attributeFilter: ["data-theme"] }});
 }})();
 </script>
+</body>
+</html>
 '''
     OUT.write_text(html)
     print(f"wrote {OUT} ({OUT.stat().st_size / 1024:.0f} KB); {totals}")

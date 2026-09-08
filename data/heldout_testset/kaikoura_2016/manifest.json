@@ -1,0 +1,219 @@
+{
+ "key": "kaikoura_2016",
+ "label": "Kaikoura 2016",
+ "built": "2026-09-08T16:21:37+00:00",
+ "git_commit": "41dc53b0e1075d35f86e977c831718bac144d149",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "kaikoura_2016",
+  "label": "Kaikoura 2016",
+  "regime": "msas",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": -42.69,
+  "lon": 173.02,
+  "radius": 2.0,
+  "mainshock": "2016-11-13T11:02:56Z",
+  "mag": 7.8,
+  "picks": [
+   {
+    "kind": "fdsn_per_event",
+    "client": "GEONET",
+    "min_mag": 2.5
+   }
+  ],
+  "windows": {
+   "kind": "mainshock",
+   "start_s": 600,
+   "minutes": 180
+  },
+  "waveform_routes": [
+   "GEONET"
+  ],
+  "notes": "as tutorials/phasenet_global_sequences.ipynb",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6,
+  "extra_stations": []
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_events",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:20:03+00:00",
+   "params": {
+    "starttime": "2016-11-13T11:09:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z",
+    "latitude": "-42.69",
+    "longitude": "173.02",
+    "maxradius": "2.0",
+    "minmagnitude": "2.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:20:11+00:00",
+   "params": {
+    "starttime": "2016-11-13T11:09:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z",
+    "latitude": "-42.69",
+    "longitude": "173.02",
+    "maxradius": "2.0",
+    "minmagnitude": "2.5"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:21:16+00:00",
+   "params": {
+    "latitude": "-42.69",
+    "longitude": "173.02",
+    "maxradius": "2.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:21:17+00:00",
+   "params": {
+    "network": "NZ",
+    "station": "BSWZ",
+    "channel": "EH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:21:20+00:00",
+   "params": {
+    "network": "NZ",
+    "station": "TUWZ",
+    "channel": "EH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:21:23+00:00",
+   "params": {
+    "network": "NZ",
+    "station": "TCW",
+    "channel": "EH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:21:26+00:00",
+   "params": {
+    "network": "NZ",
+    "station": "THZ",
+    "channel": "HH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:21:30+00:00",
+   "params": {
+    "network": "NZ",
+    "station": "CMWZ",
+    "channel": "EH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T16:21:33+00:00",
+   "params": {
+    "network": "NZ",
+    "station": "KHZ",
+    "channel": "HH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z"
+   }
+  }
+ ],
+ "n_queries": 9,
+ "counts": {
+  "catalog_events": 138,
+  "picks": 7213,
+  "picks_reference_ok": 5329,
+  "picks_manual": 5329,
+  "stations_fetched": 6,
+  "windows": 1
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "39fec1173f4cfcc06cfd3b1bca48557bb83fb3bc05edd10885bf7d46dd36fb86",
+   "bytes": 11701
+  },
+  "picks.parquet": {
+   "sha256": "532271fd17222bf6d98efbbddddb7017fc8ec6db161d6c174157477d2f945b98",
+   "bytes": 139417
+  },
+  "stations.csv": {
+   "sha256": "60663efbb98cb765f2b1f7389a3ba273507dcb95f0950525bb4900ad9f45b7e8",
+   "bytes": 2542
+  },
+  "waveforms/NZ.BSWZ__EH__20161113T111256__20161113T141256.mseed": {
+   "sha256": "9f35c1628bc7705ae3e844424f3443c660a9abbaa985c99bae742c4e3db9500a",
+   "bytes": 5959168
+  },
+  "waveforms/NZ.CMWZ__EH__20161113T111256__20161113T141256.mseed": {
+   "sha256": "0db4ea82390c0a28133c360ee06dd2b62046aaa1da236d5ed2703bc465da31b2",
+   "bytes": 7258112
+  },
+  "waveforms/NZ.KHZ__HH__20161113T111256__20161113T141256.mseed": {
+   "sha256": "98a2112176e673d3753f7492994a058fa6dbda9fb780057464467f879a9de02f",
+   "bytes": 10649088
+  },
+  "waveforms/NZ.TCW__EH__20161113T111256__20161113T141256.mseed": {
+   "sha256": "fdd3cfca9c7d3ffb9c58678d75a24070c8151ac13620d79ddb60f58a98d9ae6d",
+   "bytes": 6104064
+  },
+  "waveforms/NZ.THZ__HH__20161113T111256__20161113T141256.mseed": {
+   "sha256": "b2c501517009599cb95b78b5443db7715651d9356d3180d7f654e66b71706c7c",
+   "bytes": 7800320
+  },
+  "waveforms/NZ.TUWZ__EH__20161113T111256__20161113T141256.mseed": {
+   "sha256": "6ae2f86e3b83d8215d47e2395f0d8329ecb647b00c6f9025e402e4be59c6560c",
+   "bytes": 6025728
+  },
+  "windows.csv": {
+   "sha256": "59cde93af8babdca6f697a27cbbe4573bd9dcecc962559a19ee4ece45ae79415",
+   "bytes": 93
+  }
+ }
+}

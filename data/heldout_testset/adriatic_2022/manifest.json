@@ -1,0 +1,191 @@
+{
+ "key": "adriatic_2022",
+ "label": "Adriatic 2022",
+ "built": "2026-09-08T16:18:50+00:00",
+ "git_commit": "41dc53b0e1075d35f86e977c831718bac144d149",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "adriatic_2022",
+  "label": "Adriatic 2022",
+  "regime": "msas",
+  "tier": 1,
+  "suite": "dev",
+  "lat": 43.96,
+  "lon": 13.32,
+  "radius": 0.7,
+  "mainshock": "2022-11-09T06:07:25Z",
+  "mag": 5.5,
+  "picks": [
+   {
+    "kind": "fdsn_per_event",
+    "client": "INGV",
+    "min_mag": 1.5
+   }
+  ],
+  "windows": {
+   "kind": "mainshock",
+   "start_s": 600,
+   "minutes": 180
+  },
+  "waveform_routes": [
+   "INGV"
+  ],
+  "notes": "offshore, land stations only",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6,
+  "extra_stations": []
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:16:32+00:00",
+   "params": {
+    "latitude": "43.96",
+    "longitude": "13.32",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:16:43+00:00",
+   "params": {
+    "network": "IV",
+    "station": "PESA",
+    "channel": "HH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:17:08+00:00",
+   "params": {
+    "network": "IV",
+    "station": "SENI",
+    "channel": "EH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:17:28+00:00",
+   "params": {
+    "network": "IV",
+    "station": "AOI",
+    "channel": "HH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:17:55+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CRTC",
+    "channel": "HH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:18:13+00:00",
+   "params": {
+    "network": "IV",
+    "station": "MPAG",
+    "channel": "EH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:18:27+00:00",
+   "params": {
+    "network": "IV",
+    "station": "COR1",
+    "channel": "EH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z"
+   }
+  }
+ ],
+ "n_queries": 7,
+ "counts": {
+  "catalog_events": 73,
+  "picks": 4837,
+  "picks_reference_ok": 4837,
+  "picks_manual": 4837,
+  "stations_fetched": 6,
+  "windows": 1
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "1fe0c1972c8a3a62975ecfbb474f64853107c2c5551979df69946373fb7a5869",
+   "bytes": 8372
+  },
+  "picks.parquet": {
+   "sha256": "b6a19e64d6703286c245f0942fafac07f698c53222aa4e363a52e53a9c3b9461",
+   "bytes": 99809
+  },
+  "stations.csv": {
+   "sha256": "b23f6ca30759bcd08efdb3add00144cbc7d592b7c5e9406b3ca34aa9eb51291c",
+   "bytes": 3650
+  },
+  "waveforms/IV.AOI__HH__20221109T061725__20221109T091725.mseed": {
+   "sha256": "c30757bc37552ec74935a9053d0ac4e09bbcd411239d6b135d4a1676fb82d6ba",
+   "bytes": 7098368
+  },
+  "waveforms/IV.COR1__EH__20221109T061725__20221109T091725.mseed": {
+   "sha256": "7b064fb1013d0c4328fec4716b5a9ed58a65c4b8c84a619480a59bc5fe5fe60d",
+   "bytes": 7253504
+  },
+  "waveforms/IV.CRTC__HH__20221109T061725__20221109T091725.mseed": {
+   "sha256": "2b430ad0da00af8306699888ad67196449fb898a2e8bc8cb55d7f35eb38978a8",
+   "bytes": 5750272
+  },
+  "waveforms/IV.MPAG__EH__20221109T061725__20221109T091725.mseed": {
+   "sha256": "e3c7b2bd774b724b56155e63baa1d25c2eae3ea7df160a4bcffe127638e9b992",
+   "bytes": 4228096
+  },
+  "waveforms/IV.PESA__HH__20221109T061725__20221109T091725.mseed": {
+   "sha256": "b4aff5d826118dce5751b53e00106c5edb91026c87236d1644cf002b9decb915",
+   "bytes": 8073728
+  },
+  "waveforms/IV.SENI__EH__20221109T061725__20221109T091725.mseed": {
+   "sha256": "f8c06bb28d6b18311b6e27981d965041325492729f44360c1ec798487e62c8c7",
+   "bytes": 5432832
+  },
+  "windows.csv": {
+   "sha256": "1b671553d3b7cda8c6c5bffa618767155ff0cb1052ab1e552f938e0dd35076ca",
+   "bytes": 93
+  }
+ }
+}

@@ -108,3 +108,17 @@ lightning_logs/
 
 /.quarto/
 **/*.quarto_ipynb
+# held-out test set (2026-09-08): the pinned references are committed, waveforms are not
+!data/heldout_testset/
+!data/heldout_testset/index.csv
+!data/heldout_testset/README.md
+!data/heldout_testset/*/
+!data/heldout_testset/*/catalog.parquet
+!data/heldout_testset/*/picks.parquet
+!data/heldout_testset/*/windows.csv
+!data/heldout_testset/*/stations.csv
+!data/heldout_testset/*/station_map.csv
+!data/heldout_testset/*/manifest.json
+data/heldout_testset/*/waveforms/
+data/heldout_testset/*/cache/
+data/heldout_testset/*/build.log

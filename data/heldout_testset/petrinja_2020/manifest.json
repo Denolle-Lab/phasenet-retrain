@@ -1,0 +1,304 @@
+{
+ "key": "petrinja_2020",
+ "label": "Petrinja 2020",
+ "built": "2026-09-08T16:21:25+00:00",
+ "git_commit": "41dc53b0e1075d35f86e977c831718bac144d149",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "petrinja_2020",
+  "label": "Petrinja 2020",
+  "regime": "msas",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": 45.42,
+  "lon": 16.26,
+  "radius": 0.7,
+  "mainshock": "2020-12-29T11:19:54Z",
+  "mag": 6.4,
+  "picks": [
+   {
+    "kind": "fdsn_region",
+    "client": "ISC",
+    "min_mag": null
+   }
+  ],
+  "windows": {
+   "kind": "mainshock",
+   "start_s": 600,
+   "minutes": 180
+  },
+  "waveform_routes": [
+   "eida"
+  ],
+  "notes": "ISC reviewed bulletin, Zagreb (ZAG) and neighbours; CR and SL on EIDA",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6,
+  "extra_stations": []
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:02+00:00",
+   "params": {
+    "starttime": "2020-12-29T11:26:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:03+00:00",
+   "params": {
+    "starttime": "2020-12-29T11:26:54.000000Z",
+    "endtime": "2020-12-29T12:26:54.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:07+00:00",
+   "params": {
+    "starttime": "2020-12-29T12:26:54.000000Z",
+    "endtime": "2020-12-29T13:26:54.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:11+00:00",
+   "params": {
+    "starttime": "2020-12-29T13:26:54.000000Z",
+    "endtime": "2020-12-29T14:26:54.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:13+00:00",
+   "params": {
+    "starttime": "2020-12-29T14:26:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:15+00:00",
+   "params": {
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:20:28+00:00",
+   "params": {
+    "network": "MN",
+    "station": "BLY",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:48+00:00",
+   "params": {
+    "network": "HU",
+    "station": "BEHE",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:53+00:00",
+   "params": {
+    "network": "CR",
+    "station": "MOSL",
+    "channel": "BH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:55+00:00",
+   "params": {
+    "network": "CR",
+    "station": "OZLJ",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:57+00:00",
+   "params": {
+    "network": "CR",
+    "station": "ZAG",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:59+00:00",
+   "params": {
+    "network": "SL",
+    "station": "BOJS",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:21:05+00:00",
+   "params": {
+    "network": "SL",
+    "station": "CRES",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:21:12+00:00",
+   "params": {
+    "network": "SL",
+    "station": "GCIS",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:21:18+00:00",
+   "params": {
+    "network": "SL",
+    "station": "KOGS",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  }
+ ],
+ "n_queries": 15,
+ "counts": {
+  "catalog_events": 59,
+  "picks": 4042,
+  "picks_reference_ok": 4019,
+  "picks_manual": 4,
+  "stations_fetched": 6,
+  "windows": 1
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "e30be2d07e7b0f86c0da8e9687acd56b045b16f6e6fac8ef032bb49b422108b7",
+   "bytes": 7142
+  },
+  "picks.parquet": {
+   "sha256": "21e36bd5747a3e2b79d45a27e1c179c2b55c4714781ace46236f1b3986efb54e",
+   "bytes": 76399
+  },
+  "station_map.csv": {
+   "sha256": "ef37eadde874728813921a67081ac1ae55b50be9ad1545d2d3ac482c0b41097c",
+   "bytes": 2389
+  },
+  "stations.csv": {
+   "sha256": "44b0b78d5cfc23cba3b5ceee0c97c8ce884e8927804b208cd627d278d8d27ef1",
+   "bytes": 1302
+  },
+  "waveforms/HU.BEHE__HH__20201229T112954__20201229T142954.mseed": {
+   "sha256": "9f124e06cfe8b449fc1f99c0598b85c7845802f9ff472ba7b356a3ec548249fc",
+   "bytes": 6976000
+  },
+  "waveforms/MN.BLY__HH__20201229T112954__20201229T142954.mseed": {
+   "sha256": "caeb84e9a8471cfa2818aa0706dee1d57c0fc2c3b9766ba3ecdcca74e7f06de6",
+   "bytes": 4951040
+  },
+  "waveforms/SL.BOJS__HH__20201229T112954__20201229T142954.mseed": {
+   "sha256": "a468d6681407e1d0eebdbe8bff27653c7a44b0a24fa242e18c1cd369fb72e436",
+   "bytes": 8868864
+  },
+  "waveforms/SL.CRES__HH__20201229T112954__20201229T142954.mseed": {
+   "sha256": "84e4d15da616e46f98feb52d9616d1ecd1472594f8ed45d6e65dc8aeee767e8a",
+   "bytes": 10655744
+  },
+  "waveforms/SL.GCIS__HH__20201229T112954__20201229T142954.mseed": {
+   "sha256": "8e54b6bd903184980b82d8757715eec6316135c752e1bb2584e1a6d9227140ff",
+   "bytes": 10587136
+  },
+  "waveforms/SL.KOGS__HH__20201229T112954__20201229T142954.mseed": {
+   "sha256": "0269919d9d51011ed365ae71e19a00a08628403b87dd034ee19d21356cfbc10e",
+   "bytes": 9898496
+  },
+  "windows.csv": {
+   "sha256": "15237e53c49f228a53962b5130bb650f79d1511570e6e2de6a66e4dad70de5bc",
+   "bytes": 93
+  }
+ }
+}

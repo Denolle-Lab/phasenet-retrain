@@ -1,0 +1,725 @@
+{
+ "key": "maurienne_2017",
+ "label": "Maurienne 2017-2019",
+ "built": "2026-09-08T16:21:46+00:00",
+ "git_commit": "41dc53b0e1075d35f86e977c831718bac144d149",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "maurienne_2017",
+  "label": "Maurienne 2017-2019",
+  "regime": "swarm",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": 45.3,
+  "lon": 6.3,
+  "radius": 0.5,
+  "mainshock": null,
+  "mag": null,
+  "picks": [
+   {
+    "kind": "fdsn_region",
+    "client": "franceseisme",
+    "min_mag": null
+   }
+  ],
+  "windows": {
+   "kind": "busiest",
+   "span": [
+    "2017-08-01T00:00:00Z",
+    "2019-03-31T23:59:59Z"
+   ],
+   "n_windows": 2,
+   "hours": 3,
+   "catalog": {
+    "kind": "fdsn_region",
+    "client": "franceseisme",
+    "min_mag": null,
+    "arrivals": false
+   }
+  },
+  "waveform_routes": [
+   "RESIF",
+   "eida"
+  ],
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6,
+  "extra_stations": [],
+  "notes": ""
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:06+00:00",
+   "params": {
+    "starttime": "2017-08-01T00:00:00.000000Z",
+    "endtime": "2017-08-31T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:07+00:00",
+   "params": {
+    "starttime": "2017-08-31T00:00:00.000000Z",
+    "endtime": "2017-09-30T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:09+00:00",
+   "params": {
+    "starttime": "2017-09-30T00:00:00.000000Z",
+    "endtime": "2017-10-30T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:10+00:00",
+   "params": {
+    "starttime": "2017-10-30T00:00:00.000000Z",
+    "endtime": "2017-11-29T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:12+00:00",
+   "params": {
+    "starttime": "2017-11-29T00:00:00.000000Z",
+    "endtime": "2017-12-29T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:14+00:00",
+   "params": {
+    "starttime": "2017-12-29T00:00:00.000000Z",
+    "endtime": "2018-01-28T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:15+00:00",
+   "params": {
+    "starttime": "2018-01-28T00:00:00.000000Z",
+    "endtime": "2018-02-27T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:17+00:00",
+   "params": {
+    "starttime": "2018-02-27T00:00:00.000000Z",
+    "endtime": "2018-03-29T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:18+00:00",
+   "params": {
+    "starttime": "2018-03-29T00:00:00.000000Z",
+    "endtime": "2018-04-28T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:19+00:00",
+   "params": {
+    "starttime": "2018-04-28T00:00:00.000000Z",
+    "endtime": "2018-05-28T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:20+00:00",
+   "params": {
+    "starttime": "2018-05-28T00:00:00.000000Z",
+    "endtime": "2018-06-27T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:21+00:00",
+   "params": {
+    "starttime": "2018-06-27T00:00:00.000000Z",
+    "endtime": "2018-07-27T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:22+00:00",
+   "params": {
+    "starttime": "2018-07-27T00:00:00.000000Z",
+    "endtime": "2018-08-26T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:23+00:00",
+   "params": {
+    "starttime": "2018-08-26T00:00:00.000000Z",
+    "endtime": "2018-09-25T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:24+00:00",
+   "params": {
+    "starttime": "2018-09-25T00:00:00.000000Z",
+    "endtime": "2018-10-25T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:25+00:00",
+   "params": {
+    "starttime": "2018-10-25T00:00:00.000000Z",
+    "endtime": "2018-11-24T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:25+00:00",
+   "params": {
+    "starttime": "2018-11-24T00:00:00.000000Z",
+    "endtime": "2018-12-24T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:27+00:00",
+   "params": {
+    "starttime": "2018-12-24T00:00:00.000000Z",
+    "endtime": "2019-01-23T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:28+00:00",
+   "params": {
+    "starttime": "2019-01-23T00:00:00.000000Z",
+    "endtime": "2019-02-22T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:28+00:00",
+   "params": {
+    "starttime": "2019-02-22T00:00:00.000000Z",
+    "endtime": "2019-03-24T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:29+00:00",
+   "params": {
+    "starttime": "2019-03-24T00:00:00.000000Z",
+    "endtime": "2019-03-31T23:59:59.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:30+00:00",
+   "params": {
+    "starttime": "2017-11-17T10:57:00.000000Z",
+    "endtime": "2017-11-17T11:57:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:31+00:00",
+   "params": {
+    "starttime": "2017-11-17T11:57:00.000000Z",
+    "endtime": "2017-11-17T12:57:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:33+00:00",
+   "params": {
+    "starttime": "2017-11-17T12:57:00.000000Z",
+    "endtime": "2017-11-17T13:57:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:34+00:00",
+   "params": {
+    "starttime": "2017-11-17T13:57:00.000000Z",
+    "endtime": "2017-11-17T14:00:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:34+00:00",
+   "params": {
+    "starttime": "2018-11-26T09:12:00.000000Z",
+    "endtime": "2018-11-26T10:12:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:35+00:00",
+   "params": {
+    "starttime": "2018-11-26T10:12:00.000000Z",
+    "endtime": "2018-11-26T11:12:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:37+00:00",
+   "params": {
+    "starttime": "2018-11-26T11:12:00.000000Z",
+    "endtime": "2018-11-26T12:12:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "franceseisme",
+   "base_url": "https://api.franceseisme.fr",
+   "when": "2026-09-08T16:20:37+00:00",
+   "params": {
+    "starttime": "2018-11-26T12:12:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:20:39+00:00",
+   "params": {
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "1.0",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2017-11-17T11:00:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:41+00:00",
+   "params": {
+    "latitude": "45.3",
+    "longitude": "6.3",
+    "maxradius": "1.0",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2017-11-17T11:00:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:20:47+00:00",
+   "params": {
+    "network": "FR",
+    "station": "RSL",
+    "channel": "HH?",
+    "starttime": "2017-11-17T11:00:00.000000Z",
+    "endtime": "2017-11-17T14:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:20:55+00:00",
+   "params": {
+    "network": "FR",
+    "station": "OGVG",
+    "channel": "HH?",
+    "starttime": "2017-11-17T11:00:00.000000Z",
+    "endtime": "2017-11-17T14:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:20:59+00:00",
+   "params": {
+    "network": "FR",
+    "station": "OGSA",
+    "channel": "HH?",
+    "starttime": "2017-11-17T11:00:00.000000Z",
+    "endtime": "2017-11-17T14:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:05+00:00",
+   "params": {
+    "network": "RD",
+    "station": "ORIF",
+    "channel": "BH?",
+    "starttime": "2017-11-17T11:00:00.000000Z",
+    "endtime": "2017-11-17T14:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:08+00:00",
+   "params": {
+    "network": "FR",
+    "station": "OGGM",
+    "channel": "HH?",
+    "starttime": "2017-11-17T11:00:00.000000Z",
+    "endtime": "2017-11-17T14:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:14+00:00",
+   "params": {
+    "network": "Z3",
+    "station": "A181A",
+    "channel": "HH?",
+    "starttime": "2017-11-17T11:00:00.000000Z",
+    "endtime": "2017-11-17T14:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:19+00:00",
+   "params": {
+    "network": "FR",
+    "station": "RSL",
+    "channel": "HH?",
+    "starttime": "2018-11-26T09:15:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:24+00:00",
+   "params": {
+    "network": "FR",
+    "station": "OGVG",
+    "channel": "HH?",
+    "starttime": "2018-11-26T09:15:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:29+00:00",
+   "params": {
+    "network": "FR",
+    "station": "OGSA",
+    "channel": "HH?",
+    "starttime": "2018-11-26T09:15:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:33+00:00",
+   "params": {
+    "network": "RD",
+    "station": "ORIF",
+    "channel": "BH?",
+    "starttime": "2018-11-26T09:15:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:36+00:00",
+   "params": {
+    "network": "FR",
+    "station": "OGGM",
+    "channel": "HH?",
+    "starttime": "2018-11-26T09:15:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "RESIF",
+   "base_url": "http://ws.resif.fr",
+   "when": "2026-09-08T16:21:42+00:00",
+   "params": {
+    "network": "Z3",
+    "station": "A181A",
+    "channel": "HH?",
+    "starttime": "2018-11-26T09:15:00.000000Z",
+    "endtime": "2018-11-26T12:15:00.000000Z"
+   }
+  }
+ ],
+ "n_queries": 43,
+ "counts": {
+  "catalog_events": 2537,
+  "picks": 1153,
+  "picks_reference_ok": 1153,
+  "picks_manual": 1153,
+  "stations_fetched": 6,
+  "windows": 2
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "f73de3b96b38c1574912bd4f3d3bf2a17ac1ecf81fe31642b6afae4420a52960",
+   "bytes": 140851
+  },
+  "picks.parquet": {
+   "sha256": "bb1771a15304ab5c78b4d0c7f8fdf2788a80d270fe6211141e204256f4bcd5dc",
+   "bytes": 32420
+  },
+  "stations.csv": {
+   "sha256": "48b54f0bee7e32d83cba0cfe1ac0beb7ad0d8fac47e698007541ee14f8549af6",
+   "bytes": 5771
+  },
+  "waveforms/FR.OGGM__HH__20171117T110000__20171117T140000.mseed": {
+   "sha256": "dbacb64dd3164d9ca58aa4a136cd7f2e0c10a53acf3eb1214deaa0894aa3c464",
+   "bytes": 7090176
+  },
+  "waveforms/FR.OGGM__HH__20181126T091500__20181126T121500.mseed": {
+   "sha256": "e51405684fbbb34e0d14679b5847adff8f727a3b68796b12bf16fb4ffb6ae5a4",
+   "bytes": 7041024
+  },
+  "waveforms/FR.OGSA__HH__20171117T110000__20171117T140000.mseed": {
+   "sha256": "dfbcdd3d7da28fb04d0c8a6f0f972a1c63900bf9f1ae3f7dcd2e513ac380cb2a",
+   "bytes": 3559424
+  },
+  "waveforms/FR.OGSA__HH__20181126T091500__20181126T121500.mseed": {
+   "sha256": "97050062971b5d298f791801818a342359089ce04214e63bb449925cd7cb7aed",
+   "bytes": 3526656
+  },
+  "waveforms/FR.OGVG__HH__20171117T110000__20171117T140000.mseed": {
+   "sha256": "409edbda438cf643e74855c2f2755af8f40dc2b9fb4f9e8444983bfd0d4e2a44",
+   "bytes": 3538944
+  },
+  "waveforms/FR.OGVG__HH__20181126T091500__20181126T121500.mseed": {
+   "sha256": "5ec36aa7362236698e2f60eb9b458a8b750a3873913c4385182a3bdf5d4a58ce",
+   "bytes": 3526656
+  },
+  "waveforms/FR.RSL__HH__20171117T110000__20171117T140000.mseed": {
+   "sha256": "fdc50d8aa7314d144fe6e3c28df786e83a8314000539df24d37720d2ccea6c77",
+   "bytes": 7139328
+  },
+  "waveforms/FR.RSL__HH__20181126T091500__20181126T121500.mseed": {
+   "sha256": "ce9f5573d97b6f919d25598920379be5868227740f4c3ba4a002ade8347193e7",
+   "bytes": 7098368
+  },
+  "waveforms/RD.ORIF__BH__20171117T110000__20171117T140000.mseed": {
+   "sha256": "48ad3e30e13b9d08952c5de75fbdb5fe4c7662cfe0f2de1670c5805de084a8ff",
+   "bytes": 1242112
+  },
+  "waveforms/RD.ORIF__BH__20181126T091500__20181126T121500.mseed": {
+   "sha256": "8a5c329aa0a3deefbc14eeab5f06a8cbca6e3343c9478a3f5933d29332edae8e",
+   "bytes": 1214464
+  },
+  "waveforms/Z3.A181A__HH__20171117T110000__20171117T140000.mseed": {
+   "sha256": "ad09d4e909c0d5523c02e6134c1896ab82a1fefdb399a63638c1036d9105c9ed",
+   "bytes": 3710976
+  },
+  "waveforms/Z3.A181A__HH__20181126T091500__20181126T121500.mseed": {
+   "sha256": "3b345faf7bbe64d1f57c907a2ed5953e685f66578bd55a62a034d888c4bb7d58",
+   "bytes": 3563520
+  },
+  "windows.csv": {
+   "sha256": "b322af87d61eed558c6cd495db6ac900e8b7f031907d86e7b1cae6d6629cd0e5",
+   "bytes": 299
+  }
+ }
+}

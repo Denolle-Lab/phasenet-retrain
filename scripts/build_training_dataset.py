@@ -21,6 +21,15 @@ Manifest columns:
   distance_bin        local | regional | teleseismic | unknown
   p_col               source column used for P pick
   s_col               source column used for S pick (empty if none)
+  source_origin_time, source_latitude_deg, source_longitude_deg
+                      event fingerprint (NaN when the source has none), so the
+                      held-out-sequence and 2016/2021 year hold-out can be
+                      re-verified on the manifest itself (2026-09-07)
+
+Exclusions applied, in order: benchmark traces, held-out external sequences
+(data/exclusions/heldout_sequences.csv, scripts/heldout_sequences.py; the
+build refuses to run without it), 2016/2021 whole-year hold-out, label-error
+flagged traces, benchmark events under another trace_name.
 
 Usage:
   python scripts/build_training_dataset.py
@@ -44,6 +53,9 @@ os.environ.setdefault("SEISBENCH_CACHE_ROOT", SEISBENCH_CACHE)
 import seisbench
 seisbench.cache_root = SEISBENCH_CACHE
 import seisbench.data as sbd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import heldout_sequences as hs  # held-out external sequences + 2016/2021 year hold-out (2026-09-07)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Distance helpers
@@ -356,10 +368,19 @@ def normalise_split(s):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_balanced=False,
-                     label_error_exclude=None, label_error_report=None):
+                     label_error_exclude=None, label_error_report=None,
+                     sequence_exclude=None, strict_year_holdout=False, holdout_report=None):
     """
     Load one dataset, filter for valid P picks, compute distances, apply cap.
     benchmark_exclude : set of trace_name strings to exclude (benchmark traces).
+    sequence_exclude  : set of trace_name strings from data/exclusions/heldout_sequences.csv
+                        (the external test sequences, scripts/heldout_sequences.py). Applied
+                        beside benchmark_exclude. The 2016/2021 whole-year hold-out is applied
+                        here too, from the metadata's source_origin_time.
+    strict_year_holdout : if True, rows with NO origin time are dropped as well (they cannot
+                        be proven to lie outside 2016/2021); default keeps them and reports
+                        the count as year_unverifiable in holdout_report.
+    holdout_report    : optional list to append per-dataset removal counts to.
     event_exclude     : frozenset of event_keys.py fingerprints to exclude — catches
                         the same earthquake landing in the benchmark under a
                         DIFFERENT trace_name (issue #32), which benchmark_exclude
@@ -426,6 +447,48 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         n_removed = before - len(meta)
         if n_removed:
             print(f"    excluded {n_removed:,} benchmark traces → {len(meta):,} remaining")
+
+    # ── exclude the held-out external test sequences (2026-09-07 audit) ──────
+    n_seq_removed = 0
+    if sequence_exclude and "trace_name" in meta.columns:
+        before = len(meta)
+        keep_seq = ~meta["trace_name"].isin(sequence_exclude)
+        meta   = meta.loc[keep_seq].copy()
+        p_vals = p_vals.loc[keep_seq]
+        n_seq_removed = before - len(meta)
+        if n_seq_removed:
+            print(f"    excluded {n_seq_removed:,} held-out-sequence traces → {len(meta):,} remaining")
+
+    # ── whole-year hold-out: no 2016 / 2021 origins in any manifest ─────────
+    before = len(meta)
+    if hs.TIME_COL in meta.columns:
+        year_drop = hs.holdout_year_mask(meta[hs.TIME_COL])
+        year_drop.index = meta.index
+        n_unverifiable = int(pd.to_datetime(meta[hs.TIME_COL], errors="coerce", utc=True).isna().sum())
+    else:
+        year_drop = pd.Series(False, index=meta.index)
+        n_unverifiable = len(meta)
+    if strict_year_holdout and n_unverifiable:
+        if hs.TIME_COL in meta.columns:
+            year_drop |= pd.to_datetime(meta[hs.TIME_COL], errors="coerce", utc=True).isna().values
+        else:
+            year_drop[:] = True
+    meta   = meta.loc[~year_drop].copy()
+    p_vals = p_vals.loc[~year_drop]
+    n_year_removed = before - len(meta)
+    if n_year_removed:
+        print(f"    excluded {n_year_removed:,} rows with a {sorted(hs.HOLDOUT_YEARS)} origin"
+              f"{' or no origin time (strict)' if strict_year_holdout else ''} → {len(meta):,} remaining")
+    if n_unverifiable and not strict_year_holdout:
+        print(f"    WARNING: {n_unverifiable:,} rows have no source_origin_time; year hold-out "
+              f"unverifiable for them (kept; use --strict-year-holdout to drop)")
+    if holdout_report is not None:
+        holdout_report.append({
+            "dataset": name,
+            "n_sequence_excluded": n_seq_removed,
+            "n_year_excluded": n_year_removed,
+            "n_year_unverifiable": 0 if strict_year_holdout else n_unverifiable,
+        })
 
     # ── exclude Aguilar-flagged bad-label traces (issue #10) ──────────────────
     if label_error_exclude and "trace_name" in meta.columns:
@@ -513,6 +576,12 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         "distance_bin":      dist_bin.values,
         "p_col":             p_col,
         "s_col":             s_col or "",
+        # fingerprint columns (NaN when the source has none) so that
+        # scripts/audit_heldout_sequences.py --check-manifest can verify the
+        # sequence and year hold-outs without re-loading the metadata
+        "source_origin_time":   meta[hs.TIME_COL].values if hs.TIME_COL in meta.columns else np.nan,
+        "source_latitude_deg":  meta[hs.LAT_COL].values  if hs.LAT_COL  in meta.columns else np.nan,
+        "source_longitude_deg": meta[hs.LON_COL].values  if hs.LON_COL  in meta.columns else np.nan,
         "orig_split":        (
             meta["split"].map(normalise_split).values
             if "split" in meta.columns
@@ -802,7 +871,7 @@ def load_benchmark_exclusions():
     return trace_exclusions, event_exclusions
 
 
-def main(output_dir, seed, s_balanced=False, label_error_filter=True):
+def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_year_holdout=False):
     rng = np.random.default_rng(seed)
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -814,23 +883,34 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True):
     print(f"  Random seed          : {seed}")
     print(f"  S-balanced mode      : {s_balanced}")
     print(f"  Label-error filter   : {label_error_filter}")
+    print(f"  Year hold-out        : {sorted(hs.HOLDOUT_YEARS)} (strict={strict_year_holdout})")
     print("=" * 70)
 
     # ── load benchmark exclusions ────────────────────────────────────────────
     benchmark_exclusions, benchmark_event_exclusions = load_benchmark_exclusions()
     label_error_exclusions = load_label_error_exclusions() if label_error_filter else {}
+    # Held-out external sequences (Kaikoura, Norcia, Thessaly, Ridgecrest,
+    # Monroe): fails closed if the committed list is missing.
+    sequence_exclusions = hs.load_sequence_exclusions()
+    print(f"  Loaded {sum(len(v) for v in sequence_exclusions.values()):,} held-out-sequence traces "
+          f"across {len(sequence_exclusions)} datasets from {hs.EXCLUSION_CSV.relative_to(Path(__file__).parent.parent)}")
 
     # ── process all datasets ─────────────────────────────────────────────────
     frames = []
     label_error_report = []
+    holdout_report = []
     for cfg in DATASET_CONFIGS:
         exclude = benchmark_exclusions.get(cfg["name"], set())
         event_exclude = benchmark_event_exclusions.get(cfg["name"], frozenset())
         le_exclude = label_error_exclusions.get(cfg["name"], frozenset())
+        seq_exclude = sequence_exclusions.get(cfg["name"], frozenset())
         df = process_dataset(cfg, rng, benchmark_exclude=exclude,
                               event_exclude=event_exclude, s_balanced=s_balanced,
                               label_error_exclude=le_exclude,
-                              label_error_report=label_error_report)
+                              label_error_report=label_error_report,
+                              sequence_exclude=seq_exclude,
+                              strict_year_holdout=strict_year_holdout,
+                              holdout_report=holdout_report)
         if df is not None:
             frames.append(df)
 
@@ -862,6 +942,7 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True):
         "p_arrival_sample", "s_arrival_sample",
         "distance_km", "distance_bin",
         "p_col", "s_col",
+        "source_origin_time", "source_latitude_deg", "source_longitude_deg",
     ]
     train_df[KEEP_COLS].to_csv(out_path / "train.csv", index=False)
     val_df[KEEP_COLS].to_csv(out_path / "val.csv",   index=False)
@@ -880,6 +961,20 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True):
                 })
     summary = pd.DataFrame(rows)
     summary.to_csv(out_path / "composition_summary.csv", index=False)
+
+    if holdout_report:
+        ho_df = pd.DataFrame(holdout_report)
+        ho_df.to_csv(out_path / "heldout_removal_report.csv", index=False)
+        print("\n  Held-out sequence / year removal (2026-09-07 audit):")
+        for _, r in ho_df.iterrows():
+            print(f"    {r['dataset']:16s}  sequences {r['n_sequence_excluded']:>7,}  "
+                  f"years {r['n_year_excluded']:>7,}  year-unverifiable {r['n_year_unverifiable']:>7,}")
+        # final gate: nothing written may sit in a window or a held-out year
+        for split_name, df in [("train", train_df), ("val", val_df), ("test", test_df)]:
+            rep = hs.check_manifest(df, sequence_exclusions)
+            if rep["n_excluded_present"] or rep["n_in_window"] or rep["n_year_holdout"]:
+                sys.exit(f"ERROR: {split_name} manifest violates the hold-out: {rep}")
+        print("  Hold-out gate: train/val/test contain no held-out-sequence trace and no 2016/2021 origin")
 
     if label_error_report:
         le_df = pd.DataFrame(label_error_report)
@@ -910,6 +1005,9 @@ if __name__ == "__main__":
                         help="Require valid S pick for datasets with use_s=True (boosts S-recall training signal)")
     parser.add_argument("--no-label-error-filter", action="store_true",
                         help="Skip excluding Aguilar-flagged bad-label traces (GitHub #10; on by default)")
+    parser.add_argument("--strict-year-holdout", action="store_true",
+                        help="Also drop rows with no source_origin_time (cannot be proven outside 2016/2021)")
     args = parser.parse_args()
     main(args.output_dir, args.seed, s_balanced=args.s_balanced,
-         label_error_filter=not args.no_label_error_filter)
+         label_error_filter=not args.no_label_error_filter,
+         strict_year_holdout=args.strict_year_holdout)

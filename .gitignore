@@ -81,6 +81,10 @@ data/*
 !data/.gitkeep
 !data/README.md
 !data/manifest_checksums.csv
+# held-out external test sequences (2026-09-07 audit): the exclusion list is
+# what makes Kaikoura/Norcia/Thessaly/Ridgecrest/Monroe test assets, so it is committed
+!data/exclusions/
+!data/exclusions/*.csv
 
 # Large seisbench metadata files (too large for GitHub)
 notebooks/seisbench_metadata/
@@ -101,3 +105,6 @@ lightning_logs/
 *.swp
 *.swo
 
+
+/.quarto/
+**/*.quarto_ipynb

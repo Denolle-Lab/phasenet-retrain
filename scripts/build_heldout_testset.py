@@ -74,6 +74,11 @@ def log(msg: str) -> None:
         _log_fh.write(line + "\n"); _log_fh.flush()
 
 
+def _have(path: Path) -> bool:
+    """An output exists and is non-empty (a crashed run can leave a 0-byte file)."""
+    return path.exists() and path.stat().st_size > 0
+
+
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -223,7 +228,7 @@ def _chunked_region_events(client_name, seq, t0, t1, min_mag, arrivals, hours=1.
         _record("get_events", client_name, starttime=a, endtime=b, includearrivals=arrivals, **region)
         try:
             cat = client.get_events(starttime=a, endtime=b, includearrivals=arrivals, **region)
-        except FDSNException as exc:
+        except Exception as exc:  # noqa: BLE001  FDSNException, socket timeouts, obspy's own parse errors
             s = str(exc)
             if "413" in s or "too much" in s.lower() or "Request too large" in s:
                 m = a + (b - a) / 2
@@ -231,11 +236,15 @@ def _chunked_region_events(client_name, seq, t0, t1, min_mag, arrivals, hours=1.
                 continue
             if "204" in s or "No data" in s:
                 continue
-            log(f"    {client_name} {a}..{b}: {type(exc).__name__}: {s[:120]}; retrying once")
-            time.sleep(5)
+            log(f"    {client_name} {a}..{b}: {type(exc).__name__}: {s[:120]}; retrying once after 20 s")
+            time.sleep(20)
+            if "event service" in s or "No FDSN services" in s:
+                _clients.pop(client_name, None)          # discovery failed once; rebuild the client
+                client = client_for(client_name)
             try:
                 cat = client.get_events(starttime=a, endtime=b, includearrivals=arrivals, **region)
-            except FDSNException:
+            except Exception as exc2:  # noqa: BLE001
+                log(f"    {client_name} {a}..{b}: skipped ({type(exc2).__name__})")
                 continue
         for ev in cat:
             eid = _event_id(ev)
@@ -267,8 +276,8 @@ def harvest_fdsn_per_event(seq, spec, spans, label):
                     full = client.get_events(eventid=eid, includearrivals=True)
                 else:                                   # GeoNet: the per-event QuakeML carries the picks
                     full = client.get_events(eventid=eid)
-            except FDSNException:
-                continue
+            except Exception as exc:  # noqa: BLE001
+                log(f"    {client_name} event {eid}: {type(exc).__name__}; skipped"); continue
             for e in full:
                 rows += _pick_rows(e, label, client_name)
             cat_rows += _catalog_rows(cat.filter(f"time > {t0 - 1}") if False else [ev], client_name)
@@ -279,9 +288,10 @@ def harvest_fdsn_region(seq, spec, spans, label, arrivals=True):
     client_name = spec["client"]
     rows, cat_rows = [], []
     for (t0, t1) in spans:
-        # arrivals: hourly chunks (NOA refuses more); catalogue only: 30-day chunks, split on 413
+        # arrivals: hourly chunks (NOA refuses more); catalogue only: 30-day chunks split on
+        # 413, except NOA whose service streams a busy fortnight too slowly to finish: daily
         evs = _chunked_region_events(client_name, seq, t0, t1, spec.get("min_mag"), arrivals,
-                                     hours=1.0 if arrivals else 24.0 * 30)
+                                     hours=1.0 if arrivals else (24.0 if client_name == "NOA" else 24.0 * 30))
         log(f"    {client_name}: {len(evs)} events in {t0}..{t1}")
         for ev in evs:
             if arrivals:
@@ -381,8 +391,9 @@ def parse_jma_deck(text: str, label: str):
             flag92 = line[91:92]
             weight = line[95:96]
             mode = "automatic" if flag92.islower() and flag92.isalpha() else "manual"
-            for (ph_s, hh_s, mm_s, ss_s) in ((line[15:19], line[19:21], line[21:23], line[23:27]),
-                                             (line[27:31], line[19:21], line[31:33], line[33:37])):
+            t_first = None
+            for k, (ph_s, hh_s, mm_s, ss_s) in enumerate(((line[15:19], line[19:21], line[21:23], line[23:27]),
+                                                          (line[27:31], line[19:21], line[31:33], line[33:37]))):
                 ph = ph_s.strip().upper()
                 if not ph or not ss_s.strip():
                     continue
@@ -393,8 +404,10 @@ def parse_jma_deck(text: str, label: str):
                     t = _jma_time(year, mon, day, int(hh_s), int(mm_s), _fixed(ss_s, 2))
                 except ValueError:
                     continue
-                if t < UTCDateTime(cur["origin"]) - 60:      # crossed into the next month
-                    t = t + 0  # keep; JMA files are per event, rollover is rare
+                if k == 0:
+                    t_first = t
+                elif t_first is not None and t < t_first - 30:
+                    t = t + 3600          # the second phase carries minutes only; it rolled into the next hour
                 picks.append(dict(sequence=label, event=cur["event"], origin=cur["origin"], mag=cur["mag"],
                                   station=sta, channel="", phase=phase, time=t.datetime, mode=mode,
                                   status=cur["det_flag"], method=f"flag92={flag92}", agency="JMA",
@@ -428,6 +441,28 @@ def harvest_jma_deck(seq, spec, spans, label, cache_dir: Path):
     return [p for p in picks if p["event"] in keep_ev], [c for c in cats if c["event"] in keep_ev]
 
 
+def jma_station_coords(cache_dir: Path) -> pd.DataFrame:
+    """JMA station list (deck/stations.zip, Shift-JIS): code in columns 1-6,
+    longitude DDDMMmm in 15-21, latitude DDMMmm in 22-27, station number after."""
+    local = cache_dir / "jma_stations.zip"
+    if not local.exists():
+        download("https://www.data.jma.go.jp/eqev/data/bulletin/data/deck/stations.zip", local)
+    with zipfile.ZipFile(local) as z:
+        text = z.read(z.namelist()[0]).decode("shift_jis", errors="replace")
+    rows = []
+    for line in text.splitlines():
+        if len(line) < 27:
+            continue
+        code, lon_s, lat_s, num = line[:6].strip(), line[14:21], line[21:27], line[27:].strip()
+        try:
+            lon = int(lon_s[:3]) + int(lon_s[3:7]) / 100.0 / 60.0
+            lat = int(lat_s[:2]) + int(lat_s[2:6]) / 100.0 / 60.0
+        except ValueError:
+            continue
+        rows.append(dict(code=code, lat=lat, lon=lon, jma_number=num))
+    return pd.DataFrame(rows).drop_duplicates("code")
+
+
 def parse_hypodd_pha(text: str, label: str, network: str):
     """hypoDD phase format: '# YR MO DY HR MI SEC LAT LON DEP MAG EH EZ RMS ID' then 'STA TT WGT PHA'."""
     from obspy import UTCDateTime
@@ -448,7 +483,7 @@ def parse_hypodd_pha(text: str, label: str, network: str):
             if pha not in ("P", "S"):
                 continue
             picks.append(dict(sequence=label, event=cur["event"], origin=cur["origin"], mag=cur["mag"],
-                              station=f"{network}.{sta}", channel="", phase=pha,
+                              station=(f"{network}.{sta}" if network else sta), channel="", phase=pha,
                               time=(UTCDateTime(cur["origin"]) + tt).datetime, mode="manual", status="",
                               method="hypoDD pha", agency="WEBNET", time_weight=wgt, onset="", uncertainty=np.nan,
                               network=network, source="Zenodo pha", reference_ok=True))
@@ -457,19 +492,45 @@ def parse_hypodd_pha(text: str, label: str, network: str):
 
 def harvest_zenodo_pha(seq, spec, spans, label, cache_dir: Path):
     rec = spec["record"]
-    api = json.load(urllib.request.urlopen(f"https://zenodo.org/api/records/{rec}", timeout=120))
-    files = {f["key"]: f["links"]["self"] for f in api["files"]}
-    _record("zenodo", None, record=rec, doi=api.get("doi"), files=list(files))
+    wanted = [k for k in (spec["file"], spec.get("quality_file"), spec.get("stations_file")) if k]
+    api_cache = cache_dir / f"zenodo_{rec}.json"
+    if all((cache_dir / k).exists() for k in wanted) or (cache_dir / spec["file"]).exists() and api_cache.exists():
+        api = json.loads(api_cache.read_text()) if api_cache.exists() else {"doi": f"10.5281/zenodo.{rec}", "files": []}
+    else:
+        try:
+            if not api_cache.exists():
+                download(f"https://zenodo.org/api/records/{rec}", api_cache, tries=3)   # 504 under load, 403 when rate-limited
+            api = json.loads(api_cache.read_text())
+        except RuntimeError:
+            if not (cache_dir / spec["file"]).exists():
+                raise
+            log("    Zenodo API unreachable; using the cached phase file and the registry DOI")
+            api = {"doi": f"10.5281/zenodo.{rec}", "files": []}
+    # the API's /content links answer 403 under Zenodo's rate limiting; the record's
+    # download links are the documented public form and are tried first
+    files = {k: f"https://zenodo.org/records/{rec}/files/{k}?download=1" for k in wanted}
+    api_links = {f["key"]: f["links"]["self"] for f in api.get("files", [])}
+    for k in wanted:
+        api_links.setdefault(k, files[k])
+    _record("zenodo", None, record=rec, doi=api.get("doi"), files=wanted)
     texts = {}
     for key in (spec["file"], spec.get("quality_file"), spec.get("stations_file")):
         if not key:
             continue
         local = cache_dir / key
         if not local.exists():
-            download(files[key], local)
+            try:
+                download(files[key], local, tries=2)
+            except RuntimeError:
+                try:
+                    download(api_links[key], local, tries=2)
+                except RuntimeError:
+                    if key == spec["file"]:
+                        raise
+                    log(f"    optional file {key} not obtainable (Zenodo 403); continuing without it"); continue
         texts[key] = local.read_text(errors="replace")
     picks, cats = parse_hypodd_pha(texts[spec["file"]], label, spec.get("network", ""))
-    if spec.get("quality_file"):
+    if spec.get("quality_file") in texts:
         q_ids = {c["event"] for c in parse_hypodd_pha(texts[spec["quality_file"]], label, spec.get("network", ""))[1]}
         for p in picks:
             p["status"] = "quality1" if p["event"] in q_ids else "all"
@@ -554,7 +615,7 @@ def station_table(seq, picks: pd.DataFrame, windows, routes):
 
     # resolve bare station codes in the picks
     resolved, ambiguous = {}, {}
-    bare = sorted(set(picks.loc[picks["network"] == "", "station"]))
+    bare = sorted(set(picks.loc[(picks["network"] == "") | (picks["source"] == "JMA deck"), "station"]))
     for code in bare:
         cands = sorted(set(by_code.get(code, [])))
         if len(cands) == 1:
@@ -563,7 +624,8 @@ def station_table(seq, picks: pd.DataFrame, windows, routes):
             ambiguous[code] = cands; resolved[code] = cands[0]
     picks = picks.copy()
     picks["station"] = picks["station"].map(lambda s: resolved.get(s, s))
-    picks["network"] = picks["station"].map(lambda s: s.split(".")[0] if "." in s else "")
+    picks["network"] = [("" if src == "JMA deck" else (sta.split(".")[0] if "." in sta else ""))
+                        for sta, src in zip(picks["station"], picks["source"])]
 
     lo = pd.Timestamp(t0.datetime, tz="UTC"); hi = pd.Timestamp(t1.datetime, tz="UTC")
     inwin = picks[(picks["time"] >= lo) & (picks["time"] <= hi) & picks["reference_ok"]]
@@ -574,6 +636,15 @@ def station_table(seq, picks: pd.DataFrame, windows, routes):
     table = table.sort_values(["picks", "km", "station"], ascending=[False, True, True]).reset_index(drop=True)
     station_map = pd.DataFrame([dict(code=k, station=v, ambiguous=";".join(ambiguous.get(k, []))) for k, v in resolved.items()]
                                + [dict(code=k, station="", ambiguous="") for k in bare if k not in resolved])
+    if "JMA deck" in set(picks["source"]) and len(station_map):
+        from obspy.geodetics import locations2degrees
+        coords = jma_station_coords(OUT_ROOT / seq["key"] / "cache").set_index("code")
+        station_map["lat"] = station_map["code"].map(coords["lat"])
+        station_map["lon"] = station_map["code"].map(coords["lon"])
+        station_map["jma_number"] = station_map["code"].map(coords["jma_number"])
+        station_map["km"] = [locations2degrees(seq["lat"], seq["lon"], la, lo) * 111.19 if la == la else np.nan
+                             for la, lo in zip(station_map["lat"], station_map["lon"])]
+        station_map = station_map.sort_values("km")
     return table, picks, station_map
 
 
@@ -609,7 +680,7 @@ def build(key: str, steps: list, force: bool):
 
     # stage 1: catalogue (needed to choose busiest windows); for mainshock windows it is the harvest span
     cat_path = out / "catalog.parquet"
-    if "catalog" in steps and (force or not cat_path.exists()):
+    if "catalog" in steps and (force or not _have(cat_path)):
         w = seq["windows"]
         if w["kind"] == "busiest":
             spec = w["catalog"]
@@ -642,19 +713,19 @@ def build(key: str, steps: list, force: bool):
             cat["origin"] = pd.to_datetime(cat["origin"], utc=True)
             cat = cat.drop_duplicates(["source", "event"]).sort_values("origin")
         cat.to_parquet(cat_path); log(f"  catalogue: {len(cat)} events -> {cat_path.name}")
-    cat = pd.read_parquet(cat_path) if cat_path.exists() else pd.DataFrame(columns=["event", "origin"])
+    cat = pd.read_parquet(cat_path) if _have(cat_path) else pd.DataFrame(columns=["event", "origin"])
 
     win_path = out / "windows.csv"
-    if "windows" in steps and (force or not win_path.exists()):
+    if "windows" in steps and (force or not _have(win_path)):
         wins = choose_windows(seq, cat)
         pd.DataFrame([dict(t0=str(w["t0"]), t1=str(w["t1"]), rule=w["rule"]) for w in wins]).to_csv(win_path, index=False)
         for w in wins:
             log(f"  window {w['t0']} .. {w['t1']}  ({w['rule']})")
-    wins = [dict(t0=utc(r.t0), t1=utc(r.t1), rule=r.rule) for r in pd.read_csv(win_path).itertuples()] if win_path.exists() else []
+    wins = [dict(t0=utc(r.t0), t1=utc(r.t1), rule=r.rule) for r in pd.read_csv(win_path).itertuples()] if _have(win_path) else []
     spans = [(w["t0"] - reg.ORIGIN_LEAD_S, w["t1"]) for w in wins]
 
     picks_path = out / "picks.parquet"
-    if "picks" in steps and (force or not picks_path.exists()):
+    if "picks" in steps and (force or not _have(picks_path)):
         rows, extra_cat = [], []
         for spec in seq["picks"]:
             k = spec["kind"]; log(f"  picks: {k} {spec.get('client', '')}")
@@ -680,10 +751,10 @@ def build(key: str, steps: list, force: bool):
         picks.to_parquet(picks_path)
         log(f"  picks: {len(picks)} arrivals from {picks.event.nunique() if len(picks) else 0} events "
             f"({int(picks.reference_ok.sum()) if len(picks) else 0} reference_ok) -> {picks_path.name}")
-    picks = pd.read_parquet(picks_path) if picks_path.exists() else pd.DataFrame(columns=PICK_COLS)
+    picks = pd.read_parquet(picks_path) if _have(picks_path) else pd.DataFrame(columns=PICK_COLS)
 
     sta_path = out / "stations.csv"
-    if "stations" in steps and wins and (force or not sta_path.exists()):
+    if "stations" in steps and wins and (force or not _have(sta_path)):
         table, picks2, station_map = station_table(seq, picks, wins, seq["waveform_routes"])
         if len(station_map):
             station_map.to_csv(out / "station_map.csv", index=False)
@@ -694,7 +765,7 @@ def build(key: str, steps: list, force: bool):
         table.to_csv(sta_path, index=False)
         log(f"  stations: {len(table)} candidates ({int((table.picks > 0).sum())} with reference picks in the windows)")
 
-    if "waveforms" in steps and wins and sta_path.exists():
+    if "waveforms" in steps and wins and _have(sta_path):
         table = pd.read_csv(sta_path)
         got = {}
         for w in wins:
@@ -735,7 +806,7 @@ def build(key: str, steps: list, force: bool):
             counts=dict(catalog_events=int(len(cat)), picks=int(len(picks)),
                         picks_reference_ok=int(picks.reference_ok.sum()) if len(picks) else 0,
                         picks_manual=int((picks["mode"] == "manual").sum()) if len(picks) else 0,
-                        stations_fetched=int(pd.read_csv(sta_path).fetched.sum()) if sta_path.exists() else 0,
+                        stations_fetched=int(pd.read_csv(sta_path).fetched.sum()) if _have(sta_path) else 0,
                         windows=len(wins)),
             files=files,
         )

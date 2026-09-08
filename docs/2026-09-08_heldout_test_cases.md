@@ -100,6 +100,50 @@ events is cheap; leaving one aftershock in is not.
   (Croatian Seismological Survey), Reykjanes (IMO) and Maurienne
   (BCSF-RENASS); the rest are on FDSN services already used.
 
+## Data status (2026-09-08, evening)
+
+The test data are built by `scripts/build_heldout_testset.py` from
+`scripts/heldout_testset_registry.py` and live under `data/heldout_testset/`
+(one directory per sequence; `index.csv` is the summary, `README.md` the
+layout and the reproducibility rules). Picks are stored in the QuakeScope
+schema; the Thessaly harvest reproduces the QuakeScope cache row for row
+(3,650 picks, identical times), which is the pipeline's calibration.
+
+What the builds showed, sequence by sequence, beyond the counts in
+`index.csv`:
+
+- **Reference picks are rich where the operator's own service serves them**
+  (INGV, NOA, GeoNet, franceseisme, the JMA deck file, the Zenodo phase
+  file) and where ISC relays a reviewed bulletin (Petrinja, La Palma,
+  Fagradalsfjall). For 2023–2025 events ISC is preliminary and the picks
+  carry no evaluation mode; they are flagged `reference_ok` on that basis
+  and the USGS phase-data product adds NEIC's manual picks for M ≥ 4.5.
+- **Station resolution is the weak point of ISC-sourced references.** ISC
+  gives station codes without networks. They resolve against the EIDA or
+  EarthScope inventories for La Palma (17 of 21 codes), Petrinja (18 of the
+  328 codes lie within the radius) and Kahramanmaraş (24 of 962), but
+  barely for Fagradalsfjall (2 of 558) and Reykjanes 2023 (1 of 378),
+  because IMO's SIL stations are not in the EIDA inventory for those dates.
+  The waveforms fetched there are the few VI stations on EIDA and II.BORG;
+  the reference on them is thin until IMO's picks and station list arrive.
+- **Noto 2024 and Hualien 2024** have large references (16,012 and 32,461
+  arrivals) and almost no waveforms: IU.MAJO and JP.JSD for Noto, IU.TATO
+  for Hualien. Hi-net and CWA GDMS accounts are the missing piece. The
+  **Noto swarm** (JMA deck, 13,461 arrivals, 54 JMA stations with
+  coordinates in `station_map.csv`, N.SUZH 3 km from the swarm) is in the
+  same position.
+- **West Bohemia**: the Zenodo phase file gives 9,769 picks on the classic
+  WEBNET stations (KRC, STC, POC, LBC, VAC, NKC, SKC, KVC …), of which only
+  NKC is served on EIDA (as CZ.NKC); the others' waveforms are in the
+  Zenodo tarball (966 MB), to be fetched when Zenodo stops answering 403 to
+  this host. The Bavarian BW stations fetched instead sit 40 to 90 km away.
+- **Campi Flegrei**: the INGV national event service holds few of the
+  caldera's small events (71 in nine days, 5 with arrivals in the two
+  windows); the INGV-OV bulletin is the real reference and is not on an
+  FDSN service.
+- **Kaikōura, Norcia, Thessaly, Adriatic, Samos, Maurienne, Santorini,
+  Etna** built cleanly with six stations per window.
+
 ## Where the picks are, and what USGS stations sit nearby
 
 *Added 2026-09-08 on Marine's request. "Server" is the service that holds

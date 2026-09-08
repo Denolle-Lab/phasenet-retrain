@@ -163,10 +163,12 @@ SEQUENCES = [
          lat=50.24, lon=12.45, radius=0.5, mainshock=None, mag=None,
          picks=[dict(kind="zenodo_pha", record=5016845, file="catalog_2018swarm.pha",
                      quality_file="catalog_2018swarm_quality1.pha", stations_file="station_coordinates.txt",
-                     network="WB")],
+                     network="")],      # bare codes: the resolver maps them to the inventory (NKC -> CZ.NKC); the
+                                        # classic WEBNET stations are not on EIDA under WB, their waveforms are in the tarball
          windows=dict(kind="busiest", span=("2018-05-10T00:00:00Z", "2018-06-01T00:00:00Z"), n_windows=2, hours=3,
                       catalog=dict(kind="zenodo_pha")),
-         waveform_routes=["eida"], notes="WEBNET manual picks; WB waveforms on EIDA and in the Zenodo tarball"),
+         waveform_routes=["eida"], notes="WEBNET manual picks; only NKC (CZ) and the newer WB.*D stations are on EIDA, "
+                                          "the classic WEBNET stations' waveforms are in the Zenodo tarball (waveforms.tar.gz, 966 MB)"),
     _seq(key="maurienne_2017", label="Maurienne 2017-2019", regime="swarm", tier=1, suite="acceptance",
          lat=45.30, lon=6.30, radius=0.5, mainshock=None, mag=None,
          picks=[dict(kind="fdsn_region", client="franceseisme", min_mag=None)],

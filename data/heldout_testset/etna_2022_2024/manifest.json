@@ -1,0 +1,1217 @@
+{
+ "key": "etna_2022_2024",
+ "label": "Etna 2022-2024",
+ "built": "2026-09-08T16:37:44+00:00",
+ "git_commit": "c9d3b91d6698a1bede5c504343e658ac4f78c928",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "etna_2022_2024",
+  "label": "Etna 2022-2024",
+  "regime": "vt",
+  "tier": 1,
+  "suite": "dev",
+  "lat": 37.75,
+  "lon": 15.0,
+  "radius": 0.5,
+  "mainshock": null,
+  "mag": null,
+  "picks": [
+   {
+    "kind": "fdsn_per_event",
+    "client": "INGV",
+    "min_mag": null
+   }
+  ],
+  "windows": {
+   "kind": "busiest",
+   "span": [
+    "2022-01-01T00:00:00Z",
+    "2024-12-31T23:59:59Z"
+   ],
+   "n_windows": 2,
+   "hours": 3,
+   "catalog": {
+    "kind": "fdsn_region",
+    "client": "INGV",
+    "min_mag": 1.0,
+    "arrivals": false
+   }
+  },
+  "waveform_routes": [
+   "INGV"
+  ],
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6,
+  "extra_stations": [],
+  "notes": ""
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:19:57+00:00",
+   "params": {
+    "starttime": "2016-10-30T06:47:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z",
+    "latitude": "42.83",
+    "longitude": "13.11",
+    "maxradius": "0.8",
+    "minmagnitude": "2.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:20:13+00:00",
+   "params": {
+    "starttime": "2016-10-30T06:47:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z",
+    "latitude": "42.83",
+    "longitude": "13.11",
+    "maxradius": "0.8",
+    "minmagnitude": "2.0"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:21:51+00:00",
+   "params": {
+    "latitude": "42.83",
+    "longitude": "13.11",
+    "maxradius": "1.3",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:03+00:00",
+   "params": {
+    "network": "IV",
+    "station": "GUMA",
+    "channel": "HH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:19+00:00",
+   "params": {
+    "network": "XO",
+    "station": "AM05",
+    "channel": "EH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:36+00:00",
+   "params": {
+    "network": "IV",
+    "station": "LNSS",
+    "channel": "HH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:47+00:00",
+   "params": {
+    "network": "IV",
+    "station": "RM33",
+    "channel": "EH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:53+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CAMP",
+    "channel": "HH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:23:02+00:00",
+   "params": {
+    "network": "IV",
+    "station": "MC2",
+    "channel": "EH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:23:11+00:00",
+   "params": {
+    "starttime": "2023-09-26T00:00:00.000000Z",
+    "endtime": "2023-10-05T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "40.83",
+    "longitude": "14.14",
+    "maxradius": "0.15",
+    "minmagnitude": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:23:23+00:00",
+   "params": {
+    "starttime": "2023-09-26T00:57:00.000000Z",
+    "endtime": "2023-09-26T04:00:00.000000Z",
+    "latitude": "40.83",
+    "longitude": "14.14",
+    "maxradius": "0.15"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:23:37+00:00",
+   "params": {
+    "starttime": "2023-09-27T19:27:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z",
+    "latitude": "40.83",
+    "longitude": "14.14",
+    "maxradius": "0.15"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:23:53+00:00",
+   "params": {
+    "latitude": "40.83",
+    "longitude": "14.14",
+    "maxradius": "0.65",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2023-09-26T01:00:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:24:03+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CSTH",
+    "channel": "HH?",
+    "starttime": "2023-09-26T01:00:00.000000Z",
+    "endtime": "2023-09-26T04:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:24:14+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CAAM",
+    "channel": "HH?",
+    "starttime": "2023-09-26T01:00:00.000000Z",
+    "endtime": "2023-09-26T04:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:24:28+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CPOZ",
+    "channel": "HH?",
+    "starttime": "2023-09-26T01:00:00.000000Z",
+    "endtime": "2023-09-26T04:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:24:39+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CSFT",
+    "channel": "HH?",
+    "starttime": "2023-09-26T01:00:00.000000Z",
+    "endtime": "2023-09-26T04:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:24:50+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CSOB",
+    "channel": "HH?",
+    "starttime": "2023-09-26T01:00:00.000000Z",
+    "endtime": "2023-09-26T04:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:24:57+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CFMN",
+    "channel": "HH?",
+    "starttime": "2023-09-26T01:00:00.000000Z",
+    "endtime": "2023-09-26T04:00:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:25:11+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CSTH",
+    "channel": "HH?",
+    "starttime": "2023-09-27T19:30:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:25:29+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CAAM",
+    "channel": "HH?",
+    "starttime": "2023-09-27T19:30:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:25:54+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CPOZ",
+    "channel": "HH?",
+    "starttime": "2023-09-27T19:30:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:26:08+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CSFT",
+    "channel": "HH?",
+    "starttime": "2023-09-27T19:30:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:26:28+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CSOB",
+    "channel": "HH?",
+    "starttime": "2023-09-27T19:30:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:26:38+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CFMN",
+    "channel": "HH?",
+    "starttime": "2023-09-27T19:30:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:26:51+00:00",
+   "params": {
+    "starttime": "2022-01-01T00:00:00.000000Z",
+    "endtime": "2022-01-31T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:27:04+00:00",
+   "params": {
+    "starttime": "2022-01-31T00:00:00.000000Z",
+    "endtime": "2022-03-02T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:27:17+00:00",
+   "params": {
+    "starttime": "2022-03-02T00:00:00.000000Z",
+    "endtime": "2022-04-01T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:27:28+00:00",
+   "params": {
+    "starttime": "2022-04-01T00:00:00.000000Z",
+    "endtime": "2022-05-01T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:27:39+00:00",
+   "params": {
+    "starttime": "2022-05-01T00:00:00.000000Z",
+    "endtime": "2022-05-31T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:27:52+00:00",
+   "params": {
+    "starttime": "2022-05-31T00:00:00.000000Z",
+    "endtime": "2022-06-30T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:28:06+00:00",
+   "params": {
+    "starttime": "2022-06-30T00:00:00.000000Z",
+    "endtime": "2022-07-30T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:28:19+00:00",
+   "params": {
+    "starttime": "2022-07-30T00:00:00.000000Z",
+    "endtime": "2022-08-29T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:28:33+00:00",
+   "params": {
+    "starttime": "2022-08-29T00:00:00.000000Z",
+    "endtime": "2022-09-28T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:28:49+00:00",
+   "params": {
+    "starttime": "2022-09-28T00:00:00.000000Z",
+    "endtime": "2022-10-28T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:29:00+00:00",
+   "params": {
+    "starttime": "2022-10-28T00:00:00.000000Z",
+    "endtime": "2022-11-27T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:29:13+00:00",
+   "params": {
+    "starttime": "2022-11-27T00:00:00.000000Z",
+    "endtime": "2022-12-27T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:29:26+00:00",
+   "params": {
+    "starttime": "2022-12-27T00:00:00.000000Z",
+    "endtime": "2023-01-26T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:29:40+00:00",
+   "params": {
+    "starttime": "2023-01-26T00:00:00.000000Z",
+    "endtime": "2023-02-25T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:29:53+00:00",
+   "params": {
+    "starttime": "2023-02-25T00:00:00.000000Z",
+    "endtime": "2023-03-27T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:30:07+00:00",
+   "params": {
+    "starttime": "2023-03-27T00:00:00.000000Z",
+    "endtime": "2023-04-26T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:30:20+00:00",
+   "params": {
+    "starttime": "2023-04-26T00:00:00.000000Z",
+    "endtime": "2023-05-26T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:30:36+00:00",
+   "params": {
+    "starttime": "2023-05-26T00:00:00.000000Z",
+    "endtime": "2023-06-25T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:30:51+00:00",
+   "params": {
+    "starttime": "2023-06-25T00:00:00.000000Z",
+    "endtime": "2023-07-25T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:31:04+00:00",
+   "params": {
+    "starttime": "2023-07-25T00:00:00.000000Z",
+    "endtime": "2023-08-24T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:31:18+00:00",
+   "params": {
+    "starttime": "2023-08-24T00:00:00.000000Z",
+    "endtime": "2023-09-23T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:31:31+00:00",
+   "params": {
+    "starttime": "2023-09-23T00:00:00.000000Z",
+    "endtime": "2023-10-23T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:31:45+00:00",
+   "params": {
+    "starttime": "2023-10-23T00:00:00.000000Z",
+    "endtime": "2023-11-22T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:31:59+00:00",
+   "params": {
+    "starttime": "2023-11-22T00:00:00.000000Z",
+    "endtime": "2023-12-22T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:32:13+00:00",
+   "params": {
+    "starttime": "2023-12-22T00:00:00.000000Z",
+    "endtime": "2024-01-21T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:32:26+00:00",
+   "params": {
+    "starttime": "2024-01-21T00:00:00.000000Z",
+    "endtime": "2024-02-20T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:32:40+00:00",
+   "params": {
+    "starttime": "2024-02-20T00:00:00.000000Z",
+    "endtime": "2024-03-21T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:32:51+00:00",
+   "params": {
+    "starttime": "2024-03-21T00:00:00.000000Z",
+    "endtime": "2024-04-20T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:33:03+00:00",
+   "params": {
+    "starttime": "2024-04-20T00:00:00.000000Z",
+    "endtime": "2024-05-20T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:33:16+00:00",
+   "params": {
+    "starttime": "2024-05-20T00:00:00.000000Z",
+    "endtime": "2024-06-19T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:33:29+00:00",
+   "params": {
+    "starttime": "2024-06-19T00:00:00.000000Z",
+    "endtime": "2024-07-19T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:33:41+00:00",
+   "params": {
+    "starttime": "2024-07-19T00:00:00.000000Z",
+    "endtime": "2024-08-18T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:33:53+00:00",
+   "params": {
+    "starttime": "2024-08-18T00:00:00.000000Z",
+    "endtime": "2024-09-17T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:34:06+00:00",
+   "params": {
+    "starttime": "2024-09-17T00:00:00.000000Z",
+    "endtime": "2024-10-17T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:34:19+00:00",
+   "params": {
+    "starttime": "2024-10-17T00:00:00.000000Z",
+    "endtime": "2024-11-16T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:34:32+00:00",
+   "params": {
+    "starttime": "2024-11-16T00:00:00.000000Z",
+    "endtime": "2024-12-16T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:34:43+00:00",
+   "params": {
+    "starttime": "2024-12-16T00:00:00.000000Z",
+    "endtime": "2024-12-31T23:59:59.000000Z",
+    "includearrivals": "False",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5",
+    "minmagnitude": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:34:57+00:00",
+   "params": {
+    "starttime": "2022-08-29T19:12:00.000000Z",
+    "endtime": "2022-08-29T22:15:00.000000Z",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:35:46+00:00",
+   "params": {
+    "starttime": "2023-06-04T16:12:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z",
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "0.5"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:36:23+00:00",
+   "params": {
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "1.0",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2022-08-29T19:15:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:36:34+00:00",
+   "params": {
+    "network": "IV",
+    "station": "EPZF",
+    "channel": "HH?",
+    "starttime": "2022-08-29T19:15:00.000000Z",
+    "endtime": "2022-08-29T22:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:36:39+00:00",
+   "params": {
+    "network": "IV",
+    "station": "MUCR",
+    "channel": "HH?",
+    "starttime": "2022-08-29T19:15:00.000000Z",
+    "endtime": "2022-08-29T22:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:36:44+00:00",
+   "params": {
+    "network": "IV",
+    "station": "EMSG",
+    "channel": "HH?",
+    "starttime": "2022-08-29T19:15:00.000000Z",
+    "endtime": "2022-08-29T22:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:36:49+00:00",
+   "params": {
+    "network": "IV",
+    "station": "ESVO",
+    "channel": "HH?",
+    "starttime": "2022-08-29T19:15:00.000000Z",
+    "endtime": "2022-08-29T22:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:36:56+00:00",
+   "params": {
+    "network": "IV",
+    "station": "ECZM",
+    "channel": "HH?",
+    "starttime": "2022-08-29T19:15:00.000000Z",
+    "endtime": "2022-08-29T22:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:37:01+00:00",
+   "params": {
+    "network": "IV",
+    "station": "ESML",
+    "channel": "HH?",
+    "starttime": "2022-08-29T19:15:00.000000Z",
+    "endtime": "2022-08-29T22:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:37:12+00:00",
+   "params": {
+    "network": "IV",
+    "station": "EPZF",
+    "channel": "HH?",
+    "starttime": "2023-06-04T16:15:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:37:17+00:00",
+   "params": {
+    "network": "IV",
+    "station": "MUCR",
+    "channel": "HH?",
+    "starttime": "2023-06-04T16:15:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:37:20+00:00",
+   "params": {
+    "network": "IV",
+    "station": "EMSG",
+    "channel": "HH?",
+    "starttime": "2023-06-04T16:15:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:37:24+00:00",
+   "params": {
+    "network": "IV",
+    "station": "ESVO",
+    "channel": "HH?",
+    "starttime": "2023-06-04T16:15:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:37:30+00:00",
+   "params": {
+    "network": "IV",
+    "station": "ECZM",
+    "channel": "HH?",
+    "starttime": "2023-06-04T16:15:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:37:35+00:00",
+   "params": {
+    "network": "IV",
+    "station": "ESML",
+    "channel": "HH?",
+    "starttime": "2023-06-04T16:15:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z"
+   }
+  }
+ ],
+ "n_queries": 77,
+ "counts": {
+  "catalog_events": 2068,
+  "picks": 4537,
+  "picks_reference_ok": 4537,
+  "picks_manual": 4537,
+  "stations_fetched": 6,
+  "windows": 2
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "87d4ae4353ce4b5c9342f1ef32804f0057fcf4ea4f0ca1bb2890fc4fc20c0ab0",
+   "bytes": 81366
+  },
+  "picks.parquet": {
+   "sha256": "24db294edea10ed403085a2d1e50a4a1a3d8c964f5b9af97f0da1cd48bb36cf1",
+   "bytes": 89796
+  },
+  "stations.csv": {
+   "sha256": "e8245c768f49350a1c4eab0b46c8dcb3080c1e46bd77199f7c392e7ddccbdda6",
+   "bytes": 6280
+  },
+  "waveforms/IV.ECZM__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "3238ffd4159fa138e60a230fee3518c7ce1a8ddc77ed26b548aeb053ee00755f",
+   "bytes": 4514816
+  },
+  "waveforms/IV.ECZM__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "448df97e6153db9a59cfa773a4e226eed972065fd9d440a1e4b6f4f93073a89b",
+   "bytes": 3950080
+  },
+  "waveforms/IV.EMSG__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "07c081b2dd6a7bc00a1cedda964440264634d17c5cdf818d89df71c97eaf1c73",
+   "bytes": 4436480
+  },
+  "waveforms/IV.EMSG__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "ff4db8ef2159b470c70b021e570b5abe4ca78ad891372282d87cd18e1d07b413",
+   "bytes": 4153344
+  },
+  "waveforms/IV.EPZF__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "4020ebac8a95e37b5143d5f38f2f6d5ac16b5e5703359a6b5ae5732c61deb8f4",
+   "bytes": 3850240
+  },
+  "waveforms/IV.EPZF__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "59da2c177a0d4494057f5671ce47e04311e74d5b7aa382743f46eaf3ef9b653b",
+   "bytes": 4644352
+  },
+  "waveforms/IV.ESML__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "27c1c1f6b39c1e0d0da6726f743daf3b6f259ea06277cdd6985e991a0edf09dc",
+   "bytes": 4418560
+  },
+  "waveforms/IV.ESML__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "90e70c94c35710c1e372ccf8e307cce88c422f982fb46c5619256a7d59aba150",
+   "bytes": 4235776
+  },
+  "waveforms/IV.ESVO__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "197035a4f6712bc4de31ab9a63801b85a8546b1daeff6302d8194c5cde728dcb",
+   "bytes": 6136832
+  },
+  "waveforms/IV.ESVO__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "edc75b435ba55fd840e27ac9d2404879c43e88a0625eb17cc114f680f7f42dfd",
+   "bytes": 5590016
+  },
+  "waveforms/IV.MUCR__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "4ec938e9ab8d18195ab61ff190a1969d1e615262c3eb5542da3ec99fe2a06624",
+   "bytes": 3979776
+  },
+  "waveforms/IV.MUCR__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "9994d3fd1152f278af8e92705cdd240fa2fc3b7edc734f85467efeba9700870e",
+   "bytes": 2970624
+  },
+  "windows.csv": {
+   "sha256": "788073f23fb5a96cbc36060e69e0afaaebe893267c1d4c8fb2ae1ee3bb33e934",
+   "bytes": 299
+  }
+ }
+}

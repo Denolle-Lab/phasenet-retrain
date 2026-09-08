@@ -58,6 +58,8 @@ KVC 1.300 1.0 P
     assert [p["station"] for p in picks] == ["WB.KVC", "WB.KVC", "WB.NKC", "WB.KVC"]
     assert str(picks[0]["time"]).startswith("2018-05-21 10:12:31.734")
     assert picks[1]["phase"] == "S" and picks[1]["time_weight"] == 0.5 and all(p["reference_ok"] for p in picks)
+    bare, _ = b.parse_hypodd_pha(text, "wb", "")
+    assert [p["station"] for p in bare][:2] == ["KVC", "KVC"] and bare[0]["network"] == ""
 
 
 def test_choose_busiest_windows_is_deterministic_and_non_overlapping():
@@ -131,3 +133,11 @@ def test_reference_from_uses_reference_ok_and_collapses_duplicates():
     })
     ref = sc.reference_from(picks, ["IV.A", "IV.B"], t0, t1)
     assert len(ref[("IV.A", "P")]) == 1 and len(ref[("IV.A", "S")]) == 1 and ("IV.B", "P") not in ref
+
+
+def test_jma_second_phase_rolls_into_next_hour():
+    hypo = _rec({1: "J", 2: "2023", 6: "05", 8: "05", 10: "14", 12: "59", 14: "3282", 22: " 37", 25: "3100",
+                 33: " 137", 37: "1600", 45: "  12 ", 53: "35", 55: "D", 96: "K"})
+    arr = _rec({1: "_", 2: "N.TOYH", 14: "05", 16: "P   ", 20: "14", 22: "59", 24: "4500", 28: "S   ", 32: "00", 34: "0017", 88: "23", 90: "05"})
+    picks, _ = b.parse_jma_deck("\n".join([hypo, arr, "E" + " " * 95]), "t")
+    assert str(picks[0]["time"]).startswith("2023-05-05 05:59:45") and str(picks[1]["time"]).startswith("2023-05-05 06:00:00.17")

@@ -60,6 +60,24 @@ alphabetical order is taken and both are recorded in `station_map.csv`.
 
 ## Known gaps (2026-09-08)
 
+- West Bohemia: the classic WEBNET stations carrying the picks are not on
+  EIDA (only NKC, as CZ.NKC); their waveforms are in the Zenodo tarball
+  `waveforms.tar.gz` (966 MB), not fetched while Zenodo answers 403 to this
+  host. The optional `catalog_2018swarm_quality1.pha` and
+  `station_coordinates.txt` were refused the same way; the build proceeds
+  on the cached main phase file and says so in `build.log`.
+- Fagradalsfjall 2021 and Reykjanes 2023: ISC station codes barely resolve
+  against the EIDA inventory of IMO's VI network; the reference on the
+  fetched stations is thin until IMO's picks and station list are obtained.
+- Campi Flegrei: the INGV national service holds few caldera events; the
+  INGV-OV bulletin is the reference to obtain.
+- `git_dirty` in `manifest.json` lists uncommitted changes to the pipeline
+  at build time; manifests built before it was added (the first fourteen
+  sequences) record the commit but not the working-tree state, which for
+  them was the code committed in the following commit with robustness
+  fixes only, except the JMA parser fixes, after which the Noto swarm was
+  rebuilt.
+
 - Noto 2024 and the Hualien 2024 CWASN stations need NIED Hi-net and CWA
   GDMS accounts for waveforms; the picks for Noto 2024 need Hi-net too
   (`HinetPy`), the public JMA deck files end in 2023-12.

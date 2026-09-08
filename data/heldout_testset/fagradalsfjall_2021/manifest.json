@@ -1,0 +1,1120 @@
+{
+ "key": "fagradalsfjall_2021",
+ "label": "Fagradalsfjall 2021",
+ "built": "2026-09-08T16:24:07+00:00",
+ "git_commit": "c9d3b91d6698a1bede5c504343e658ac4f78c928",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "fagradalsfjall_2021",
+  "label": "Fagradalsfjall 2021",
+  "regime": "vt",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": 63.9,
+  "lon": -22.27,
+  "radius": 0.7,
+  "mainshock": null,
+  "mag": null,
+  "picks": [
+   {
+    "kind": "fdsn_region",
+    "client": "ISC",
+    "min_mag": null
+   }
+  ],
+  "windows": {
+   "kind": "busiest",
+   "span": [
+    "2021-02-24T00:00:00Z",
+    "2021-03-05T00:00:00Z"
+   ],
+   "n_windows": 2,
+   "hours": 3,
+   "catalog": {
+    "kind": "fdsn_region",
+    "client": "ISC",
+    "min_mag": null
+   }
+  },
+  "waveform_routes": [
+   "eida",
+   "IRIS"
+  ],
+  "extra_stations": [
+   "II.BORG"
+  ],
+  "notes": "ISC reviewed; 2021 is a held-out year",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:02+00:00",
+   "params": {
+    "starttime": "2020-12-29T11:26:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z",
+    "includearrivals": "False",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:03+00:00",
+   "params": {
+    "starttime": "2020-12-29T11:26:54.000000Z",
+    "endtime": "2020-12-29T12:26:54.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:07+00:00",
+   "params": {
+    "starttime": "2020-12-29T12:26:54.000000Z",
+    "endtime": "2020-12-29T13:26:54.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:11+00:00",
+   "params": {
+    "starttime": "2020-12-29T13:26:54.000000Z",
+    "endtime": "2020-12-29T14:26:54.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:20:13+00:00",
+   "params": {
+    "starttime": "2020-12-29T14:26:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z",
+    "includearrivals": "True",
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:15+00:00",
+   "params": {
+    "latitude": "45.42",
+    "longitude": "16.26",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:20:28+00:00",
+   "params": {
+    "network": "MN",
+    "station": "BLY",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:48+00:00",
+   "params": {
+    "network": "HU",
+    "station": "BEHE",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:53+00:00",
+   "params": {
+    "network": "CR",
+    "station": "MOSL",
+    "channel": "BH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:55+00:00",
+   "params": {
+    "network": "CR",
+    "station": "OZLJ",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:57+00:00",
+   "params": {
+    "network": "CR",
+    "station": "ZAG",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:20:59+00:00",
+   "params": {
+    "network": "SL",
+    "station": "BOJS",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:21:05+00:00",
+   "params": {
+    "network": "SL",
+    "station": "CRES",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:21:12+00:00",
+   "params": {
+    "network": "SL",
+    "station": "GCIS",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:21:18+00:00",
+   "params": {
+    "network": "SL",
+    "station": "KOGS",
+    "channel": "HH?",
+    "starttime": "2020-12-29T11:29:54.000000Z",
+    "endtime": "2020-12-29T14:29:54.000000Z"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:25+00:00",
+   "params": {
+    "starttime": "2021-02-24T00:00:00.000000Z",
+    "endtime": "2021-03-05T00:00:00.000000Z",
+    "includearrivals": "False",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:27+00:00",
+   "params": {
+    "starttime": "2021-02-24T09:42:00.000000Z",
+    "endtime": "2021-02-24T10:42:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:40+00:00",
+   "params": {
+    "starttime": "2021-02-24T10:42:00.000000Z",
+    "endtime": "2021-02-24T11:42:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:43+00:00",
+   "params": {
+    "starttime": "2021-02-24T11:42:00.000000Z",
+    "endtime": "2021-02-24T12:42:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:45+00:00",
+   "params": {
+    "starttime": "2021-02-24T12:42:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:46+00:00",
+   "params": {
+    "starttime": "2021-02-26T15:27:00.000000Z",
+    "endtime": "2021-02-26T16:27:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:46+00:00",
+   "params": {
+    "starttime": "2021-02-26T16:27:00.000000Z",
+    "endtime": "2021-02-26T17:27:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:48+00:00",
+   "params": {
+    "starttime": "2021-02-26T17:27:00.000000Z",
+    "endtime": "2021-02-26T18:27:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:21:49+00:00",
+   "params": {
+    "starttime": "2021-02-26T18:27:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z",
+    "includearrivals": "True",
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "0.7"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:21:50+00:00",
+   "params": {
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:21:57+00:00",
+   "params": {
+    "latitude": "63.9",
+    "longitude": "-22.27",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:21:58+00:00",
+   "params": {
+    "network": "II",
+    "station": "BORG",
+    "channel": "BH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:21:58+00:00",
+   "params": {
+    "network": "4Q",
+    "station": "MA2",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:22:05+00:00",
+   "params": {
+    "network": "8F",
+    "station": "VIGR",
+    "channel": "BH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:05+00:00",
+   "params": {
+    "network": "9H",
+    "station": "HOP",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:22:07+00:00",
+   "params": {
+    "network": "8F",
+    "station": "ODDA",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:07+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RF91C",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:11+00:00",
+   "params": {
+    "network": "5S",
+    "station": "R0DF7",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:14+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RD639",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:17+00:00",
+   "params": {
+    "network": "9H",
+    "station": "SUH",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:20+00:00",
+   "params": {
+    "network": "9H",
+    "station": "STF",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:22+00:00",
+   "params": {
+    "network": "9H",
+    "station": "BER",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:25+00:00",
+   "params": {
+    "network": "9H",
+    "station": "SDV",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:28+00:00",
+   "params": {
+    "network": "9H",
+    "station": "SYRN",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:30+00:00",
+   "params": {
+    "network": "9H",
+    "station": "HAS",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:32+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RB86E",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:35+00:00",
+   "params": {
+    "network": "VI",
+    "station": "KAS",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:38+00:00",
+   "params": {
+    "network": "VI",
+    "station": "VOS",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:41+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RE32C",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:44+00:00",
+   "params": {
+    "network": "5S",
+    "station": "R488C",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:46+00:00",
+   "params": {
+    "network": "5S",
+    "station": "R888C",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:49+00:00",
+   "params": {
+    "network": "5S",
+    "station": "R8AC0",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:53+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RFE09",
+    "channel": "EH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:56+00:00",
+   "params": {
+    "network": "VI",
+    "station": "SAN",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:22:59+00:00",
+   "params": {
+    "network": "OR",
+    "station": "KRIST",
+    "channel": "HH?",
+    "starttime": "2021-02-24T09:45:00.000000Z",
+    "endtime": "2021-02-24T12:45:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:23:03+00:00",
+   "params": {
+    "network": "II",
+    "station": "BORG",
+    "channel": "BH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:04+00:00",
+   "params": {
+    "network": "4Q",
+    "station": "MA2",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:23:09+00:00",
+   "params": {
+    "network": "8F",
+    "station": "VIGR",
+    "channel": "BH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:09+00:00",
+   "params": {
+    "network": "9H",
+    "station": "HOP",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:23:11+00:00",
+   "params": {
+    "network": "8F",
+    "station": "ODDA",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:11+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RF91C",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:15+00:00",
+   "params": {
+    "network": "5S",
+    "station": "R0DF7",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:18+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RD639",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:22+00:00",
+   "params": {
+    "network": "9H",
+    "station": "SUH",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:24+00:00",
+   "params": {
+    "network": "9H",
+    "station": "STF",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:27+00:00",
+   "params": {
+    "network": "9H",
+    "station": "BER",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:29+00:00",
+   "params": {
+    "network": "9H",
+    "station": "SDV",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:31+00:00",
+   "params": {
+    "network": "9H",
+    "station": "SYRN",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:33+00:00",
+   "params": {
+    "network": "9H",
+    "station": "HAS",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:35+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RB86E",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:38+00:00",
+   "params": {
+    "network": "VI",
+    "station": "KAS",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:41+00:00",
+   "params": {
+    "network": "VI",
+    "station": "VOS",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:44+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RE32C",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:47+00:00",
+   "params": {
+    "network": "5S",
+    "station": "R488C",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:49+00:00",
+   "params": {
+    "network": "5S",
+    "station": "R888C",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:52+00:00",
+   "params": {
+    "network": "5S",
+    "station": "R8AC0",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:56+00:00",
+   "params": {
+    "network": "5S",
+    "station": "RFE09",
+    "channel": "EH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:23:59+00:00",
+   "params": {
+    "network": "VI",
+    "station": "SAN",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "eida",
+   "base_url": "routing:eida",
+   "when": "2026-09-08T16:24:02+00:00",
+   "params": {
+    "network": "OR",
+    "station": "KRIST",
+    "channel": "HH?",
+    "starttime": "2021-02-26T15:30:00.000000Z",
+    "endtime": "2021-02-26T18:30:00.000000Z"
+   }
+  }
+ ],
+ "n_queries": 74,
+ "counts": {
+  "catalog_events": 126,
+  "picks": 4476,
+  "picks_reference_ok": 3911,
+  "picks_manual": 221,
+  "stations_fetched": 6,
+  "windows": 2
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "06bd96c913ec35c28e3e3b2232ae86a02f89bc7e71f3d1ce2f48cfa23f23511e",
+   "bytes": 10103
+  },
+  "picks.parquet": {
+   "sha256": "1175fafc340e55c69d4b297c713723c053a6dfa65013fca2252a8aa35010aec3",
+   "bytes": 97043
+  },
+  "station_map.csv": {
+   "sha256": "293b197dc960d4ba14bda092ae2d8e2e95e35974263283962111298c197879ce",
+   "bytes": 3782
+  },
+  "stations.csv": {
+   "sha256": "d3ef786551dde0a7d11c9f6ac06d27cea8b3b619a7c51ed66d40b5f791ac24c3",
+   "bytes": 4855
+  },
+  "waveforms/4Q.MA2__HH__20210224T094500__20210224T124500.mseed": {
+   "sha256": "491b220feb1895a17026acf84c04e96ce836fb02d9cc2c6c56f900ec0d516ebc",
+   "bytes": 9045504
+  },
+  "waveforms/4Q.MA2__HH__20210226T153000__20210226T183000.mseed": {
+   "sha256": "7fdf5a8e4c8920248ec3ae6758ba67243a5f3933907a47a1057d6e092ebda8b8",
+   "bytes": 8108032
+  },
+  "waveforms/II.BORG__BH__20210224T094500__20210224T124500.mseed": {
+   "sha256": "2405cf8637b6c0e0d73fc045d52288a6093e75336ececfb8c7fb94b4e677550e",
+   "bytes": 4403200
+  },
+  "waveforms/II.BORG__BH__20210226T153000__20210226T183000.mseed": {
+   "sha256": "a6456cda91096b79cf713568e2b99a90b65c6e50af1ece9081193313c056331f",
+   "bytes": 4190208
+  },
+  "waveforms/OR.KRIST__HH__20210224T094500__20210224T124500.mseed": {
+   "sha256": "d269f6114aab4537a08be86a774d561b90294c6f764ddbfebe278bd3a49d8b4c",
+   "bytes": 12064768
+  },
+  "waveforms/OR.KRIST__HH__20210226T153000__20210226T183000.mseed": {
+   "sha256": "7a378bc7a783391c699a8002246249aee82bed51b88d8503fe0de13d650d0044",
+   "bytes": 12802560
+  },
+  "waveforms/VI.KAS__HH__20210224T094500__20210224T124500.mseed": {
+   "sha256": "cca242e3598044af0b4f9a24262444170a82842cd49be10f47cbf9ab48fb5e2c",
+   "bytes": 4296704
+  },
+  "waveforms/VI.KAS__HH__20210226T153000__20210226T183000.mseed": {
+   "sha256": "3b8482ec530f1810993112055c2ab9e4263dc7bc1f6c05154a04fd22b09f9141",
+   "bytes": 3578880
+  },
+  "waveforms/VI.SAN__HH__20210224T094500__20210224T124500.mseed": {
+   "sha256": "3ab39e61de31e642d28f2adb9d3424912c825232a289d732374272b9aec9e1c4",
+   "bytes": 4871680
+  },
+  "waveforms/VI.SAN__HH__20210226T153000__20210226T183000.mseed": {
+   "sha256": "8bd730f32ee2e5b4d8b929e09cc98d26e794503e6419ffbcf3bb004c020718e6",
+   "bytes": 4448768
+  },
+  "waveforms/VI.VOS__HH__20210224T094500__20210224T124500.mseed": {
+   "sha256": "c045b6c97ad8cda7804c9ca5f7f5aeeb7c2173bed524f1de8e446b82830dfab7",
+   "bytes": 3941888
+  },
+  "waveforms/VI.VOS__HH__20210226T153000__20210226T183000.mseed": {
+   "sha256": "1e7352065ab72b9a3b3f7defe4af2941a11397dc5be5f37154997918bdc7b630",
+   "bytes": 3786752
+  },
+  "windows.csv": {
+   "sha256": "cabbf09dccc00dd256771fdd0bc5f3ddd55ceea0d41d16ecb00a15810a181e13",
+   "bytes": 298
+  }
+ }
+}

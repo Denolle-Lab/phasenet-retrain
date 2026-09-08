@@ -1,0 +1,152 @@
+{
+ "key": "noto_swarm_2023",
+ "label": "Noto swarm 2023",
+ "built": "2026-09-08T16:29:14+00:00",
+ "git_commit": "c9d3b91d6698a1bede5c504343e658ac4f78c928",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "noto_swarm_2023",
+  "label": "Noto swarm 2023",
+  "regime": "swarm",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": 37.5,
+  "lon": 137.27,
+  "radius": 1.0,
+  "mainshock": "2023-05-05T05:42:04Z",
+  "mag": 6.5,
+  "picks": [
+   {
+    "kind": "jma_deck",
+    "months": [
+     "202305"
+    ]
+   }
+  ],
+  "windows": {
+   "kind": "mainshock",
+   "start_s": 600,
+   "minutes": 180
+  },
+  "waveform_routes": [
+   "IRIS"
+  ],
+  "extra_stations": [
+   "IU.MAJO"
+  ],
+  "notes": "JMA M6.5 (Mw 6.2) Suzu event during the swarm; picks from the public JMA deck file; Hi-net waveforms need an account",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "jma_deck",
+   "client": null,
+   "base_url": null,
+   "when": "2026-09-08T16:29:04+00:00",
+   "params": {
+    "url": "https://www.data.jma.go.jp/eqev/data/bulletin/data/deck/d202305.zip"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:29:13+00:00",
+   "params": {
+    "latitude": "37.5",
+    "longitude": "137.27",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2023-05-05T05:52:04.000000Z",
+    "endtime": "2023-05-05T08:52:04.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:29:14+00:00",
+   "params": {
+    "network": "JP",
+    "station": "JSD",
+    "channel": "BH?",
+    "starttime": "2023-05-05T05:52:04.000000Z",
+    "endtime": "2023-05-05T08:52:04.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:29:14+00:00",
+   "params": {
+    "network": "IU",
+    "station": "MAJO",
+    "channel": "HH?",
+    "starttime": "2023-05-05T05:52:04.000000Z",
+    "endtime": "2023-05-05T08:52:04.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:29:14+00:00",
+   "params": {
+    "network": "IM",
+    "station": "MJAR",
+    "channel": "HH?",
+    "starttime": "2023-05-05T05:52:04.000000Z",
+    "endtime": "2023-05-05T08:52:04.000000Z"
+   }
+  }
+ ],
+ "n_queries": 5,
+ "counts": {
+  "catalog_events": 624,
+  "picks": 13461,
+  "picks_reference_ok": 9890,
+  "picks_manual": 9890,
+  "stations_fetched": 2,
+  "windows": 1
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "23845930adb4a7bd8476693b0bc089fd893e651bdd31bdae098ec1e8be5501e6",
+   "bytes": 27543
+  },
+  "picks.parquet": {
+   "sha256": "57f0afd9239e85531bc5a9dc5d3e4a7a3d61ebf3037580670cd18ddc1ac3c328",
+   "bytes": 258768
+  },
+  "station_map.csv": {
+   "sha256": "273ae8670e8567737c60ecfd8d43cd984178e9b36b559e11f01cb9a62b196f10",
+   "bytes": 3528
+  },
+  "stations.csv": {
+   "sha256": "2fea3326d80afd1efecaef645114caaabff8ea8cd57972dac344bd10f7bac280",
+   "bytes": 233
+  },
+  "waveforms/IU.MAJO__HH__20230505T055204__20230505T085204.mseed": {
+   "sha256": "581d875c424c25cfb16819d0cc64578b63e6903f292dea9f854e38bc50ce919b",
+   "bytes": 3302912
+  },
+  "waveforms/JP.JSD__BH__20230505T055204__20230505T085204.mseed": {
+   "sha256": "2d1c3cc8ee6e42ea801748d274026ab4900393328103b2d491840909f4630fea",
+   "bytes": 460800
+  },
+  "windows.csv": {
+   "sha256": "9edb77d38d2bbd96bfd16e3773e4299d48549725a65a7de40955b241ca8bb9ad",
+   "bytes": 93
+  }
+ }
+}

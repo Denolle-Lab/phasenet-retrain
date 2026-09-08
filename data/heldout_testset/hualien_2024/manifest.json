@@ -1,0 +1,756 @@
+{
+ "key": "hualien_2024",
+ "label": "Hualien 2024",
+ "built": "2026-09-08T16:35:23+00:00",
+ "git_commit": "c9d3b91d6698a1bede5c504343e658ac4f78c928",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "hualien_2024",
+  "label": "Hualien 2024",
+  "regime": "msas",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": 23.82,
+  "lon": 121.56,
+  "radius": 1.0,
+  "mainshock": "2024-04-02T23:58:11Z",
+  "mag": 7.4,
+  "picks": [
+   {
+    "kind": "fdsn_region",
+    "client": "ISC",
+    "min_mag": null
+   },
+   {
+    "kind": "usgs_phase_data",
+    "min_mag": 4.5
+   }
+  ],
+  "windows": {
+   "kind": "mainshock",
+   "start_s": 600,
+   "minutes": 180
+  },
+  "waveform_routes": [
+   "IRIS"
+  ],
+  "extra_stations": [
+   "IU.TATO"
+  ],
+  "notes": "ISC carries CWB picks with station codes; CWASN waveforms need a GDMS account, TW (BATS) is on EarthScope",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:33:30+00:00",
+   "params": {
+    "starttime": "2024-04-03T00:05:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z",
+    "includearrivals": "False",
+    "latitude": "23.82",
+    "longitude": "121.56",
+    "maxradius": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:33:32+00:00",
+   "params": {
+    "starttime": "2024-04-03T00:05:11.000000Z",
+    "endtime": "2024-04-03T01:05:11.000000Z",
+    "includearrivals": "True",
+    "latitude": "23.82",
+    "longitude": "121.56",
+    "maxradius": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:33:57+00:00",
+   "params": {
+    "starttime": "2024-04-03T01:05:11.000000Z",
+    "endtime": "2024-04-03T02:05:11.000000Z",
+    "includearrivals": "True",
+    "latitude": "23.82",
+    "longitude": "121.56",
+    "maxradius": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:34:17+00:00",
+   "params": {
+    "starttime": "2024-04-03T02:05:11.000000Z",
+    "endtime": "2024-04-03T03:05:11.000000Z",
+    "includearrivals": "True",
+    "latitude": "23.82",
+    "longitude": "121.56",
+    "maxradius": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "ISC",
+   "base_url": "http://www.isc.ac.uk",
+   "when": "2026-09-08T16:34:42+00:00",
+   "params": {
+    "starttime": "2024-04-03T03:05:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z",
+    "includearrivals": "True",
+    "latitude": "23.82",
+    "longitude": "121.56",
+    "maxradius": "1.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:44+00:00",
+   "params": {
+    "starttime": "2024-04-03T00:05:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z",
+    "latitude": "23.82",
+    "longitude": "121.56",
+    "maxradius": "1.0",
+    "minmagnitude": "4.5"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:44+00:00",
+   "params": {
+    "eventid": "us7000mbg3"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:45+00:00",
+   "params": {
+    "eventid": "us7000mbhk"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:46+00:00",
+   "params": {
+    "eventid": "us7000mbf9"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:47+00:00",
+   "params": {
+    "eventid": "us7000mbf8"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:47+00:00",
+   "params": {
+    "eventid": "us7000mbf6"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:48+00:00",
+   "params": {
+    "eventid": "us7000m9i3"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:49+00:00",
+   "params": {
+    "eventid": "us7000m9ht"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:49+00:00",
+   "params": {
+    "eventid": "us7000mbf5"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:51+00:00",
+   "params": {
+    "eventid": "us7000m9hp"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:52+00:00",
+   "params": {
+    "eventid": "us7000m9hr"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:53+00:00",
+   "params": {
+    "eventid": "us7000mbf4"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:53+00:00",
+   "params": {
+    "eventid": "us7000m9hk"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:54+00:00",
+   "params": {
+    "eventid": "us7000mbf1"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:55+00:00",
+   "params": {
+    "eventid": "us7000m9hh"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:56+00:00",
+   "params": {
+    "eventid": "us7000mbfw"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:57+00:00",
+   "params": {
+    "eventid": "us7000mbi3"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:58+00:00",
+   "params": {
+    "eventid": "us7000mbfv"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:59+00:00",
+   "params": {
+    "eventid": "us7000m9h9"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:34:59+00:00",
+   "params": {
+    "eventid": "us7000mbey"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:00+00:00",
+   "params": {
+    "eventid": "us7000m9h7"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:01+00:00",
+   "params": {
+    "eventid": "us7000mbev"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:01+00:00",
+   "params": {
+    "eventid": "us7000m9h5"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:03+00:00",
+   "params": {
+    "eventid": "us7000mbfr"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:03+00:00",
+   "params": {
+    "eventid": "us7000mbfs"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:04+00:00",
+   "params": {
+    "eventid": "us7000mbes"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:04+00:00",
+   "params": {
+    "eventid": "us7000mbeu"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:05+00:00",
+   "params": {
+    "eventid": "us7000mbeq"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:06+00:00",
+   "params": {
+    "eventid": "us7000m9gx"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:07+00:00",
+   "params": {
+    "eventid": "us7000m9gp"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:07+00:00",
+   "params": {
+    "eventid": "us7000m9gm"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:08+00:00",
+   "params": {
+    "eventid": "us7000mbhi"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:09+00:00",
+   "params": {
+    "eventid": "us7000mbhj"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:09+00:00",
+   "params": {
+    "eventid": "us7000m9gh"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:10+00:00",
+   "params": {
+    "eventid": "us7000mbfg"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:11+00:00",
+   "params": {
+    "eventid": "us7000mbfq"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:12+00:00",
+   "params": {
+    "eventid": "us7000mben"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:13+00:00",
+   "params": {
+    "eventid": "us7000mbep"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:14+00:00",
+   "params": {
+    "eventid": "us7000mbfm"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:14+00:00",
+   "params": {
+    "eventid": "us7000mbhx"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:15+00:00",
+   "params": {
+    "eventid": "us7000mbhl"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:16+00:00",
+   "params": {
+    "eventid": "us7000mbhm"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:16+00:00",
+   "params": {
+    "eventid": "us7000m9gc"
+   }
+  },
+  {
+   "kind": "phase-data",
+   "client": "USGS",
+   "base_url": "http://earthquake.usgs.gov",
+   "when": "2026-09-08T16:35:17+00:00",
+   "params": {
+    "eventid": "us7000mbhd"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:18+00:00",
+   "params": {
+    "latitude": "23.82",
+    "longitude": "121.56",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:19+00:00",
+   "params": {
+    "network": "TW",
+    "station": "YHNB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:19+00:00",
+   "params": {
+    "network": "TW",
+    "station": "SSLB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:20+00:00",
+   "params": {
+    "network": "TW",
+    "station": "YULB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:21+00:00",
+   "params": {
+    "network": "JP",
+    "station": "YOJ",
+    "channel": "BH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:21+00:00",
+   "params": {
+    "network": "TW",
+    "station": "TPUB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:21+00:00",
+   "params": {
+    "network": "TW",
+    "station": "TDCB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:21+00:00",
+   "params": {
+    "network": "IU",
+    "station": "TATO",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:22+00:00",
+   "params": {
+    "network": "TW",
+    "station": "HGSD",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:22+00:00",
+   "params": {
+    "network": "TW",
+    "station": "RLNB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:22+00:00",
+   "params": {
+    "network": "TW",
+    "station": "TWGB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:23+00:00",
+   "params": {
+    "network": "TW",
+    "station": "WFSB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:23+00:00",
+   "params": {
+    "network": "TW",
+    "station": "NACB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:23+00:00",
+   "params": {
+    "network": "TW",
+    "station": "CHGB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T16:35:23+00:00",
+   "params": {
+    "network": "TW",
+    "station": "TATO",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  }
+ ],
+ "n_queries": 64,
+ "counts": {
+  "catalog_events": 202,
+  "picks": 32461,
+  "picks_reference_ok": 30876,
+  "picks_manual": 3179,
+  "stations_fetched": 1,
+  "windows": 1
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "40d9ae1f9e46c45e9b9ff613eeac5dec4e1ffacd01d1947a6ee6e0e8b0c3567c",
+   "bytes": 13032
+  },
+  "picks.parquet": {
+   "sha256": "679855d4808702ebae20e730d01f829a646d793d0a2470f5b6ab9e6264de6a0e",
+   "bytes": 608829
+  },
+  "station_map.csv": {
+   "sha256": "a5148f8210c2ae73f4647ca93774a519980c90e0d649929a34141647217d9f55",
+   "bytes": 5851
+  },
+  "stations.csv": {
+   "sha256": "fa64ad40898810120d19b3dd67aefc6d9c4fac20b14d2d02b9297104c43c5e3f",
+   "bytes": 951
+  },
+  "waveforms/JP.YOJ__BH__20240403T000811__20240403T030811.mseed": {
+   "sha256": "ee93d42f06b81374c2d3fa8c5bb54e990614773e435e91d351776fc05dd52bce",
+   "bytes": 1616384
+  },
+  "windows.csv": {
+   "sha256": "5c9d101b9deab201927d35d8dec6398d1ce057cf347e44c39ef1fef0708da74d",
+   "bytes": 93
+  }
+ }
+}

@@ -1,0 +1,219 @@
+{
+ "key": "norcia_2016",
+ "label": "Norcia 2016",
+ "built": "2026-09-08T16:23:11+00:00",
+ "git_commit": "c9d3b91d6698a1bede5c504343e658ac4f78c928",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "norcia_2016",
+  "label": "Norcia 2016",
+  "regime": "msas",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": 42.83,
+  "lon": 13.11,
+  "radius": 0.8,
+  "mainshock": "2016-10-30T06:40:18Z",
+  "mag": 6.5,
+  "picks": [
+   {
+    "kind": "fdsn_per_event",
+    "client": "INGV",
+    "min_mag": 2.0
+   }
+  ],
+  "windows": {
+   "kind": "mainshock",
+   "start_s": 600,
+   "minutes": 120
+  },
+  "waveform_routes": [
+   "INGV"
+  ],
+  "notes": "as the notebook",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6,
+  "extra_stations": []
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:19:57+00:00",
+   "params": {
+    "starttime": "2016-10-30T06:47:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z",
+    "latitude": "42.83",
+    "longitude": "13.11",
+    "maxradius": "0.8",
+    "minmagnitude": "2.0"
+   }
+  },
+  {
+   "kind": "get_events",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:20:13+00:00",
+   "params": {
+    "starttime": "2016-10-30T06:47:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z",
+    "latitude": "42.83",
+    "longitude": "13.11",
+    "maxradius": "0.8",
+    "minmagnitude": "2.0"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:21:51+00:00",
+   "params": {
+    "latitude": "42.83",
+    "longitude": "13.11",
+    "maxradius": "1.3",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:03+00:00",
+   "params": {
+    "network": "IV",
+    "station": "GUMA",
+    "channel": "HH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:19+00:00",
+   "params": {
+    "network": "XO",
+    "station": "AM05",
+    "channel": "EH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:36+00:00",
+   "params": {
+    "network": "IV",
+    "station": "LNSS",
+    "channel": "HH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:47+00:00",
+   "params": {
+    "network": "IV",
+    "station": "RM33",
+    "channel": "EH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:22:53+00:00",
+   "params": {
+    "network": "IV",
+    "station": "CAMP",
+    "channel": "HH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T16:23:02+00:00",
+   "params": {
+    "network": "IV",
+    "station": "MC2",
+    "channel": "EH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z"
+   }
+  }
+ ],
+ "n_queries": 9,
+ "counts": {
+  "catalog_events": 152,
+  "picks": 8986,
+  "picks_reference_ok": 8986,
+  "picks_manual": 8986,
+  "stations_fetched": 6,
+  "windows": 1
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "5333946c54d264811587663239bee75cbb62ac3b4c85cf3cd442b2cac2504de3",
+   "bytes": 11388
+  },
+  "picks.parquet": {
+   "sha256": "5606e2f44056152a829d0045e081732221c3a154f03b656c6b1335a164d7e401",
+   "bytes": 170109
+  },
+  "stations.csv": {
+   "sha256": "2a4ef075e1fc9822b99fb7ae5bc5116e59a383a1c1a8fd040bc4f3d6ff0e0252",
+   "bytes": 8503
+  },
+  "waveforms/IV.CAMP__HH__20161030T065018__20161030T085018.mseed": {
+   "sha256": "66b8a76bf93c76592c2ac7076d43a9c8b39299a24f95dcf3a99b0fa9ef6808e3",
+   "bytes": 4921344
+  },
+  "waveforms/IV.GUMA__HH__20161030T065018__20161030T085018.mseed": {
+   "sha256": "7fddc83a0d5b324262169c17dbf610b4fdf9aaf0fcc1844d4dbd726c3bdc1066",
+   "bytes": 5397504
+  },
+  "waveforms/IV.LNSS__HH__20161030T065018__20161030T085018.mseed": {
+   "sha256": "69499a2c5d952933e5386bfc8522c24a7efe45dca3669d9f1fe86439a2862f2d",
+   "bytes": 5677568
+  },
+  "waveforms/IV.MC2__EH__20161030T065018__20161030T085018.mseed": {
+   "sha256": "bf60e69de60b85eed2dcb59269d0193982c1f9ff69e760e1c6c4405190e28a07",
+   "bytes": 5730304
+  },
+  "waveforms/IV.RM33__EH__20161030T065018__20161030T085018.mseed": {
+   "sha256": "de462d74e789ac1c2c7a1de0b4e58255aeb160873acbe9ca934abd8e5d9f51f0",
+   "bytes": 5380096
+  },
+  "waveforms/XO.AM05__EH__20161030T065018__20161030T085018.mseed": {
+   "sha256": "21e4ba29e9c474441a2f132f60ce37c680105f36c2df74ea498b7de562378b19",
+   "bytes": 5195776
+  },
+  "windows.csv": {
+   "sha256": "43326fcf8c5b1a5be5af4113350f5ca14956053d76c3c9d34ccd306ea6655bce",
+   "bytes": 93
+  }
+ }
+}

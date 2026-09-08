@@ -1,4 +1,4 @@
-name: Deploy paper to GitHub Pages
+name: Deploy paper and atlas to GitHub Pages
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site
-          cp index.html _site/index.html
+          cp *.html _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

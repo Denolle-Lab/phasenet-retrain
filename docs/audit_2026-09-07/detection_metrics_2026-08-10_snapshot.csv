@@ -1,0 +1,16 @@
+weight,best_threshold,precision,recall,detection_mcc,mcc_ci_lo,mcc_ci_hi,source
+eqt_ensemble_volpick_nc,0.50,0.956,0.814,0.859,0.855,0.863,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07; results/detection_metrics.csv lives on the lab server
+jma_wc_ft_ensemble_v7v11,0.35,0.883,0.827,0.823,0.819,0.827,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+eqt_original_nonconservative,0.85,0.895,0.801,0.815,0.811,0.820,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+jma_wc_ft_global_v11,0.40,0.891,0.786,0.804,0.799,0.808,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+eqt_volpick,0.55,0.902,0.791,0.798,0.794,0.801,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+eqt_scedc,0.40,0.859,0.820,0.788,0.784,0.793,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+jma_wc_ft_ensemble_v3v7,0.40,0.823,0.820,0.780,0.776,0.785,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+jma_wc,0.50,0.834,0.800,0.776,0.771,0.780,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+jma_wc_ft_global_v7,0.45,0.842,0.781,0.771,0.766,0.776,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+jma_wc_ft_global_v7_eventclean,0.45,0.799,0.780,0.745,0.740,0.750,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+eqt_instance,0.75,0.972,0.570,0.705,0.700,0.710,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+jma_wc_ft_global_v20,0.50,0.825,0.632,0.671,0.666,0.676,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+volpick,0.50,0.741,0.745,0.656,0.651,0.661,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+jma_wc_ft_global_v3,0.65,0.846,0.577,0.648,0.642,0.654,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07
+jma_wc_ft_global_v18,0.65,0.857,0.458,0.567,0.561,0.574,paper_draft.qmd sec-detection table (2026-08-10) transcribed 2026-09-07

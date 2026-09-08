@@ -1,0 +1,13 @@
+### H2b. The observable H2 predicts: v7's recall deficit by phase and distance (paired, threshold 0.3)
+
+| phase | dist_bin | n | recall_parent | recall_v7 | diff_v7_minus_parent |
+|---|---|---|---|---|---|
+| S | local (<150km) | 12030 | 0.621 [0.612, 0.629] | 0.588 [0.579, 0.597] | -0.032 [-0.037, -0.028] |
+| P | local (<150km) | 15805 | 0.937 [0.932, 0.940] | 0.925 [0.921, 0.929] | -0.012 [-0.015, -0.009] |
+| S | regional (150-1500km) | 4704 | 0.358 [0.344, 0.370] | 0.285 [0.272, 0.297] | -0.073 [-0.082, -0.065] |
+| P | regional (150-1500km) | 14469 | 0.885 [0.880, 0.890] | 0.842 [0.836, 0.849] | -0.043 [-0.047, -0.038] |
+| P | teleseismic (>1500km) | 1298 | 0.222 [0.200, 0.245] | 0.121 [0.103, 0.139] | -0.101 [-0.119, -0.082] |
+| S | all | 16967 | 0.549 [0.541, 0.556] | 0.505 [0.497, 0.513] | -0.044 [-0.047, -0.040] |
+| P | all | 31880 | 0.884 [0.880, 0.887] | 0.854 [0.850, 0.858] | -0.030 [-0.032, -0.027] |
+
+H2 predicts a larger S deficit than P deficit, growing with distance. Teleseismic S is absent from the benchmark (no S labels at >1500 km), as it is from the training policy.

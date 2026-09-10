@@ -1,0 +1,487 @@
+[
+  {
+    "number": 33,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/33",
+    "observed_updated_at": "2026-09-10T13:09:54Z",
+    "proposed_title": "[Phase 0] Enforce versioned exclusions and trace/event identity across every data path",
+    "proposed_milestone": "Phase 0: debugging and trustworthy evaluation",
+    "proposed_priority": "P0",
+    "checkpoints": [
+      {
+        "id": "33A",
+        "name": "Exclusion contract released",
+        "depends": [
+          "44A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** The exclusion file must certify a particular source snapshot and suite policy, not merely exist.\n\n**Milestone:** Phase 0: debugging and trustworthy evaluation. **Priority:** P0.\n\n**Checkpoint dependencies.**\n\n- **33A — Exclusion contract released:** 44A.\n\n**Work.** Preserve `(dataset, chunk, trace_name)` and canonical event identity. Hash the source metadata, registry, exclusion rules and resulting manifests. Apply exclusions to signal, validation, negative examples, augmentation pools and hard-negative mining. Audit duplicate events across source datasets and overlapping waveform intervals. Require a documented quarantine policy for rows whose time/location/identity cannot establish independence; any explicitly allowed unknown rows remain outside independence claims.\n\n**Acceptance.**\n- A versioned exclusion bundle and per-source removal/unknown counts are committed and checked by every builder.\n- Reused trace names in different chunks are distinguished; equivalent events across datasets remain in one split.\n- Fixtures cover missing/stale lists, unknown coordinates/times, year/place exclusions, cross-source duplicates and noise-window overlap.\n- Historical manifests remain immutable. Exclusions constrain new training; they do not delay read-only forensics in #34.\n\n**Dependency detail.** 33A uses the initial suite policy 44A. Subsequent suite additions invalidate the relevant exclusion bundle and require a new hash. Server-wide counts are required for a server-wide certificate; a verified pilot snapshot may be certified separately."
+  },
+  {
+    "number": 34,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/34",
+    "observed_updated_at": "2026-09-10T13:09:55Z",
+    "proposed_title": "[Phase 0] Repair and quantify waveform–label, timebase and checkpoint-contract defects",
+    "proposed_milestone": "Phase 0: debugging and trustworthy evaluation",
+    "proposed_priority": "P0",
+    "checkpoints": [
+      {
+        "id": "34A",
+        "name": "Loader invariants pass",
+        "depends": []
+      },
+      {
+        "id": "34B",
+        "name": "Historical row-level forensics complete",
+        "depends": []
+      },
+      {
+        "id": "34C",
+        "name": "Model and benchmark contracts verified",
+        "depends": [
+          "34A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Promote from hypothesis tables to the principal debugging issue, including the benchmark path.\n\n**Milestone:** Phase 0: debugging and trustworthy evaluation. **Priority:** P0.\n\n**Checkpoint dependencies.**\n\n- **34A — Loader invariants pass:** no upstream checkpoint.\n- **34B — Historical row-level forensics complete:** no upstream checkpoint.\n- **34C — Model and benchmark contracts verified:** 34A.\n\n**Work.** Distinguish original recording rate, effective rate returned by the reader, and the coordinate system of each arrival index. Rescale waveform and indices exactly once. Read HDF5 rate/component metadata instead of assuming 100 Hz; handle bucketed names and trim to actual trace support. Support S-only rows. Replace fetch-error zero/noise substitution with a rejected-row ledger and failure gates.\n\n**Acceptance.**\n- **34A:** Fixtures at 20/40/50/100/200 Hz plus a non-integer rate preserve absolute P/S times within one target sample, including crop boundaries, missing channels and explicitly missing rates. Check 120/250/500 Hz when represented by production sources.\n- **34B:** An immutable row-level report for the actual v7 train/val/test manifests records source/effective/assumed rates, old/new offsets, effective labels after crop, outside-window arrivals and fetch status. Aggregate by source, distance and phase; report unique rows and training exposures separately. Restore H2 and noise-pool ordering as secondary tables with independent negative populations.\n- **34C:** Verify raw source → benchmark window → seconds against independent timestamps. Notebook 05's ETHZ=100 and MLAAPDE=40 assumptions both need source evidence. Check crop-cache invalidation, array orientation, normalization and parent → wrapper → export probability parity at the pinned runtime. Hash the actual deployed pair, not only the laptop cache.\n- Quantify affected rates/rows before publishing a corpus fraction. Revise historical result provenance if the benchmark changes.\n\n**Dependency detail.** A and B start immediately. C follows the local reader contract; server evidence remains necessary to certify historical artifacts. This issue does not itself establish which defect caused v7's generalization loss; #46 supplies controlled training."
+  },
+  {
+    "number": 35,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/35",
+    "observed_updated_at": "2026-09-10T13:09:56Z",
+    "proposed_title": "[Phase 0] Correct continuous pick scoring and recompute regression/development baselines",
+    "proposed_milestone": "Phase 0: debugging and trustworthy evaluation",
+    "proposed_priority": "P0",
+    "checkpoints": [
+      {
+        "id": "35A",
+        "name": "Scoring engine released",
+        "depends": [
+          "44A"
+        ]
+      },
+      {
+        "id": "35B",
+        "name": "Eligible baseline annotations and picks persisted",
+        "depends": [
+          "35A",
+          "34C",
+          "37A"
+        ]
+      },
+      {
+        "id": "35C",
+        "name": "Calibrated baseline comparison complete",
+        "depends": [
+          "35B",
+          "38A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Separate scorer implementation from data acquisition and calibrated comparison; never run --all over sealed acceptance cases.\n\n**Milestone:** Phase 0: debugging and trustworthy evaluation. **Priority:** P0.\n\n**Checkpoint dependencies.**\n\n- **35A — Scoring engine released:** 44A.\n- **35B — Eligible baseline annotations and picks persisted:** 35A, 34C, 37A.\n- **35C — Calibrated baseline comparison complete:** 35B, 38A.\n\n**Work.** Store annotations once and invoke the production trigger extractor independently at each threshold. Deduplicate bulletin representations by event/station/phase identity, preserving distinct close events. Match maximum cardinality first, minimum residual second. Store picks, reference assignments, unmatched candidates, coverage and failures. Aggregate counts within model/phase/threshold across explicitly identified windows; remove duplicate thresholds and use actual attained operating points.\n\n**Acceptance.**\n- **35A:** Tests cover threshold-induced peak splitting, two close events, greedy-matching counterexamples, duplicate references, multiple windows, gaps, model failures and zero-reference cases. Failure/coverage policy is explicit and cannot silently make a candidate look better.\n- **35B:** Parent, v7, instance and available v11 produce versioned artifacts on regression/development only. Record training-domain/parent-overlap provenance for every baseline; Norcia is not automatically independent of INSTANCE weights. Existing QuakeScope tables are re-extracted from annotations if saved; otherwise rerun inference. Old tables remain archived and marked superseded. Ensembles align phase labels, time grids and valid support while retaining each member's preprocessing.\n- **35C:** Publish P/S recall, residual distributions, matched total-pick workload and separately calibrated nuisance-pick budgets, with paired block uncertainty and unavailable models identified.\n- Persist enough information for #36 to associate the exact emitted picks.\n\n**Dependency detail.** Scorer development starts using synthetic fixtures without #37. Baseline inference needs only the particular cases certified by 37A, not every access request. Threshold curves precede 38A; calibrated comparison follows it. #35 does not authorize replacing the campaign picker; #49 owns release."
+  },
+  {
+    "number": 36,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/36",
+    "observed_updated_at": "2026-09-10T13:09:57Z",
+    "proposed_title": "[Phase 0] Validate event association and catalogue-relative recovery on continuous data",
+    "proposed_milestone": "Phase 0: debugging and trustworthy evaluation",
+    "proposed_priority": "P0",
+    "checkpoints": [
+      {
+        "id": "36A",
+        "name": "Association/matching engine released",
+        "depends": [
+          "35A"
+        ]
+      },
+      {
+        "id": "36B",
+        "name": "Development event baselines complete",
+        "depends": [
+          "36A",
+          "35C",
+          "37A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** An event-level endpoint is necessary, but it must not consume sealed La Palma/West Bohemia results during debugging.\n\n**Milestone:** Phase 0: debugging and trustworthy evaluation. **Priority:** P0.\n\n**Checkpoint dependencies.**\n\n- **36A — Association/matching engine released:** 35A.\n- **36B — Development event baselines complete:** 36A, 35C, 37A.\n\n**Work.** Associate the persisted picks with PyOcto under versioned regional travel-time models and station metadata. Freeze associator parameters across picker comparisons; tune them only on development. Match predicted/catalogue events one-to-one with explicit origin-time, distance and depth tolerances, retaining diagnostics for association splits and merges.\n\n**Acceptance.**\n- **36A:** Synthetic cases and a reviewed small catalogue establish matching behavior for missing stations, duplicate events, false associations, splits and merges.\n- **36B:** Report recovery versus magnitude, hour after mainshock and day of swarm, plus station support, valid exposure and unassociated/unmatched counts. Use Kaikōura as a known regression and Etna/Corinth-Thiva as development examples if 37A certifies them; choose substitutes before scoring if necessary.\n- Report catalogue completeness limitations and independently review a sample of unmatched events. “Absent from the catalogue” is not automatically a false event.\n- Paired uncertainty uses independent event/time blocks; P/S observations and stations belonging to the same event remain linked.\n- First-48-hour or migration claims require the corresponding time coverage; busy-hour excerpts alone cannot pass those claims.\n\n**Dependency detail.** Build the engine after the 35A artifact schema. Final development comparisons use calibrated picks from 35C. Sealed event-level baselines and candidate results are generated together under #49."
+  },
+  {
+    "number": 37,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/37",
+    "observed_updated_at": "2026-09-10T13:09:58Z",
+    "proposed_title": "[Phase 0] Certify test-case evaluability and close targeted reference/waveform gaps",
+    "proposed_milestone": "Phase 0: debugging and trustworthy evaluation",
+    "proposed_priority": "P0 for eligibility; access work case-dependent",
+    "checkpoints": [
+      {
+        "id": "37A",
+        "name": "Existing regression/development cases certified",
+        "depends": [
+          "44A"
+        ]
+      },
+      {
+        "id": "37B",
+        "name": "Proposed sealed panel eligibility frozen",
+        "depends": [
+          "37A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Replace a binary built/unobtainable list with eligibility for specific scientific claims.\n\n**Milestone:** Phase 0: debugging and trustworthy evaluation. **Priority:** P0 for eligibility; access work case-dependent.\n\n**Checkpoint dependencies.**\n\n- **37A — Existing regression/development cases certified:** 44A.\n- **37B — Proposed sealed panel eligibility frozen:** 37A.\n\n**Work.** For each case produce valid component/station/time coverage, reference overlap, P/S counts, event support and reference-provenance tiers. Resolve NET.STA.LOC/channel/epoch with inventory and coordinates; quarantine ambiguous station codes. Preserve gap masks and report availability independently of model performance.\n\n**Acceptance.**\n- **37A:** Existing cases are explicitly eligible for pick scoring, network/event scoring, both, or neither. Noto swarm's current zero overlap and Hualien's one-station coverage cannot be treated as acceptance passes.\n- **37B:** The proposed sealed panel has an immutable eligibility table, minimum support/precision requirements per endpoint and predeclared fallback cases. No candidate scores are examined to choose cases.\n- Retain the Hi-net, CWA GDMS, IMO, AFAD, Zagreb, WEBNET and INGV-OV acquisition tasks, each with owner, access state and expected eligibility gain. Marine handles external account/contact actions when authorized.\n- Unknown-mode bulletin picks, explicitly manual picks and automatic picks remain separate provenance tiers. Hash pinning is distinct from reference validation.\n- Extend selected cases to early coda, later hours/days and ordinary conditions where those claims are planned; record station-selection bias.\n\n**Dependency detail.** Existing open cases unblock #35 immediately when certified. Unresolved access blocks only the affected endpoint/case; #49 requires a complete, predefined adequate panel. A case replaced before scoring still requires exclusion-policy verification in #33/#44."
+  },
+  {
+    "number": 38,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/38",
+    "observed_updated_at": "2026-09-09T17:43:40Z",
+    "proposed_title": "[Phase 0] Calibrate P/S operating points on independent station-days",
+    "proposed_milestone": "Phase 0: debugging and trustworthy evaluation",
+    "proposed_priority": "P0",
+    "checkpoints": [
+      {
+        "id": "38A",
+        "name": "Calibration protocol and baseline thresholds released",
+        "depends": [
+          "35B",
+          "37A",
+          "44A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** This issue was not amended in Fable's response; it currently conflates catalogue absence with false picks and has no calibration/test separation.\n\n**Milestone:** Phase 0: debugging and trustworthy evaluation. **Priority:** P0.\n\n**Checkpoint dependencies.**\n\n- **38A — Calibration protocol and baseline thresholds released:** 35B, 37A, 44A.\n\n**Work.** Define calibration days separately from training/mining, development evaluation and sealed acceptance. Sample quiet and disturbed conditions by region, station/instrument class and season. Use corrected threshold-specific extraction from #35, measured valid exposure and independent review of unmatched picks.\n\n**Acceptance.**\n- A protocol specifies P/S nuisance-pick budgets, uncertainty targets, minimum exposure and a fallback for regions with too few calibration data. Numeric values are fixed before evaluating candidates.\n- Publish thresholds and attained rates on calibration days; report achieved rates on distinct evaluation days without retuning.\n- Where no reviewed truth exists, call the metric “unmatched-pick rate,” retain reviewed-sample uncertainty, and do not equate it with false-positive rate.\n- Candidate-specific thresholds are refit by the same frozen procedure on calibration data only. Parent/candidate event comparisons share the associator.\n- Retain both total emitted workload and nuisance-pick rate; matching one does not imply matching the other.\n\n**Dependency detail.** Requires the baseline annotations/picks checkpoint 35B, not closure of #35. Its output unblocks 35C. Station-day calibration may proceed without the final eleven-class training-noise corpus."
+  },
+  {
+    "number": 39,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/39",
+    "observed_updated_at": "2026-09-09T17:43:42Z",
+    "proposed_title": "[Phase 1] Census usable bulletin supervision, source diversity and acquisition cost",
+    "proposed_milestone": "Phase 1: validated corpora and controlled pilots",
+    "proposed_priority": "P1; start early",
+    "checkpoints": [
+      {
+        "id": "39A",
+        "name": "Stratified source census released",
+        "depends": [
+          "44A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** This unamended issue needs a census of useful independent labels, rather than extrapolation from a single week.\n\n**Milestone:** Phase 1: validated corpora and controlled pilots. **Priority:** P1; start early.\n\n**Checkpoint dependencies.**\n\n- **39A — Stratified source census released:** 44A.\n\n**Work.** Sample multiple periods per operator/year: quiet intervals, ordinary seismicity, aftershock activity and relevant volcanic/swarm regimes. Record native/effective rate, channel identity, units/response state, provenance, uncertainty, P-only/S-only/P+S availability, event multiplicity and waveform accessibility.\n\n**Acceptance.**\n- Publish operator/year counts with sampling uncertainty and separate total rows, unique events, stations and duplicate events shared across corpora.\n- Estimate low-SNR and multi-event availability using defined measurements; uncertain label completeness remains explicit.\n- Identify at least one development region/operator outside the existing European concentration, subject to #44's role decision before scoring.\n- Report query/storage/processing costs and licensing/access constraints; nominate pilot sources based on useful supervision and diversity.\n- Treat composition targets and the 4M maximum as hypotheses to test, not quantities the census must force.\n- Apply existing held-out rules to estimates, including source-year/place overlaps.\n\n**Dependency detail.** Read-only reconnaissance starts early with 44A. The training-ready pilot additionally needs #33, #34 and #41; a census alone does not certify a usable corpus."
+  },
+  {
+    "number": 40,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/40",
+    "observed_updated_at": "2026-09-10T13:09:59Z",
+    "proposed_title": "[Phase 1] Build a versioned partial-label corpus and scalable waveform store",
+    "proposed_milestone": "Phase 1: validated corpora and controlled pilots",
+    "proposed_priority": "P1",
+    "checkpoints": [
+      {
+        "id": "40A",
+        "name": "Small validated corpus and target schema released",
+        "depends": [
+          "33A",
+          "34A",
+          "39A",
+          "41A"
+        ]
+      },
+      {
+        "id": "40B",
+        "name": "Sharded corpus and composition audit released",
+        "depends": [
+          "40A",
+          "41B",
+          "46B"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** The corpus must preserve time, all known arrivals and unknown-label regions; scaling must not depend on a dense RAM cache.\n\n**Milestone:** Phase 1: validated corpora and controlled pilots. **Priority:** P1.\n\n**Checkpoint dependencies.**\n\n- **40A — Small validated corpus and target schema released:** 33A, 34A, 39A, 41A.\n- **40B — Sharded corpus and composition audit released:** 40A, 41B, 46B.\n\n**Work.** Store waveform intervals with explicit sample rate, absolute start time, component identity and valid support. Store lists of all known arrivals with event ID, phase family, provenance/uncertainty and label-validity information. Include P-only, S-only, noise and multi-event crops. Harvest arrivals capable of reaching the station from before/outside the nominal event query window.\n\n**Acceptance.**\n- **40A:** A small reviewed pilot passes loader/time invariants. The target contract distinguishes observed absence from unlabelled time and defines normalized overlapping P/S targets or an explicitly tested alternative loss. A mask excludes uncertain supervision without accidentally penalizing the missing phase through softmax normalization.\n- **40B:** Disk-backed shards or memory mapping support worker-local reads, raw/long-window caching and labels generated per batch. Validate a bounded-memory stress run before millions of windows.\n- Report effective P/S, SNR, distance, native-rate, event-count, operator and station mix after cropping/augmentation, plus unique-event counts and removal reasons.\n- Preserve immutable source and manifest hashes; maintain event/station/operator transfer splits with overlap audits.\n- Keep stored context independent of training context. Begin diagnostics at the parent's verified 3001-sample contract; 60 s training requires #48's explicit inference contract.\n\n**Dependency detail.** 40A is a pilot release, not the full corpus. Full expansion 40B follows successful label review and the small recipe pilot 46B; #46 does not wait for 40B."
+  },
+  {
+    "number": 41,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/41",
+    "observed_updated_at": "2026-09-10T13:10:00Z",
+    "proposed_title": "[Phase 1] Define label validity and repair uncertain or incomplete arrivals",
+    "proposed_milestone": "Phase 1: validated corpora and controlled pilots",
+    "proposed_priority": "P0 policy; P1 review",
+    "checkpoints": [
+      {
+        "id": "41A",
+        "name": "Target/provenance and review policy released",
+        "depends": [
+          "39A"
+        ]
+      },
+      {
+        "id": "41B",
+        "name": "Pilot labels reviewed and repaired",
+        "depends": [
+          "40A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** The existing helper downloads exclusions; it neither runs new confident learning nor justifies rejecting every multiplet.\n\n**Milestone:** Phase 1: validated corpora and controlled pilots. **Priority:** P0 policy; P1 review.\n\n**Checkpoint dependencies.**\n\n- **41A — Target/provenance and review policy released:** 39A.\n- **41B — Pilot labels reviewed and repaired:** 40A.\n\n**Work.** Define provenance tiers, accepted phase families and task scope with a domain reviewer. Model disagreement and physical residuals prioritize review; they are not ground truth. Review examples without exposing which candidate produced the suggestion. If prediction-based triage is used, produce it out of fold.\n\n**Acceptance.**\n- **41A:** A documented decision table distinguishes valid labels, additional unlabelled arrivals, uncertain timing/phase, source artefacts and unusable records. Specify loss/mask behavior for each.\n- **41B:** The pilot has per-operator reviewed-sample results, corrected arrivals or explicit uncertainty masks, and retained/removed/quarantined counts with reasons.\n- Existing multiplet flags route examples to relabelling or uncertainty handling. Do not automatically discard them, and do not retain irreparable labels simply because multiplets are desired.\n- S–P checks account for depth, distance, velocity uncertainty and Pg/Pn/Sg/Sn conventions; emergent S and LFEs are not rejected solely because the parent misses them.\n- Training-label review and sealed reference review are separate records. Model-based review must not mine the sealed panel.\n\n**Dependency detail.** Release the policy before constructing 40A. Review 40A before 46B/40B. The new-corpus review implementation must be built explicitly; running `label_error_filter.py` alone cannot close this issue."
+  },
+  {
+    "number": 42,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/42",
+    "observed_updated_at": "2026-09-10T13:10:01Z",
+    "proposed_title": "[Phase 1] Build reviewed background and uncertain-event pools with station/time holdouts",
+    "proposed_milestone": "Phase 1: validated corpora and controlled pilots",
+    "proposed_priority": "P1",
+    "checkpoints": [
+      {
+        "id": "42A",
+        "name": "Noise ontology and pilot pools released",
+        "depends": [
+          "33A",
+          "34A",
+          "41A",
+          "44A"
+        ]
+      },
+      {
+        "id": "42B",
+        "name": "Expanded class/station/season census released",
+        "depends": [
+          "42A",
+          "47A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Retain natural-noise diversity without teaching the picker to suppress legitimate physical arrivals.\n\n**Milestone:** Phase 1: validated corpora and controlled pilots. **Priority:** P1.\n\n**Checkpoint dependencies.**\n\n- **42A — Noise ontology and pilot pools released:** 33A, 34A, 41A, 44A.\n- **42B — Expanded class/station/season census released:** 42A, 47A.\n\n**Work.** Separate background noise, reviewed negatives, task-excluded sources, and uncertain event-bearing intervals. Preserve the eleven environmental/site categories as metadata, not automatic all-N labels. Aftershock coda may contain arrivals; LFEs and blasts may contain meaningful P/S phases. Fix the general-picker/source-classifier boundary in 41A.\n\n**Acceptance.**\n- **42A:** Reviewed pilot examples and uncertainty masks exist for each included class; no label depends solely on catalogue absence or the parent's confidence.\n- **42B:** Expanded pools have station/time/season/source provenance, valid exposure, composition summaries, holdout lists and overlap checks against all evaluation/calibration intervals.\n- Any existing noise_global data retain their original model-screening history and are independently reassessed; they cannot silently become an unbiased negative set.\n- Keep OBS excluded under the current scope. Do not impose 20k/class until class validity and useful diversity are established.\n- Training/mining and evaluation pools are distinct. Rate-preserving waveform operations follow #34, and pools use #40's storage pattern.\n\n**Dependency detail.** A small pilot supports #43/#47 before full harvest. Expand after 47A demonstrates that the intended use adds value or after a documented decision to expand for coverage, rather than interpreting failed augmentation as a mandate for volume."
+  },
+  {
+    "number": 43,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/43",
+    "observed_updated_at": "2026-09-10T13:10:03Z",
+    "proposed_title": "[Phase 1] Implement time-consistent augmentation with explicit label and SNR rules",
+    "proposed_milestone": "Phase 1: validated corpora and controlled pilots",
+    "proposed_priority": "P1",
+    "checkpoints": [
+      {
+        "id": "43A",
+        "name": "Augmentation transforms and fixtures released",
+        "depends": [
+          "34A",
+          "40A",
+          "42A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Augmentation should be switchable and verifiable independently of whether it improves the model.\n\n**Milestone:** Phase 1: validated corpora and controlled pilots. **Priority:** P1.\n\n**Checkpoint dependencies.**\n\n- **43A — Augmentation transforms and fixtures released:** 34A, 40A, 42A.\n\n**Work.** Apply random cropping/placement at sample access, transform arrival lists and validity masks together, and normalize consistently with deployment after physically meaningful mixing. Implement real-noise addition, controlled multi-event superposition, component dropout, valid anti-aliased bandwidth/rate changes and separately switchable artefact groups.\n\n**Acceptance.**\n- Time transformations preserve absolute arrival time and mask support within one output sample; superposition preserves distinct event IDs and uses the normalized target rule from #40.\n- Define signal/noise measurement windows and target achieved SNR after mixing; handle already noisy source waveforms and cases where clean-signal SNR is unidentifiable.\n- Do not treat whole-window unit variance as clean signal amplitude. Preserve relative component amplitudes and require compatible units/response/bandwidth before mixing.\n- Deterministic fixtures cover gaps, clipping, missing components, overlapping phases and crop boundaries. Stored seeds reproduce mixtures and sampling.\n- An inspection sheet includes untouched and augmented real examples. Every group can be disabled in config; untouched/noise fractions are explicit tunable values.\n- Augmentation never samples calibration/development/acceptance intervals.\n\n**Dependency detail.** 43A can be built from pilot pools; it does not depend on full 40B/42B or #45. Transform correctness is assessed here; scientific benefit is assessed in #47."
+  },
+  {
+    "number": 44,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/44",
+    "observed_updated_at": "2026-09-10T13:10:04Z",
+    "proposed_title": "[Phase 0] Separate regression, development, calibration and sealed acceptance roles",
+    "proposed_milestone": "Phase 0: debugging and trustworthy evaluation",
+    "proposed_priority": "P0; begin now",
+    "checkpoints": [
+      {
+        "id": "44A",
+        "name": "Initial roles and read policy released",
+        "depends": []
+      },
+      {
+        "id": "44B",
+        "name": "Eligible sealed panel and decision rule frozen",
+        "depends": [
+          "44A",
+          "37B"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Amend the actual registry/policy and all entrypoints, not just add an override flag or another issue comment.\n\n**Milestone:** Phase 0: debugging and trustworthy evaluation. **Priority:** P0; begin now.\n\n**Checkpoint dependencies.**\n\n- **44A — Initial roles and read policy released:** no upstream checkpoint.\n- **44B — Eligible sealed panel and decision rule frozen:** 44A, 37B.\n\n**Work.** Mark Kaikōura, Norcia, Thessaly and previously inspected western cases as regression. Keep Samos, Adriatic, Etna and Corinth-Thiva as development, with additional geographically useful development cases assigned before scoring. Define disjoint calibration station-days. Treat new sequences as sealed only after checking whether model results were previously viewed anywhere.\n\n**Acceptance.**\n- **44A:** Registry roles and access logs distinguish metadata/reference QA from model-performance access. All CLI/notebook/API scoring entrypoints use the same policy; `--all` excludes sealed cases by default.\n- **44B:** After #37's metadata-only eligibility review, freeze the panel, reference/model-provenance strata, fallback policy, practical effect margins, non-inferiority endpoints and paired uncertainty rule.\n- Record hashes for suite, source references, code, candidate and configuration at every authorized scoring run. Years are exclusion rules, not sequence keys.\n- A changed/new sealed case triggers recertification of training exclusions. A consumed panel cannot be restored by renaming; future selection needs fresh acceptance cases.\n- Review of sealed picks for scientific quality is allowed without candidate predictions; it does not authorize tuning models or thresholds on that panel.\n\n**Dependency detail.** 44A starts immediately and unblocks infrastructure and read-only census. 44B waits for eligibility, not access to every desired archive. 44B precedes pilot/model selection on the new roadmap; debugging with synthetic/regression fixtures can proceed meanwhile."
+  },
+  {
+    "number": 45,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/45",
+    "observed_updated_at": "2026-09-10T13:10:05Z",
+    "proposed_title": "[Phase 2] Measure data scaling for a validated recipe under bounded memory and compute",
+    "proposed_milestone": "Phase 2: scaling and generalization experiments",
+    "proposed_priority": "P2; defer large runs",
+    "checkpoints": [
+      {
+        "id": "45A",
+        "name": "Scaling design and throughput budget frozen",
+        "depends": [
+          "40B",
+          "42B",
+          "46B",
+          "47A"
+        ]
+      },
+      {
+        "id": "45B",
+        "name": "Scaling curve and next-size decision complete",
+        "depends": [
+          "45A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** The scaling curve must follow causal debugging, not serve as a test of several unvalidated assumptions at once.\n\n**Milestone:** Phase 2: scaling and generalization experiments. **Priority:** P2; defer large runs.\n\n**Checkpoint dependencies.**\n\n- **45A — Scaling design and throughput budget frozen:** 40B, 42B, 46B, 47A.\n- **45B — Scaling curve and next-size decision complete:** 45A.\n\n**Work.** Select a validated recipe and event-grouped nested subsets with controlled source/phase/noise composition. Start at the available pilot size; 0.25/0.5/1/2/4M are possible tiers, not mandatory commitments. Distinguish unique events/stations/windows from repeats and synthetic mixtures.\n\n**Acceptance.**\n- **45A:** Memory/throughput measurements support the next tier. The old 4M × 6000 × 3 × float32 waveform-plus-label cache is about 576 GB before other allocations; it is not the implementation plan.\n- **45B:** Use at least three seeds for decision-making tiers and report matched-budget continuous metrics by regime, with baseline/pilot included.\n- Report fixed-epoch results and a matched-update or matched-compute comparison; larger data change optimization exposure as well as diversity.\n- Keep development/threshold calibration rules fixed and log model-selection compute. Stop/escalate based on predefined practical margins and uncertainty, not a blanket “2M failure means fine-tuning cannot work.”\n- A flat curve is conditional on this recipe/data mixture. Diagnose whether label quality, coverage or optimization limits interpretation before acquiring the next tier.\n\n**Dependency detail.** This waits for checkpoints 46B and 47A, not for closure of their later full-scale confirmation work. If a signal-only recipe is selected, 42B may be explicitly waived with that scope recorded before 45A; negative evaluation remains mandatory."
+  },
+  {
+    "number": 46,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/46",
+    "observed_updated_at": "2026-09-10T13:10:06Z",
+    "proposed_title": "[Phase 1] Run controlled alignment and recipe pilots before initialization/KD scaling",
+    "proposed_milestone": "Phase 1: validated corpora and controlled pilots",
+    "proposed_priority": "P0 first pilot; P2 later confirmation",
+    "checkpoints": [
+      {
+        "id": "46A",
+        "name": "Paired alignment diagnostic complete",
+        "depends": [
+          "33A",
+          "34A",
+          "34B",
+          "34C",
+          "35C",
+          "44B"
+        ]
+      },
+      {
+        "id": "46B",
+        "name": "Small corrected recipe selected",
+        "depends": [
+          "46A",
+          "40A",
+          "41B"
+        ]
+      },
+      {
+        "id": "46C",
+        "name": "Matched initialization/KD confirmation complete",
+        "depends": [
+          "45B"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Own causal attribution explicitly; do not bundle alignment, labels, BN, augmentation and dataset expansion into the first retrain.\n\n**Milestone:** Phase 1: validated corpora and controlled pilots. **Priority:** P0 first pilot; P2 later confirmation.\n\n**Checkpoint dependencies.**\n\n- **46A — Paired alignment diagnostic complete:** 33A, 34A, 34B, 34C, 35C, 44B.\n- **46B — Small corrected recipe selected:** 46A, 40A, 41B.\n- **46C — Matched initialization/KD confirmation complete:** 45B.\n\n**Work and acceptance.**\n- **46A:** Compare the same parent initialization and the same verified, exclusion-clean row list under legacy versus corrected time/index handling. Use the repaired reader in both arms, deliberately toggling only legacy versus corrected time/index mapping; do not reproduce unrelated silent fetch failures. Hold loss, KD, BN policy, augmentation, batch size and update budget fixed. Use three paired seeds and untouched verified evaluation; keep old v7 as a historical baseline, not the experimental control. Restrict deliberate faulty-label reproduction to this diagnostic; never deploy it. A 100-Hz-only stratum is a useful control but cannot replace the same-row comparison because source mix changes.\n- Report effects by affected/unaffected rate strata, source, distance and phase. If historical data cannot be reconstructed, document the causal limit rather than declaring the bug explains all loss.\n- **46B:** On the small reviewed corpus, test a minimal corrected recipe, then controlled soft-label/partial-label handling, BN frozen versus adaptive, and KD off/on. Separate BN statistics from affine-parameter freezing; treat replay as an optional additional arm with certified exclusions. Use identical row lists and paired seeds for each comparison; log loss components, gradients, learning rate, effective labels and continuous validation.\n- **46C:** At #45's chosen size, compare matched-width parent/scratch initialization and KD off/on explicitly. Scratch+KD is a defined arm, not an accidental implementation. Match data and report compute costs.\n\n**Dependency detail.** 46A uses the verified existing corpus and does not wait for new bulletin harvest. 46B needs only pilot 40A/41B, not bulk 40B. Noise/augmentation benefit is #47. Only 46C depends on #45, eliminating the original E1/E2 cycle."
+  },
+  {
+    "number": 47,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/47",
+    "observed_updated_at": "2026-09-09T17:43:56Z",
+    "proposed_title": "[Phase 2] Test real-noise and multi-event augmentation before full-scale confirmation",
+    "proposed_milestone": "Phase 2: scaling and generalization experiments",
+    "proposed_priority": "P1 pilot; P2 confirmation",
+    "checkpoints": [
+      {
+        "id": "47A",
+        "name": "Pilot augmentation value established",
+        "depends": [
+          "46B",
+          "42A",
+          "43A"
+        ]
+      },
+      {
+        "id": "47B",
+        "name": "Selected ablations confirmed at chosen scale",
+        "depends": [
+          "45B",
+          "47A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** This unamended issue belongs partly before scaling and needs no-augmentation and uncertainty-handling controls.\n\n**Milestone:** Phase 2: scaling and generalization experiments. **Priority:** P1 pilot; P2 confirmation.\n\n**Checkpoint dependencies.**\n\n- **47A — Pilot augmentation value established:** 46B, 42A, 43A.\n- **47B — Selected ablations confirmed at chosen scale:** 45B, 47A.\n\n**Work.** Start from the selected small corrected recipe, then compare no added noise, measured real-noise mixtures and white-noise control; separately test event superposition, non-stationary/artefact groups and class balancing. Change one interpretable group at a time before testing important interactions.\n\n**Acceptance.**\n- **47A:** Paired seeds, equal source examples/update budgets and explicit untouched fractions isolate augmentation effects. Report P/S recall on weak and close arrivals, nuisance picks by noise class, valid station-day exposure and timing tails.\n- Demonstrate that target uncertainty/merged labels remain correct; do not let an augmentation ablation accidentally change label policy.\n- Evaluate on untouched real continuous data at held-out stations/times, including disturbed conditions absent from the added-noise recipe.\n- **47B:** Repeat the shortlisted informative controls at the selected scale. Record harmful or null effects as results; no augmentation group is mandatory because it sounds physically realistic.\n- Any hard-negative mining uses a separate training pool and records iteration and source; calibration/development/acceptance data are never recycled into it.\n\n**Dependency detail.** 47A precedes #45 and full noise harvest 42B. 47B follows #45; #45 must not depend on closure of the whole issue."
+  },
+  {
+    "number": 48,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/48",
+    "observed_updated_at": "2026-09-10T13:10:07Z",
+    "proposed_title": "[Phase 2] Validate and compare deployable PhaseNet width, context and ensembles",
+    "proposed_milestone": "Phase 2: scaling and generalization experiments",
+    "proposed_priority": "P2; context contract before any long-window run",
+    "checkpoints": [
+      {
+        "id": "48A",
+        "name": "Alternative context/export contract released",
+        "depends": [
+          "34C",
+          "35A"
+        ]
+      },
+      {
+        "id": "48B",
+        "name": "Width/context experiments and deployment cost complete",
+        "depends": [
+          "48A",
+          "45B"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** A direct forward shape or YAML length is insufficient to establish continuous inference at that context.\n\n**Milestone:** Phase 2: scaling and generalization experiments. **Priority:** P2; context contract before any long-window run.\n\n**Checkpoint dependencies.**\n\n- **48A — Alternative context/export contract released:** 34C, 35A.\n- **48B — Width/context experiments and deployment cost complete:** 48A, 45B.\n\n**Work.** Pin the SeisBench implementation and explicitly configure training length, `in_samples`, `pred_sample`, overlap, padding/blinding and exported metadata. Test supported lengths before choosing the 60 s arm. The prior 6001-sample failure is evidence about the tested runtime, not a timeless architectural law.\n\n**Acceptance.**\n- **48A:** Direct forward, continuous annotation and save/reload agree on dimensions, time alignment and probabilities at each supported context, including edges and gaps. Keep original 3001-sample diagnostics independent of this optional extension.\n- **48B:** Compare width and context separately where possible, holding data/recipe fixed. A narrow network cannot inherit incompatible wide weights without a specified transfer; use matched scratch comparisons or a documented compatible initialization to isolate width.\n- Report effective receptive-field/context interpretation, P/S performance in late-S/close-event regimes, memory, latency and throughput.\n- Ensembles align phases/time support and retain each model's normalization; weights/thresholds are selected on development/calibration only.\n- Negative or null results close the experiment with a decision. Acceptance does not require trying every context or deploying an ensemble.\n\n**Dependency detail.** 48A can run early; #40 stores long/raw intervals without requiring 60 s model training. 48B follows scaling. #49 accepts a documented decision to retain the original width/context."
+  },
+  {
+    "number": 49,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/49",
+    "observed_updated_at": "2026-09-10T13:10:08Z",
+    "proposed_title": "[Phase 3] Execute a sealed acceptance decision and verify the deployed artifact",
+    "proposed_milestone": "Phase 3: acceptance and deployment",
+    "proposed_priority": "P2; protocol fixed earlier",
+    "checkpoints": [
+      {
+        "id": "49A",
+        "name": "Primary candidate and frozen release package selected",
+        "depends": [
+          "35C",
+          "36B",
+          "37B",
+          "38A",
+          "44B",
+          "45B",
+          "46C",
+          "47B",
+          "48B"
+        ]
+      },
+      {
+        "id": "49B",
+        "name": "Acceptance decision and deployment verification complete",
+        "depends": [
+          "49A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Replace correlated five-of-six wins and multiple candidate reads with one interpretable release decision.\n\n**Milestone:** Phase 3: acceptance and deployment. **Priority:** P2; protocol fixed earlier.\n\n**Checkpoint dependencies.**\n\n- **49A — Primary candidate and frozen release package selected:** 35C, 36B, 37B, 38A, 44B, 45B, 46C, 47B, 48B.\n- **49B — Acceptance decision and deployment verification complete:** 49A.\n\n**Work.** Freeze one primary candidate, the parent/declared baselines, thresholds, associator, suite/reference hashes and software/container versions before the sealed run. Record approved omissions of optional experiments before candidate selection; an unrun experiment cannot be reported as a pass.\n\n**Acceptance.**\n- **49A:** The preregistered endpoint policy contains numeric practical improvement/non-inferiority margins, minimum usable coverage, primary/secondary metrics, paired block uncertainty and handling of missing cases/multiple endpoints.\n- **49B:** Score baseline and candidate together on the sealed panel once. Require the planned overall benefit and regime-specific non-inferiority; report pick workload, nuisance-rate evidence, event recovery, timing tails, operational failures and computational cost.\n- Insufficient independent events/days yields “inconclusive,” not “no degradation.” Do not treat P/S pairs from one sequence as independent replicates.\n- Hash and reload the exported artifact offline, verify preprocessing/probability parity on fixed fixtures, and run the production notebooks at frozen settings. Stage rollout with monitored rates and a reproducible rollback to the parent.\n- A failed or inconclusive acceptance result retains the parent. Once results inform another development cycle, that panel is consumed and a fresh one is required.\n\n**Dependency detail.** #35 characterizes baselines without shipping them. Any earlier no-training baseline replacement must use a separate preregistered acceptance decision and consume its own panel; it cannot silently reuse the future sealed panel."
+  },
+  {
+    "number": 50,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/50",
+    "observed_updated_at": "2026-09-10T13:10:10Z",
+    "proposed_title": "[Phase 3] Pilot distant-P transfer with a verified timebase and regional handoff",
+    "proposed_milestone": "Phase 3: acceptance and deployment",
+    "proposed_priority": "P2; independent pilot after shared contracts",
+    "checkpoints": [
+      {
+        "id": "50A",
+        "name": "Distant-P timebase/data pilot validated",
+        "depends": [
+          "33A",
+          "34C",
+          "35A",
+          "38A",
+          "41A",
+          "42A",
+          "44B"
+        ]
+      },
+      {
+        "id": "50B",
+        "name": "Distant-P acceptance and handoff decision complete",
+        "depends": [
+          "50A"
+        ]
+      }
+    ],
+    "proposed_body": "**Why this revision.** Keep sparse-region/offshore coverage as a separate experiment, without assuming 20 Hz transfer or catalogue completeness.\n\n**Milestone:** Phase 3: acceptance and deployment. **Priority:** P2; independent pilot after shared contracts.\n\n**Checkpoint dependencies.**\n\n- **50A — Distant-P timebase/data pilot validated:** 33A, 34C, 35A, 38A, 41A, 42A, 44B.\n- **50B — Distant-P acceptance and handoff decision complete:** 50A.\n\n**Work.** Inspect the actual geofon checkpoint's sample rate, preprocessing and input contract. Compare verified native-rate deployment with a deliberately retrained 20 Hz/long-window candidate; feeding 20 Hz arrays to unchanged 100 Hz weights changes physical time/frequency scales. Apply the same arrival-index and metadata invariants as #34.\n\n**Acceptance.**\n- **50A:** Define P branch coverage (e.g. P/Pn and later branches), magnitude/distance support, source-label provenance and off-Japan/held-out-year evaluation. Validate proposed context through annotation/export, not forward alone.\n- Include cultural, instrument and coda conditions at continental sparse-network stations, alongside coastal/microseism/polar noise.\n- Predefine overlapping regional/distant eligibility around the nominal 300 km handoff, deduplicate common picks/events and keep appropriate travel-time uncertainty in association.\n- **50B:** Freeze a separate candidate and sealed panel; evaluate station/event recovery and nuisance workload, including double detections and handoff misses. Report recovery relative to reference completeness; claiming a new completeness magnitude requires additional evidence.\n- Preserve the no-OBS scope. A failed distant-P pilot does not block a valid main-picker release, and a successful main picker does not certify the distant-P branch.\n\n**Dependency detail.** This shares infrastructure and label policy but not the full #45–#48 training sequence. It owns its own candidate freeze, acceptance criteria and deployment verification under #49's common release contract."
+  }
+]

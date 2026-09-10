@@ -56,6 +56,7 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import heldout_testset_registry as reg  # noqa: E402
+import evaluation_policy as policy  # noqa: E402
 
 OUT_ROOT = REPO_ROOT / "data" / "heldout_testset"
 PICK_COLS = ["sequence", "event", "origin", "mag", "station", "channel", "phase", "time",
@@ -844,7 +845,7 @@ def index() -> None:
         if not m.exists():
             continue
         man = json.loads(m.read_text()); s = man["registry"]
-        rows.append(dict(key=man["key"], label=man["label"], regime=s["regime"], tier=s["tier"], suite=s["suite"],
+        rows.append(dict(key=man["key"], label=man["label"], regime=s["regime"], tier=s["tier"], suite=policy.role_for(man["key"]),
                          built=man["built"], git_commit=man["git_commit"][:12], **man["counts"]))
     pd.DataFrame(rows).to_csv(OUT_ROOT / "index.csv", index=False)
     print(pd.DataFrame(rows).to_string(index=False))

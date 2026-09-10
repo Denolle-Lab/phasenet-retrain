@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "acceptance_status": "provisional",
+  "roles": {
+    "kaikoura_2016": "regression",
+    "norcia_2016": "regression",
+    "thessaly_2021": "regression",
+    "kahramanmaras_2023": "acceptance",
+    "noto_2024": "acceptance",
+    "hualien_2024": "acceptance",
+    "petrinja_2020": "acceptance",
+    "samos_2020": "dev",
+    "adriatic_2022": "dev",
+    "reykjanes_2023": "acceptance",
+    "fagradalsfjall_2021": "acceptance",
+    "la_palma_2021": "acceptance",
+    "santorini_2025": "acceptance",
+    "etna_2022_2024": "dev",
+    "west_bohemia_2018": "acceptance",
+    "maurienne_2017": "acceptance",
+    "noto_swarm_2023": "acceptance",
+    "campi_flegrei_2023": "acceptance",
+    "corinth_thiva_2020": "dev"
+  },
+  "calibration_status": "unassigned; station-day selections belong to issue #38",
+  "external_regression_cases": [
+    "Ridgecrest",
+    "Monroe",
+    "San Simeon",
+    "Monte Cristo",
+    "Mendocino"
+  ],
+  "notes": "Acceptance entries are protected candidates pending #37B/#44B eligibility, exposure-history review and panel freeze. No acceptance scoring is released by this policy."
+}

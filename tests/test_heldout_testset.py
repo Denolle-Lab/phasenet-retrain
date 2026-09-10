@@ -86,7 +86,7 @@ def test_mainshock_windows_follow_the_notebook_rule():
 def test_registry_entries_are_complete_and_match_the_heldout_windows():
     import heldout_sequences as hs
     for s in reg.SEQUENCES:
-        assert s["regime"] in {"msas", "vt", "swarm"} and s["suite"] in {"acceptance", "dev"}
+        assert s["regime"] in {"msas", "vt", "swarm"} and s["suite"] in {"acceptance", "dev", "regression"}
         assert s["windows"]["kind"] in {"mainshock", "busiest"}
         if s["windows"]["kind"] == "mainshock":
             assert s["mainshock"] is not None

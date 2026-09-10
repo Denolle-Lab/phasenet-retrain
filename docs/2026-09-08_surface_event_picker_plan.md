@@ -6,6 +6,11 @@
 This revision supersedes its training recipe and acceptance protocol. No
 surface model has been trained or evaluated by this audit.*
 
+For future work, start with the [SU implementation plan](SU_PICKER_IMPLEMENTATION_PLAN.md),
+which links every GitHub task, its dependencies and acceptance criteria.
+**Akash Kharita (@Akashkharita)** owns all SU implementation tasks; their dedicated
+GitHub label is **`su-picker`**. This document retains the scientific design rationale.
+
 ## 1. Product and scientific scope
 
 Working name: SUNet. First deliverable: a retrospective station-level model
@@ -366,8 +371,8 @@ alone. No campaign deployment is part of this plan audit.
 
 ## 9. Sequential branches and gates
 
-These are **proposed surface checkpoint IDs**, not new GitHub issue numbers.
-Create a separate surface epic/tickets when implementing; keep earthquake issues
+SU-01–SU-08 now map to assigned GitHub issues in the
+[implementation plan](SU_PICKER_IMPLEMENTATION_PLAN.md). Keep earthquake issues
 #33–#50 scoped to their shared contracts and earthquake work. Branch one ready
 checkpoint at a time from the surface integration head; use focused reviewed
 imports of shared fixes rather than copying unfinished loader/scorer code.
@@ -383,15 +388,15 @@ imports of shared fixes rather than copying unfinished loader/scorer code.
 | SU-07 `surface/07-cascade-association` | Optional reranker and network-detection gains with coverage-aware denominators; locations only if justified | SU-05/06 station-level evidence |
 | SU-08 `surface/08-acceptance-deployment` | Frozen candidate/protocol, sealed evaluation, supported-regime decision and tested QuakeScope artifact | SU-04 freeze and selected SU-05–07 configuration |
 
-### First sprint and ownership proposal
+### First sprint and ownership
 
 Use two **10-working-day timeboxes** for SU-01 and SU-02. T0 is the agreed sprint
-start with data access and implementers assigned; these are estimates, not
-calendar commitments or permission to skip gates. Proposed scientific decision
-owner: Marine Denolle. Named implementation and independent label-review owners
-must be recorded at T0; they are currently unassigned, so the sprint is not yet
-scheduled. SU-03 likewise needs a named shared preprocessing/export owner and
-a measured fixture-review estimate at T0.
+start with data access and reviewer availability; these are estimates, not
+calendar commitments or permission to skip gates. Implementation owner for all SU
+tasks: Akash Kharita (@Akashkharita). Scientific coordination: Marine Denolle.
+Akash records T0 and an independent label reviewer before scheduling the sprint.
+For SU-03, he coordinates the shared preprocessing/export contract and records
+a measured fixture-review estimate; this does not reassign the earthquake issues.
 
 | Timebox | Concrete scope | End-of-timebox decision |
 |---|---|---|
@@ -408,7 +413,8 @@ under #34 (time/coordinate invariants; resampling/normalization/export parity) a
 #35 (candidate extraction/matching; exposure/grouped uncertainty). Cross-link
 SU-03/SU-04 to those tickets and migrate the existing checkpoint checklists when
 creating them, avoiding two competing definitions of done. These are ticket
-proposals, not newly created issues or completed dependencies. Use one worktree
+proposals for the shared earthquake contracts, not completed dependencies. The
+SU issues themselves are tracked in the implementation plan. Use one worktree
 per active session; the PR #52 review follow-up uses an isolated worktree without
 switching the other session's branch.
 

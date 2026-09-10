@@ -38,3 +38,19 @@ Once the driver is guarded under `if __name__ == "__main__":`, replace the shim
 with a plain `from scripts.compare_v7_thresholds import compute_metrics` and
 delete `_load_compute_metrics()`. (`domain_registry.py` is already clean and is
 imported normally.)
+
+## General-picker loader (#34A)
+
+`test_manifest_dataset.py` generates temporary HDF5/CSV fixtures and checks
+waveform/arrival timing, metadata validation, S-only support, explicit noise,
+bucket/chunk handling, rejection ledgers, cache failure, and spawned workers.
+It uses actual local SeisBench readers without downloading data. Requires the
+training dependencies; skips when PyTorch/SeisBench/h5py are unavailable.
+It can also run without pytest:
+
+```bash
+python -m unittest discover -s tests -p test_manifest_dataset.py -v
+```
+
+See [the loader contract](../docs/2026-09-10_34a_loader_contract.md) for migration
+requirements and the remaining historical/deployment gates.

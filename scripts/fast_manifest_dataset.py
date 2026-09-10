@@ -48,6 +48,7 @@ class CachedManifestDataset(Dataset):
         load_batch: int = 512,
         noise_prob: float = 0.0,
         noise_snr_db_range: tuple = (0, 10),
+        rejection_log=None,
     ):
         self.augment           = augment
         self.window_len        = window_len
@@ -56,7 +57,8 @@ class CachedManifestDataset(Dataset):
         self.noise_snr_db_high = noise_snr_db_range[1]
 
         # ── extract all samples from HDF5 into RAM ────────────────────────────
-        raw = ManifestDataset(manifest_csv, augment=False, window_len=window_len)
+        raw = ManifestDataset(manifest_csv, augment=False, window_len=window_len,
+                              rejection_log=rejection_log)
         N   = len(raw)
         print(f"  Pre-loading {N:,} samples into RAM "
               f"({N * 3 * window_len * 4 * 2 / 1e9:.1f} GB) ...")
@@ -71,19 +73,25 @@ class CachedManifestDataset(Dataset):
             shuffle           = False,
             pin_memory        = False,
             persistent_workers= False,
-            prefetch_factor   = 2,
+            prefetch_factor   = 2 if load_workers > 0 else None,
         )
 
-        idx = 0
-        for x_batch, y_batch in loader:
-            b = x_batch.shape[0]
-            waveforms[idx: idx + b] = x_batch.numpy()
-            labels   [idx: idx + b] = y_batch.numpy()
-            idx += b
-            # simple text progress every ~10 %
-            if idx % max(1, N // 10) < load_batch:
-                pct = 100 * idx / N
-                print(f"    {pct:5.1f}%  ({idx:,}/{N:,})", flush=True)
+        try:
+            idx = 0
+            for x_batch, y_batch in loader:
+                b = x_batch.shape[0]
+                waveforms[idx: idx + b] = x_batch.numpy()
+                labels   [idx: idx + b] = y_batch.numpy()
+                idx += b
+                # simple text progress every ~10 %
+                if idx % max(1, N // 10) < load_batch:
+                    pct = 100 * idx / N
+                    print(f"    {pct:5.1f}%  ({idx:,}/{N:,})", flush=True)
+
+            if idx != N:
+                raise RuntimeError(f"Incomplete preload: {idx}/{N} rows")
+        finally:
+            raw.close()
 
         print(f"  Done — {N:,} samples in RAM")
 

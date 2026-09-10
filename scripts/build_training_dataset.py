@@ -55,6 +55,8 @@ seisbench.cache_root = SEISBENCH_CACHE
 import seisbench.data as sbd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from waveform_contract import METADATA_FIELDS
+
 import heldout_sequences as hs  # held-out external sequences + 2016/2021 year hold-out (2026-09-07)
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -153,7 +155,7 @@ def _load_chunked_meta(ds_path, prefix="metadata_"):
     frames = []
     for csv in csvs:
         chunk_tag = csv.stem.replace(prefix, "")
-        df = pd.read_csv(csv, low_memory=False)
+        df = pd.read_csv(csv, low_memory=False, dtype={"trace_name": str, "trace_chunk": str})
         df["chunk"] = chunk_tag
         frames.append(df)
 
@@ -371,7 +373,7 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
                      label_error_exclude=None, label_error_report=None,
                      sequence_exclude=None, strict_year_holdout=False, holdout_report=None):
     """
-    Load one dataset, filter for valid P picks, compute distances, apply cap.
+    Load one dataset, retain valid P or permitted S picks, compute distances, apply cap.
     benchmark_exclude : set of trace_name strings to exclude (benchmark traces).
     sequence_exclude  : set of trace_name strings from data/exclusions/heldout_sequences.csv
                         (the external test sequences, scripts/heldout_sequences.py). Applied
@@ -402,41 +404,29 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         else:
             ds = cfg["cls"]()
             meta = ds.metadata.copy()
-            if "chunk" not in meta.columns:
-                meta["chunk"] = ""
     except Exception as exc:
         print(f"    SKIP — failed to load: {exc}")
         return None
 
+    if "chunk" not in meta.columns:
+        meta["chunk"] = meta.get("trace_chunk", "")
     print(f"    loaded {len(meta):,} total rows")
 
     # ── pick columns ──────────────────────────────────────────────────────────
-    cols = meta.columns.tolist()
     p_vals, p_col = coalesce_picks(meta, P_PRIORITY)
-    s_col = best_col(cols, S_PRIORITY) if cfg["use_s"] else None
-
-    if p_col is None:
-        print(f"    SKIP — no recognisable P-pick column (have: {[c for c in cols if 'arrival' in c.lower()][:6]})")
-        return None
-
-    # ── filter to valid P picks ───────────────────────────────────────────────
-    keep = p_vals.notna() & (p_vals >= 0)
+    s_vals, s_col = coalesce_picks(meta, S_PRIORITY) if cfg["use_s"] else (
+        pd.Series(np.nan, index=meta.index), None)
+    p_vals = p_vals.where(np.isfinite(p_vals) & (p_vals >= 0))
+    s_vals = s_vals.where(np.isfinite(s_vals) & (s_vals >= 0))
+    keep = p_vals.notna() | s_vals.notna()
+    if s_balanced and cfg["use_s"]:
+        keep &= s_vals.notna()
     meta = meta.loc[keep].copy()
     p_vals = p_vals.loc[keep]
-
     if len(meta) == 0:
-        print(f"    SKIP — 0 valid P picks across P-type columns")
+        print("    SKIP — 0 valid permitted P/S picks")
         return None
-
-    print(f"    {len(meta):,} with valid P pick  (p_col=coalesced/{p_col}, s_col={s_col})")
-
-    # ── S-balanced mode: require S pick for use_s=True datasets ──────────────
-    if s_balanced and cfg["use_s"] and s_col and s_col in meta.columns:
-        s_vals_pre = pd.to_numeric(meta[s_col], errors="coerce")
-        s_mask = s_vals_pre.notna() & (s_vals_pre >= 0)
-        meta   = meta.loc[s_mask].copy()
-        p_vals = p_vals.loc[s_mask]
-        print(f"    {len(meta):,} after S-pick filter (s_balanced=True)")
+    print(f"    {len(meta):,} with valid P or S pick (p_col={p_col}, s_col={s_col})")
 
     # ── exclude benchmark traces ──────────────────────────────────────────────
     if benchmark_exclude and "trace_name" in meta.columns:
@@ -554,11 +544,7 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
     print(f"    {len(meta):,} after cap={cap:,} | bins: {dist_bin.value_counts().to_dict()}")
 
     # ── assemble output ───────────────────────────────────────────────────────
-    s_vals = (
-        pd.to_numeric(meta[s_col], errors="coerce")
-        if s_col and s_col in meta.columns
-        else pd.Series(np.nan, index=meta.index)
-    )
+    s_vals = s_vals.loc[meta.index].copy()
 
     # P-only policy: null S for teleseismic rows
     tele_mask = dist_bin == "teleseismic"
@@ -574,7 +560,7 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         "s_arrival_sample":  s_vals.values,
         "distance_km":       dist_km.values,
         "distance_bin":      dist_bin.values,
-        "p_col":             p_col,
+        "p_col":             p_col or "",
         "s_col":             s_col or "",
         # fingerprint columns (NaN when the source has none) so that
         # scripts/audit_heldout_sequences.py --check-manifest can verify the
@@ -588,6 +574,12 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
             else np.full(len(meta), "")
         ),
     })
+    # Preserve known source coordinates; unknown fields remain explicit NaNs and
+    # must be resolved from verified source metadata by the loader.
+    for column in sorted(METADATA_FIELDS - {"trace_name"} | {"arrival_sampling_rate_hz"}):
+        out[column] = meta[column].values if column in meta else np.nan
+    # The existing teleseismic P-only policy can remove an S-only row's last label.
+    out = out.loc[out.p_arrival_sample.notna() | out.s_arrival_sample.notna()].reset_index(drop=True)
     return out
 
 
@@ -953,6 +945,7 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_yea
         "p_col", "s_col",
         "source_origin_time", "source_latitude_deg", "source_longitude_deg",
     ]
+    KEEP_COLS += sorted(METADATA_FIELDS - {"trace_name"} | {"arrival_sampling_rate_hz"})
     train_df[KEEP_COLS].to_csv(out_path / "train.csv", index=False)
     val_df[KEEP_COLS].to_csv(out_path / "val.csv",   index=False)
     test_df[KEEP_COLS].to_csv(out_path / "test.csv", index=False)

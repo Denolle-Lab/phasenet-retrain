@@ -3,7 +3,9 @@
     "python": "3.11.13",
     "torch": "2.7.1",
     "seisbench": "0.9.1.dev16+g3667d44",
+    "obspy": "1.4.2",
     "numpy": "1.26.4",
+    "pandas": "2.3.0",
     "scipy": "1.16.0"
   },
   "crop": {
@@ -12,7 +14,13 @@
     "onset_free_fraction": 0.0
   },
   "softmax_target": {
-    "maximum_sum": 1.9667648382711531
+    "maximum_sum": 1.9667648382711531,
+    "normalized_max_mass_error": 1.1102230246251565e-16,
+    "coincident_upn_target": [
+      0.5,
+      0.5,
+      0.0
+    ]
   },
   "rounding_only_sigma_s": 0.2886751345948129,
   "model": {
@@ -80,17 +88,91 @@
       "source_hz": 40,
       "target_hz": 50,
       "tone_hz": 10,
-      "output_amplitude_db": -6.020599913279624
+      "output_amplitude_db": -6.020599913279624,
+      "hann_expected_db": -6.020599913279624
     },
     {
       "source_hz": 40,
       "target_hz": 50,
       "tone_hz": 18,
-      "output_amplitude_db": -32.22670234572041
+      "output_amplitude_db": -32.22670234572041,
+      "hann_expected_db": -32.22670234572044
+    },
+    {
+      "source_hz": 40,
+      "target_hz": 100,
+      "tone_hz": 10,
+      "output_amplitude_db": -6.020599913279624,
+      "hann_expected_db": -6.020599913279624
+    },
+    {
+      "source_hz": 40,
+      "target_hz": 100,
+      "tone_hz": 18,
+      "output_amplitude_db": -32.22670234572042,
+      "hann_expected_db": -32.22670234572044
+    },
+    {
+      "source_hz": 20,
+      "target_hz": 100,
+      "tone_hz": 5,
+      "output_amplitude_db": -6.020599913279624,
+      "hann_expected_db": -6.020599913279624
+    },
+    {
+      "source_hz": 20,
+      "target_hz": 100,
+      "tone_hz": 9,
+      "output_amplitude_db": -32.22670234572041,
+      "hann_expected_db": -32.22670234572044
+    }
+  ],
+  "recall_power_examples": [
+    {
+      "detected": 10,
+      "independent_events": 10,
+      "lower_95": 0.6915028921812371,
+      "upper_95": 1.0,
+      "note": "Illustrative independent binomial events; not measured panel power or clustered uncertainty."
+    },
+    {
+      "detected": 20,
+      "independent_events": 20,
+      "lower_95": 0.8315665290169145,
+      "upper_95": 1.0,
+      "note": "Illustrative independent binomial events; not measured panel power or clustered uncertainty."
+    },
+    {
+      "detected": 50,
+      "independent_events": 50,
+      "lower_95": 0.9288782635357954,
+      "upper_95": 1.0,
+      "note": "Illustrative independent binomial events; not measured panel power or clustered uncertainty."
+    },
+    {
+      "detected": 8,
+      "independent_events": 10,
+      "lower_95": 0.4439045376923585,
+      "upper_95": 0.9747892736731665,
+      "note": "Illustrative independent binomial events; not measured panel power or clustered uncertainty."
+    },
+    {
+      "detected": 16,
+      "independent_events": 20,
+      "lower_95": 0.5633859970033314,
+      "upper_95": 0.942666002949976,
+      "note": "Illustrative independent binomial events; not measured panel power or clustered uncertainty."
+    },
+    {
+      "detected": 40,
+      "independent_events": 50,
+      "lower_95": 0.6628168916164868,
+      "upper_95": 0.8996977625277723,
+      "note": "Illustrative independent binomial events; not measured panel power or clustered uncertainty."
     }
   ],
   "pick_export": {
-    "path": "/Users/marinedenolle/GitHub/surface_events/data/events/su_picks.txt",
+    "path": "sources/surface_events/data/events/su_picks.txt",
     "sha256": "f702aa82f2ebef8587353ab408fe101edb0bcb399d6365a55df3c0f9a7ef7b1e",
     "rows": 21721,
     "events": 12129,
@@ -108,6 +190,9 @@
       "0.0": 769,
       "0.75": 371
     },
+    "valid_timestamp_rows": 21721,
+    "missing_timestamp_rows": 0,
+    "invalid_timestamp_rows": 0,
     "pre_2002_picks": 7880,
     "fractional_timestamp_rows": 0
   },
@@ -159,13 +244,15 @@
     }
   },
   "source_hashes": {
-    "/Users/marinedenolle/opt/miniconda3/envs/agent-seisbench/lib/python3.11/site-packages/seisbench/models/phasenet.py": "43f15a076f6317a522f9b420dea1e8e4b1831b4711f19ab41598dea783885679",
-    "/Users/marinedenolle/opt/miniconda3/envs/agent-seisbench/lib/python3.11/site-packages/seisbench/models/base.py": "b063002572a0cb56311a915ee25a2c8ec451c96cf6214bea403d306382456195",
-    "/Users/marinedenolle/GitHub/phasenet-retrain/scripts/manifest_dataset.py": "5bba66b2751129504512d698701f22fb22af7ceb5007ece701f8eeb9429bd12d",
-    "/Users/marinedenolle/GitHub/phasenet-retrain/scripts/metrics.py": "048247a40a94e7786186a324513e28399a47e634cb4a52736355032f0ae9135e",
-    "/Users/marinedenolle/GitHub/phasenet-retrain/docs/surface_audit_2026-09-10/probes.py": "0f72c77e08dda1f1104fd3db6c013ac573b858ac947715b67647703b790c50f6",
-    "/Users/marinedenolle/GitHub/QuakeScope/sb_catalog/src/picker.py": "7f1f68cd2950014847eaf9cc61f2b77b34b1733e4bf88a816c7c8a42cb784190",
-    "/Users/marinedenolle/GitHub/QuakeScope/docs/quakexnet_generalization_plan.md": "908beb09e913d5604f2dc7975492a305b06cc98843ed0d6514d293a3264d3f92",
-    "/Users/marinedenolle/GitHub/thunderquakes/catalogs/pnwml_class_summary.csv": "ed3b8f5b0985e1c40339147e5856b176f97e8f3df2576cde3855d37939709bf3"
+    "package/seisbench/models/phasenet.py": "43f15a076f6317a522f9b420dea1e8e4b1831b4711f19ab41598dea783885679",
+    "package/seisbench/models/base.py": "b063002572a0cb56311a915ee25a2c8ec451c96cf6214bea403d306382456195",
+    "package/obspy/core/trace.py": "51863410075d0b67a52cd5834fcfbcf4f81864dfe71caea339eac70b9b7dccbe",
+    "repo/scripts/manifest_dataset.py": "5bba66b2751129504512d698701f22fb22af7ceb5007ece701f8eeb9429bd12d",
+    "repo/scripts/metrics.py": "048247a40a94e7786186a324513e28399a47e634cb4a52736355032f0ae9135e",
+    "repo/docs/surface_audit_2026-09-10/probes.py": "bdd6130f2f4f6bfc24b975c6d44b5abb15eec39e97fa0113f845765d59852745",
+    "repo/docs/surface_audit_2026-09-10/probe_support.py": "084ae0a95564eac8e5527106db6e4250e7d90d312a17e0c717cb4c9293c03158",
+    "sources/QuakeScope/sb_catalog/src/picker.py": "7f1f68cd2950014847eaf9cc61f2b77b34b1733e4bf88a816c7c8a42cb784190",
+    "sources/QuakeScope/docs/quakexnet_generalization_plan.md": "908beb09e913d5604f2dc7975492a305b06cc98843ed0d6514d293a3264d3f92",
+    "sources/thunderquakes/catalogs/pnwml_class_summary.csv": "ed3b8f5b0985e1c40339147e5856b176f97e8f3df2576cde3855d37939709bf3"
   }
 }

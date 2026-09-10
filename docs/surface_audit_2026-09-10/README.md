@@ -4,16 +4,24 @@
 load pretrained weights, train a model, score any real waveform, or fetch data.
 It writes `probe_results.json` in this directory. Run from the repository root:
 
+Activate an environment with the versions in `probe_results.json`, then run:
+
 ```sh
-MPLCONFIGDIR=/private/tmp/phasenet-audit-mpl \
-  /Users/marinedenolle/opt/miniconda3/envs/agent-seisbench/bin/python \
-  docs/surface_audit_2026-09-10/probes.py
+python docs/surface_audit_2026-09-10/probes.py
+python -m unittest discover -s docs/surface_audit_2026-09-10 -p 'test_*.py'
 ```
+
+If a writable Matplotlib cache is needed, set `MPLCONFIGDIR` to a local writable
+directory. For a worktree outside the sibling-repository directory, pass
+`--external-root /path/to/checkouts` to the probe command. This path is used for
+reading only and is not written to the evidence.
 
 The results pin library versions and code/input SHA-256 hashes. External files
 are read from sibling `surface_events`, `QuakeScope` and `thunderquakes` checkouts
-when present; their raw contents are not copied. The environment path is local;
-another machine needs the versions recorded in the JSON.
+when present; their raw contents are not copied. Evidence identifiers use `repo/`,
+`package/seisbench/`, `package/obspy/` and `sources/<repository>/` prefixes, not
+machine paths. Preserve these identifiers and hashes when comparing runs.
+Missing/invalid catalogue timestamps are counted separately from valid timestamps.
 
 The model round-trip failure is a **finding** captured in the results, not a
 passing deployment test. Likewise, the convolution-support probe excludes
@@ -21,6 +29,11 @@ normalization and uses artificial positive weights: it measures numerical
 structural support, not learned effective context. Tone results use long pure
 sinusoids with boundary samples removed and do not establish event performance.
 Random weights have a fixed seed. Exact floating-point values may vary by platform.
+
+The review follow-up adds 20/40→100 Hz tone tests with the Hann-response prediction,
+a normalized categorical-target check and illustrative exact binomial recall
+intervals. Interval examples assume independent events; they do not measure the
+actual acceptance panel or replace event-family/station-day uncertainty.
 
 Original proposal: `98543f3`, SHA-256 of the plan at that commit:
 `8930cae058cb48c8015fff1c1f0d8eeb9d6b40a8ac8ed3af4390eb7b629d99e1`.

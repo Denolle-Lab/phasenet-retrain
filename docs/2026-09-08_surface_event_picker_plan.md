@@ -125,6 +125,13 @@ Random unreviewed background may support annotation/mining, but must not silentl
 become all-N targets. Keep catalogues from all relevant source types in the QA
 join, including exotic events absent from ComCat.
 
+For a later scaling arm, unreviewed background may enter an explicitly specified
+contamination-aware objective. First estimate contamination by blinded stratified
+review, record an upper bound and sensitivity analysis, cap its sampling/loss
+contribution, and compare against reviewed negatives on disjoint development
+days. This is not a general prohibition on learning from background; the small
+first pilot uses reviewed negatives because its contamination is not yet bounded.
+
 Hard-negative mining occurs only on registered training/mining days. Review
 candidates with a source-neutral protocol, retaining uncertain or possible
 uncatalogued surface events. Store the model version that generated each
@@ -148,6 +155,13 @@ validated optimum. The installed model has 268,443 parameters for three outputs,
 but its save/load round trip currently fails. Repair/pin that contract before
 training; no assumption of a drop-in `phasenet/` weight is permitted.
 
+The choice is motivated by the earlier 150-trace PNW spectrum summary: about 75%
+of energy at 1–10 Hz and 10% at 10–20 Hz, with 120 s accommodating much of the
+local envelope population. Preserve that rationale while treating it as limited
+PNW evidence, not coverage of every process or instrument. The cited 4 s effective
+receptive-field figure was a legitimate literature citation; useful context for
+the installed/trained model still requires the proposed perturbation experiment.
+
 Record and test stored rate, original instrument rate, units, channel order,
 response epoch, filtering and resampling paths, normalization type/axis,
 window overlap, edge blinding, gap/padding masks and model output semantics.
@@ -157,13 +171,26 @@ contract. Test CPU export/import for output equality and offline loading in the
 actual QuakeScope environment.
 
 The installed resampler uses different paths for integer downsampling and other
-ratios. The audit measured strong attenuation on the default 40→50 Hz path;
+ratios. The audit measured strong attenuation on the default 40→50 Hz path and
+the shared 20/40→100 Hz earthquake paths;
 “use SeisBench everywhere” alone is not a specification. Verify 20/40/50/100 Hz
 routes using tones, impulses, absolute timing and real development traces. Choose
 and version an anti-alias/interpolation method with measured passband and
 stopband behavior. Do not infer restored high frequencies after upsampling.
 A 0.5 Hz high-pass is a candidate preprocessing choice with explicit phase and
 edge behavior, not a universal surface-process filter.
+
+The noninteger/upsampling route uses ObsPy's frequency-domain Hann window even
+with `no_filter=True`. The added probes reproduce its predicted −6.02 dB gain at
+half the source Nyquist and −32.23 dB at 0.9 of it. Track the common correction
+under [#34](https://github.com/Denolle-Lab/phasenet-retrain/issues/34#issuecomment-5621902058),
+with #43 consuming the same contract for augmentation and SU-03 for the surface
+model. Verify 20/40/50/80/100/200 Hz and represented noninteger routes. Select an
+explicit polyphase or filter-plus-interpolation implementation using passband,
+alias rejection, timing and boundary checks; do not presume a method name alone
+certifies it. Already resampled 100 Hz inputs need separate provenance. This
+is a shared input mismatch, not a proven cause of historical model failure.
+[ObsPy resampling contract](https://docs.obspy.org/packages/autogen/obspy.core.trace.Trace.resample.html)
 
 Represent annotations in absolute UTC and transform **all** onsets, end times,
 uncertainty intervals and validity masks through resampling, stretching and
@@ -187,12 +214,16 @@ ablation is **UPN**, with P denoting an earthquake P arrival only where validly
 annotated; it is a hypothesis about rejection, not a guaranteed improvement.
 A P-onset head alone does not label the entire earthquake coda.
 
-Specify a normalized categorical target rule for overlapping U/P kernels, or
-use independent sigmoid heads with their corresponding loss. Do not reuse
-`N=1-max(U,P)` as a categorical distribution: its total mass exceeds one when
-kernels overlap. Document repeated onsets, simultaneous processes, missing P,
-uncertain labels and masked samples. Check target mass, shape and label order
-with synthetic collisions and every time transform.
+For the first UPN arm choose normalized categorical targets: form raw kernels
+`u,p` in [0,1], set `n=max(0,1-u-p)`, then divide **all three** by `u+p+n`.
+Within each class use the maximum of that class's onset kernels, preserving the
+individual onset list for scoring. This gives a unit-mass soft target; coincident
+unit U/P kernels become `[0.5,0.5,0]`. Setting N alone is insufficient when
+`u+p>1`. Use soft-label cross-entropy on logits with validity masks. This is
+deliberate categorical competition, not two simultaneous near-unit probabilities.
+An independent U/P sigmoid+BCE arm remains an alternative if overlap performance
+justifies it; use no redundant N sigmoid. Missing annotations are not zero labels.
+Document simultaneous processes and uncertainty/masks, and check every transform.
 
 An optional duration head comes later, with independent masked supervision.
 Switching `output_activation="sigmoid"` on the stock model changes every output;
@@ -266,6 +297,27 @@ supported regime, uncertainty rules and decision procedure. A point estimate on
 a few correlated days is insufficient. Report strata with inadequate power as
 such; do not fill their gaps with an aggregate success claim.
 
+Also pre-register campaign workload and precision sensitivity, not just the
+station-normalized rate. If `D=sum(valid station-hours)/24` and the false-pick
+rate is `f`, expected false station candidates are `f*D`. At 1,000 full station-days
+and f=1 this is 1,000 candidates/day, not 1,000 distinct events. With an
+*illustrative*, unmeasured true-arrival rate of 0.01 per station-day and recall
+0.8, station-candidate precision is `0.008/(0.008+1)=0.79%`. Replace these examples
+with census exposure and a plausible prevalence range; retain separate counts of
+station candidates, reviewed workload and associated events. Require measured
+end-to-end precision/false-event rates if the product depends on association.
+Correlated noise invalidates a simple independent-station suppression calculation.
+
+For each process × distance × instrument stratum, publish eligible independent
+event-family counts, planned confidence interval, desired width and attainable
+recall floor **before scoring**. The 173 downloaded ESEC events are neither 173
+independent examples per regime nor all eligible arrivals. Illustrative two-sided
+95% exact binomial intervals are 0.692–1 for 10/10 detections, 0.832–1 for 20/20,
+and 0.929–1 for 50/50; 16/20 gives 0.563–0.943. The committed probe calculates
+these examples. They assume independent events; clustered data need the grouped
+analysis above. Label underpowered strata exploratory or acquire more independent
+events; do not pool different mechanisms merely to clear an acceptance floor.
+
 Acceptance candidates include out-of-PNW ESEC/confirmed surface events and fresh
 continuous noise/earthquake periods. Check every candidate against SED, Alaska,
 GeoNet, classifier pretraining and previous examinations. Keep independent
@@ -297,6 +349,12 @@ move-out windows from geometry, process and empirical arrivals; a fixed 30 s
 window across 50 km is not valid over the whole proposed 1–3 km/s range. Review
 extended/moving-source cases before claiming point locations.
 
+Emergence increases arrival uncertainty; it does not imply the absence of all
+useful travel-time structure. Compare interval-aware timing, envelope coherence
+and their combination on reviewed development events. Reject the unmodified
+earthquake PyOcto contract for U arrivals, but do not assume envelope coherence
+will reject regional coherent noise or deliver a location. Measure that gain.
+
 QuakeScope integration must cover model class/cache resolution, U threshold
 configuration, output schema, component grouping, task-specific run identity,
 resume/deduplication and separate association semantics. Its current association
@@ -324,6 +382,35 @@ imports of shared fixes rather than copying unfinished loader/scorer code.
 | SU-06 `surface/06-generalization-arms` | Targeted rate/context, Z-only, augmentation, mining and data-diversity tests; shortlisted three-seed comparisons | SU-05 diagnostics; training/mining review only |
 | SU-07 `surface/07-cascade-association` | Optional reranker and network-detection gains with coverage-aware denominators; locations only if justified | SU-05/06 station-level evidence |
 | SU-08 `surface/08-acceptance-deployment` | Frozen candidate/protocol, sealed evaluation, supported-regime decision and tested QuakeScope artifact | SU-04 freeze and selected SU-05–07 configuration |
+
+### First sprint and ownership proposal
+
+Use two **10-working-day timeboxes** for SU-01 and SU-02. T0 is the agreed sprint
+start with data access and implementers assigned; these are estimates, not
+calendar commitments or permission to skip gates. Proposed scientific decision
+owner: Marine Denolle. Named implementation and independent label-review owners
+must be recorded at T0; they are currently unassigned, so the sprint is not yet
+scheduled. SU-03 likewise needs a named shared preprocessing/export owner and
+a measured fixture-review estimate at T0.
+
+| Timebox | Concrete scope | End-of-timebox decision |
+|---|---|---|
+| SU-01, T0 to working day 10 | Taxonomy, role/alias registry, exposure history, source/station map and review rubric for the pilot | Release permitted pilot partitions or publish the unresolved collision/access list |
+| SU-02, 10 working days after the pilot partition is released | Post-2002 Rainier/St. Helens continuous candidate positives and reviewed negatives from permitted stations; Newberry/Hood station-days for development, subject to SU-01 overlap checks; blinded onset review and retrievable census | Publish counts, reviewed exposure, label uncertainty and per-regime power; decide a bounded pilot size from usable data |
+
+Read-only census may start while roles are drafted; training/mining waits for
+the role checks. Keep disjoint calibration days and event-family/station-day
+separation inside this named corpus. Do not count all post-2002 data as a
+two-week harvest commitment.
+
+Proposed tracking change: split shared executable contracts into child tickets
+under #34 (time/coordinate invariants; resampling/normalization/export parity) and
+#35 (candidate extraction/matching; exposure/grouped uncertainty). Cross-link
+SU-03/SU-04 to those tickets and migrate the existing checkpoint checklists when
+creating them, avoiding two competing definitions of done. These are ticket
+proposals, not newly created issues or completed dependencies. Use one worktree
+per active session; the PR #52 review follow-up uses an isolated worktree without
+switching the other session's branch.
 
 Within SU-06, vary rate at fixed duration and context at fixed rate; use
 bandwidth-matched controls before changing kernels/depth. Measure useful context

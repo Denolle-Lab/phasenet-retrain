@@ -5,6 +5,9 @@ integration branch at `6b5297c`. The complete user-edited proposal is preserved
 in commit `98543f3`; section references below refer to that version. The
 [revised plan](2026-09-08_surface_event_picker_plan.md) is the execution document.
 
+Follow-up: [review of Copilot and Fable's PR #52 comments](2026-09-10_surface_picker_review_response.md)
+records accepted changes, qualifications and the extra shared-path probes.
+
 ## Decision
 
 Pursue a separate surface-onset project and model, sharing repaired data and
@@ -64,6 +67,11 @@ above, not from an observed SUNet error rate.
 review mined candidates, retain an ambiguous class or ignored interval, and use
 audited background hours for false-positive denominators. Otherwise report
 unmatched candidates per day. Mine only designated training/mining days.
+
+This is a requirement for the small audited pilot, not a prohibition on using
+unreviewed background at scale. A later contamination-aware objective can admit
+it with a measured contamination bound, bounded contribution and sensitivity
+checks against disjoint reviewed data; it cannot certify those samples as truth.
 
 ### S03 — Blocking: development and acceptance roles contradict themselves (§4.3, §6–7)
 
@@ -126,6 +134,13 @@ changes of −6.02 dB at 10 Hz and −32.23 dB at 18 Hz. For 100→25 Hz they me
 to 10 Hz). These controlled long-sinusoid tests expose implementation behavior;
 they are not broadband surface-event performance measurements.
 
+The review follow-up also reproduces the same Hann gains on 20/40→100 Hz:
+−6.02 dB at 5/10 Hz respectively and −32.23 dB at 9/18 Hz. This belongs to the
+shared #34 preprocessing contract, with #43 and SU-03 consuming the fix. The
+issue applies to inputs taking this installed resampling route; it is not proof
+that every historical waveform took that route or that this caused the retrain
+failure. Source/stored-rate provenance and controlled comparisons remain needed.
+
 **Change:** pin stored rate and instrument rate separately, units, channel order,
 validity masks, response epoch, filter order/corners/phase, resampling method,
 normalization axis, and inference overlap/blinding. Validate every supported
@@ -143,6 +158,10 @@ receptive field nor evidence that the entire 120 s envelope is used. The 4 s
 statement appears in an archived 2022 paper PDF; it is not a measured constant
 for this model/version. Do not infer an 8 s effective field from it.
 [Archived paper, §2.3](https://publikationen.bibliothek.kit.edu/1000143103/146775569)
+
+The original 4 s citation was legitimate; the qualification concerns transfer
+to this implementation. Likewise, 50 Hz/120 s had a useful PNW spectral/context
+rationale. Preserve that rationale while measuring its applicability elsewhere.
 
 **Change:** retain 50 Hz/120 s as a candidate. Compare rate at fixed duration and
 context at fixed rate, with bandwidth-matched controls and measured throughput.
@@ -163,8 +182,10 @@ Missing earthquake P annotations, gaps over an onset and uncertain surface
 intervals also need a loss-validity policy.
 
 **Change:** make UN the minimal feasibility baseline; UPN is a controlled arm.
-For UPN, specify normalized competing targets or independent sigmoid heads and
-their corresponding loss, including simultaneous arrivals. A duration head uses
+For the first UPN arm, choose `n=max(0,1-u-p)` followed by normalization of all
+three raw targets by their sum and soft-label cross-entropy. Clipping N alone
+does not repair the distribution. Independent U/P sigmoids with BCE remain a
+separate arm if simultaneous-arrival behavior justifies it. A duration head uses
 separate masked supervision after station-level end labels exist. Validate
 shape, channel order, probability mass and time transforms before optimization.
 
@@ -203,6 +224,11 @@ all baselines comparably; a fixed QuakeXNet threshold of 0.5 is not a matched
 operating point. Zero reviewed false alarms in T days has an approximate 95%
 Poisson upper rate 3/T, subject to the Poisson assumption; do not call a short,
 correlated exposure a demonstrated deployment rate.
+
+The revised plan now also requires fleet exposure, prevalence/precision
+sensitivity, reviewer workload and per-process/distance/instrument interval
+widths. A thousand false station picks are not a thousand independent events;
+neither association nor per-regime power can be assumed from that count.
 
 ### S11 — High: association is treated as a guaranteed filter (§6.2, §6.4)
 

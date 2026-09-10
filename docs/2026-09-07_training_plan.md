@@ -1,5 +1,7 @@
 # Plan: a general PhaseNet for a global run with local resolution
 
+> **Superseded execution plan, 2026-09-10.** GitHub issues #33–#50 now follow the [applied roadmap](2026-09-09_issue_plan.md) and [checkpoint branch order](2026-09-10_issue_execution.md). The text below is retained as the scientific design history, not current instructions. Its data-volume conclusions, blind-suite designation and training order were revised after the [independent audit](2026-09-10_picker_and_issue_roadmap_audit.md) and [response review](2026-09-10_revised_issue_roadmap.md).
+
 *v2, 2026-09-08. Marine Denolle with Claude, branch
 `audit/2026-09-07-generalization`. Re-audited after Marine's decisions of
 2026-09-08: PhaseNet only, natural noise as a first-class part of the

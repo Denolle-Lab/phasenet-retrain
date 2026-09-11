@@ -20,7 +20,7 @@ ready one proceeds; record the deferred work explicitly.
 | Issue | First branch | Later checkpoint branches |
 |---|---|---|
 | #44 | `issue/44a-suite-policy` | `issue/44b-panel-freeze` |
-| #34 | `issue/34a-loader-alignment` | `issue/34b-data-forensics`, `issue/34c-model-benchmark-contracts` |
+| #34 | `issue/34a-loader-alignment` | `issue/34b-row-forensics`, `issue/34c-model-benchmark-contracts` |
 | #33 | `issue/33a-versioned-exclusions` | — |
 | #35 | `issue/35a-continuous-scorer` | `issue/35b-baseline-artifacts`, `issue/35c-calibrated-baselines` |
 | #37 | `issue/37a-suite-evaluability` | `issue/37b-panel-eligibility` |

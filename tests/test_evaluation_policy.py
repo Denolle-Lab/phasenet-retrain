@@ -56,7 +56,6 @@ def test_cli_denied_before_model_loading(monkeypatch, args):
 
 
 def test_all_scores_only_built_regression_and_dev(monkeypatch, tmp_path):
-    import pandas as pd
     built = ["kaikoura_2016", "samos_2020", "noto_2024"]
     for key in built:
         (tmp_path / key).mkdir()
@@ -67,9 +66,9 @@ def test_all_scores_only_built_regression_and_dev(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "seisbench", types.ModuleType("seisbench"))
     monkeypatch.setitem(sys.modules, "seisbench.models", fake_models)
     scored = []
-    def fake_score(key, models):
+    def fake_score(key, models, **kwargs):
         scored.append(key)
-        return pd.DataFrame(), pd.DataFrame()
+        return scorer.ScoreResult(key=key)
     monkeypatch.setattr(scorer, "score", fake_score)
     scorer.main(["--all"])
     assert scored == ["kaikoura_2016", "samos_2020"]
@@ -96,7 +95,7 @@ def test_allowed_scoring_records_models_and_sources_before_loading(monkeypatch, 
     source.write_text("t0,t1\n")
     fingerprint = {"state_sha256": "a" * 64, "class": "test.Model"}
     monkeypatch.setattr(policy, "model_fingerprint", lambda model: fingerprint)
-    def load(key):
+    def load(key, **kwargs):
         entry = json.loads(policy.ACCESS_LOG.read_text())
         assert entry["operation"] == "model_scoring"
         assert entry["models"] == {"dummy": fingerprint}

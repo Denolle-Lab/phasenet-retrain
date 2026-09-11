@@ -19,6 +19,14 @@ Usage
 
   python scripts/finetune.py --resume checkpoints/finetune_jma_wc/last.pt
   python scripts/finetune.py --test-only checkpoints/finetune_jma_wc/best.pt
+
+Run card (46A tooling, #46; answers #34's silent failures)
+----------------------------------------------------------
+  After the loaders are built, any non-empty rejection ledger beside a
+  manifest aborts the run (override: --allow-rejections, recorded in the
+  card). results/<run_name>/run_card.json is written before the first
+  optimiser step and completed at the end; check it with
+  python scripts/run_card.py check results/<run_name>/run_card.json
 """
 
 import argparse
@@ -42,6 +50,7 @@ seisbench.cache_root = os.environ["SEISBENCH_CACHE_ROOT"]
 
 from fine_tune_model      import MetricsLogger, PhaseNetFinetune, pick_residuals
 from manifest_data_module import build_dataloaders
+from run_card import build_run_card, finalize_run_card, verify_ledger, write_run_card
 from plot_training_curves import load_metrics, plot_dashboard, plot_loss, plot_accuracy, plot_residuals, plot_lr
 
 
@@ -216,7 +225,7 @@ def _plot_progress(metrics_csv: str, log_cfg: dict):
         print(f"  [plot] warning: {e}", flush=True)
 
 
-def train(config: dict, resume_path=None, init_from=None):
+def train(config: dict, resume_path=None, init_from=None, config_path=None, allow_rejections=False):
     torch.manual_seed(config.get("seed", 42))
 
     hw_cfg    = config.get("hardware", {})
@@ -241,6 +250,36 @@ def train(config: dict, resume_path=None, init_from=None):
     train_loader, val_loader, _ = build_dataloaders(config, splits=("train", "val"))
     print(f"Data ready in {(time.time()-t_load)/60:.1f} min\n")
 
+    # ── run card and rejection-ledger gate (#46 tooling; #34) ─────────────────
+    # Written before the first optimiser step; a run without a complete card is
+    # not a result. The 34A loader raises on the first rejected row, so a
+    # non-empty ledger here is either a stale ledger from an earlier process or
+    # a rejection the preload did not surface; both stop the run.
+    data_cfg = config.get("data", {})
+    manifest_paths = {"train": Path(data_cfg["train_manifest"]), "val": Path(data_cfg["val_manifest"])}
+    if data_cfg.get("dev_manifest"):
+        manifest_paths["dev"] = Path(data_cfg["dev_manifest"])
+    try:
+        verify_ledger(manifest_paths)
+    except RuntimeError as exc:
+        if not allow_rejections:
+            raise
+        print(f"WARNING: --allow-rejections given; training on a manifest with rejected rows.\n{exc}\n"
+              f"         This run cannot be a reported result.", flush=True)
+    rows_read = {"train": len(train_loader.dataset), "val": len(val_loader.dataset)}
+    run_dir = Path(log_cfg.get("save_dir", "results")) / log_cfg.get("run_name", "finetune_jma_wc")
+    card_extra = {
+        "allow_rejections": bool(allow_rejections),
+        "resume_path": resume_path, "init_from": init_from,
+        "device": str(device), "amp": bool(use_amp),
+        "n_supervised_samples": {"train": getattr(train_loader.dataset, "n_supervised_samples", None),
+                                 "val": getattr(val_loader.dataset, "n_supervised_samples", None)},
+        "loader_label_policy": getattr(train_loader.dataset, "label_policy", None),
+    }
+    card = build_run_card(config, config_path, manifest_paths, rows_read=rows_read, extra=card_extra)
+    card_path = write_run_card(card, run_dir)
+    print(f"Run card : {card_path}  (ledger gate passed = {card['ledger']['ledger_gate_passed']})")
+
     # ── model ─────────────────────────────────────────────────────────────────
     model_raw = PhaseNetFinetune(config).to(device)
 
@@ -263,6 +302,8 @@ def train(config: dict, resume_path=None, init_from=None):
     start_epoch    = 0
     best_val_loss  = float("inf")
     best_val_p_mae = float("inf")
+    best_epoch     = None     # epoch of the last best.pt written by this process
+    best_val_m     = None     # validation metrics of that epoch (run card)
 
     if resume_path:
         print(f"Resuming from: {resume_path}")
@@ -379,6 +420,7 @@ def train(config: dict, resume_path=None, init_from=None):
 
         if improved:
             save_checkpoint(model, optimiser, scaler, epoch, val_m["loss"], best_path)
+            best_epoch, best_val_m = epoch, dict(val_m)
             es_counter = 0
         else:
             es_counter += 1
@@ -392,6 +434,13 @@ def train(config: dict, resume_path=None, init_from=None):
     print(f"Done — {total/60:.1f} min total  |  best val_loss = {best_val_loss:.4f}  |  best val_p_mae = {best_val_p_mae:.4f} s")
     print(f"Best ckpt : {best_path}")
     print(f"Metrics   : {metrics_csv}")
+    dev_metric = {"monitor": es_monitor}
+    if best_val_m is not None:
+        dev_metric.update({f"val_{k}": v for k, v in best_val_m.items()})
+    else:
+        dev_metric["reason"] = "no epoch improved in this process (resume at or past max_epochs?)"
+    finalize_run_card(card_path, best_epoch, dev_metric, best_path)
+    print(f"Run card  : {card_path}  (best_epoch={best_epoch})")
     return best_path, metrics_csv
 
 
@@ -437,7 +486,8 @@ def main(args):
         run_test(config, args.test_only)
         return
 
-    best_ckpt, metrics_csv = train(config, resume_path=args.resume, init_from=args.init_from)
+    best_ckpt, metrics_csv = train(config, resume_path=args.resume, init_from=args.init_from,
+                                   config_path=args.config, allow_rejections=args.allow_rejections)
 
     if args.test:
         run_test(config, str(best_ckpt))
@@ -467,5 +517,8 @@ if __name__ == "__main__":
                         help="Load model weights only from CKPT (fresh optimizer) — for staged training")
     parser.add_argument("--test",      action="store_true")
     parser.add_argument("--test-only", default=None, metavar="CKPT")
+    parser.add_argument("--allow-rejections", action="store_true",
+                        help="Continue despite a non-empty rejection ledger (recorded in the run card; "
+                             "the run is then not a reportable result)")
     args = parser.parse_args()
     main(args)

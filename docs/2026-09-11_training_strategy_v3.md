@@ -94,9 +94,16 @@ freeze is the act that makes them a test.
   deployed `in_samples` is 3001 (audit finding on #48). Sixty-second
   context is an experiment (48A contract first, then 48B), motivated by
   regional S and by overlapping events; it is not assumed.
-- **Initialisation.** From `jma_wc`. A from-scratch arm at matched width
-  runs at T1 scale and above (§8, E4); the one scratch run in the history
-  was a narrower model on the defective corpus and proves nothing.
+- **Initialisation.** From `jma_wc`, the parent that still leads the
+  benchmark and the non-US sequences. The SeisBench `instance` weights are
+  the second parent: they lead `jma_wc` on precision per pick along the
+  whole matched-budget overlap on Kaikōura, Norcia and Thessaly (§2), at
+  standard PhaseNet width. Both enter E4 as initialisations, with the
+  caveat that fine-tune exclusions cannot remove Italian sequences already
+  in the `instance` weights, so every candidate carries its parent's
+  exposure as provenance (35B). A from-scratch arm at matched width runs
+  at T1 scale and above (§8, E4); the one scratch run in the history was a
+  narrower model on the defective corpus and proves nothing.
 - **Batch normalisation.** The v7 input-layer running variance is 0.758 of
   the parent's (audit probes). Adaptive versus frozen BN statistics, with
   affine parameters controlled separately, is an arm of E1.
@@ -279,9 +286,11 @@ composition, three seeds at the two smallest sizes, one at the rest.
 Matched-budget recall per regime against corpus size. The T2 build is
 authorised only if the 0.5 → 1 M step still gains.
 
-**E4, initialisation and anchor at the chosen size (46C).** Parent init
-against matched-width scratch, crossed with α ∈ {0, 0.3} and with replay
-on or off, three seeds.
+**E4, initialisation and anchor at the chosen size (46C).** Initialisation
+∈ {`jma_wc`, `instance`, matched-width scratch}, crossed with α ∈ {0, 0.3}
+(the teacher being the arm's own parent) and with replay on or off, three
+seeds. The `instance` arm runs at standard width unless E5 has already
+shown the width difference to matter.
 
 **E5, context and width (48A, 48B).** Export contract for 6000 samples
 first; then 3001 against 6000 at the chosen size, and PhaseNetWC against
@@ -306,17 +315,19 @@ document the zero-window defect would have made impossible to miss.
 
 ## 10. What can start now, and what waits for the server
 
-On the laptop, in checkpoint order:
+On the laptop, in checkpoint order (PRs opened 2026-09-11 in this order;
+each is stacked on the checkpoint it depends on):
 
 1. Review and merge PR #51 (44A) and PR #63 (34B runner).
 2. 33A: versioned exclusion bundle with hashes and the quarantine policy.
 3. 35A: the scorer rewrite (per-threshold extraction, maximum-cardinality
    matching, per-window aggregation, failure table), synthetic fixtures.
-4. 41A: the label-validity policy and the mask semantics of §4.2 as a
-   schema, with fixtures.
-5. 43A: the augmentation transforms of §6 as label-consistent functions on
-   the 34A contract, with fixtures.
-6. The run card writer and the per-term loss logging in
+4. 37A: evaluability of the built regression and development cases.
+5. 41A: the label-validity policy and the mask semantics of §4.2 as a
+   schema, with fixtures, wired through the loader and the loss (PR #66).
+6. 43A: the augmentation transforms of §6 as label-consistent functions on
+   the 41A sample contract, with fixtures.
+7. The run card writer with the rejection-ledger gate in
    `scripts/finetune.py`.
 
 On the server, first session:

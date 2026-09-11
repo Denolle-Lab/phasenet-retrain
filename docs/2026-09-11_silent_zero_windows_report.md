@@ -62,7 +62,7 @@ def get_waveform(self, trace_name):
 ```
 
 **The fetch is wrapped in a catch-all that returns a fake sample**
-(`3bf98c4`, `__getitem__`, lines 356–377):
+(`3bf98c4`, `__getitem__` at line 345, the handler at lines 370–375):
 
 ```python
 try:
@@ -78,16 +78,17 @@ except Exception as exc:
 Which datasets went through which reader is fixed by the loader's registry
 (`3bf98c4`, `_CHUNKED_DS`, `_SINGLE_HDF5_DS`, `_SBD_CLASSES`):
 
-| Read through | Datasets | Bucket names parsed? | Training cap (`build_training_dataset.py`) |
+| Read through | Datasets | Bucket names parsed? | Sum of caps (`build_training_dataset.py` lines 222–335) |
 |---|---|---|--:|
-| SeisBench's reader | stead, instancecounts, geofon, ethz, ceed, crew, txed, pnw, lendb, vcseis, iquique, obst2024, scedc | yes | 983,400 |
+| SeisBench's reader | stead, instancecounts, geofon, ethz, ceed, crew, txed, pnw, lendb, vcseis, iquique, obst2024, scedc | yes | 823,400 |
 | Own single-file reader | meier2019jgr, ross2018gpd, pisdl | **no** | 360,000 |
-| Own chunked reader | mlaapde, cwa | **no** | 110,000 |
+| Own chunked reader | mlaapde, cwa, aq2009gm | **no** | 170,000 |
 
 So the question "how much of v7's corpus was zeros" reduces to "which of
-the five direct-read datasets are stored bucketed on the lab server." The
-caps sum to 470,000 of the 1,453,400 cap budget before stratification;
-the manifest itself has 527,477 rows. The answer therefore ranges from
+the six direct-read datasets are stored bucketed on the lab server." Their
+caps sum to 530,000 against 823,400 for the SeisBench route, before
+stratification and the split; the training manifest itself has 527,477
+rows (`docs/2026-09-07_training_history_audit.md` line 96). The answer therefore ranges from
 almost nothing to most of the corpus, and nothing in this clone can narrow
 it: the HDF5 files and the manifest live only on the server.
 
@@ -106,7 +107,7 @@ flowchart LR
 
 The zero window survives normalisation: `_normalise_std` replaces a
 standard deviation below 10⁻⁶ by one, so zeros stay zeros (`3bf98c4`, lines
-190–197). The model then receives an all-zero input with a target that says
+190–194). The model then receives an all-zero input with a target that says
 "no phase anywhere" and gets a gradient for it in every epoch. Three things
 follow.
 
@@ -115,10 +116,10 @@ follow.
   targets (25 % teleseismic, 40 % local, and so on) were not what was
   trained, and every statement in the training-history audit that reasons
   from manifest composition inherits that uncertainty.
-- Batches containing all-zero inputs shift batch-normalisation running
-  statistics. The v7 checkpoint's input-layer running variance is 0.76 of
-  the parent's (median over channels, from the 2026-09-10 audit probes),
-  which is the direction such batches push it.
+- Batches containing all-zero inputs pull the batch-normalisation running
+  statistics toward zero variance. Whether the v7 checkpoint shows this is
+  a one-line check against the parent's running buffers and belongs in the
+  34B run; it has not been made.
 - The loss was computed on fewer real examples than the epoch count
   suggests, so learning-rate and early-stopping decisions were made on a
   smaller effective dataset than anyone believed.
@@ -131,7 +132,7 @@ consistent. The harm is absence and dilution, not contradiction.
 | Date | Event |
 |---|---|
 | 2026-06-15 | v7 evaluated on the benchmark (`e555757`) and later chosen for deployment |
-| 2026-06-26 onward | review issues opened; #14 notes that fetch exceptions "silently return a fake all-noise sample" |
+| 2026-06-26 | review issue #14 opened, listing among "lower impact" hygiene items that "waveform-fetch exceptions are swallowed and returned as all-noise zero samples — at minimum log/count them" |
 | 2026-07-12 | fix #14 (`71d7e2d`) adds a counter and a log line for fetch failures; the substitution itself is kept |
 | 2026-09-10 | independent audit finds the native-rate label misalignment; the same loader read confirms the zero path |
 | 2026-09-11 | #34A merged: bucket parsing, rate resolution, rejection instead of substitution; PR #63 proposes the historical replay |
@@ -150,8 +151,8 @@ bucketed name read through the direct readers. Known, from the tests in
 PR #63 against the pinned historical definitions: a bucketed name on the
 direct route produces exactly the zero window described above.
 
-Not known: whether `meier2019jgr`, `ross2018gpd`, `pisdl`, `mlaapde` and
-`cwa` are stored bucketed on the server, and therefore the number of
+Not known: whether `meier2019jgr`, `ross2018gpd`, `pisdl`, `mlaapde`, `cwa`
+and `aq2009gm` are stored bucketed on the server, and therefore the number of
 affected rows per dataset and split.
 
 ## 6. How the number is obtained
@@ -171,7 +172,7 @@ server:
 
 ```bash
 python scripts/audit_v7_rows.py --manifest-dir <original manifests_v2> --cache-root <cache> --inventory-only --output <dir1>
-python scripts/audit_v7_rows.py ... --max-rows 100 --output <dir2>     # diagnostic prefix, start with the five direct-read datasets
+python scripts/audit_v7_rows.py ... --max-rows 100 --output <dir2>     # diagnostic prefix, start with the six direct-read datasets
 python scripts/audit_v7_rows.py ... --output <dir3>                    # full replay; phase_summary.csv holds the per-dataset counts
 ```
 

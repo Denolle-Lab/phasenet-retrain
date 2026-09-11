@@ -117,9 +117,12 @@ follow.
   trained, and every statement in the training-history audit that reasons
   from manifest composition inherits that uncertainty.
 - Batches containing all-zero inputs pull the batch-normalisation running
-  statistics toward zero variance. Whether the v7 checkpoint shows this is
-  a one-line check against the parent's running buffers and belongs in the
-  34B run; it has not been made.
+  statistics toward zero variance. The v7 checkpoint's input-layer running
+  variance is 0.758 of the parent's, median over channels
+  (`docs/2026-09-10_picker_and_issue_roadmap_audit.md`, "Batch
+  normalization deserves a cheap ablation", from
+  `docs/audit_2026-09-10/probes.py`). That is the direction zero batches
+  push it; it is consistent with the defect, not proof of it.
 - The loss was computed on fewer real examples than the epoch count
   suggests, so learning-rate and early-stopping decisions were made on a
   smaller effective dataset than anyone believed.

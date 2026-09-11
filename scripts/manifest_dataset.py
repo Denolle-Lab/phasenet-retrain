@@ -288,6 +288,7 @@ class ManifestDataset(Dataset):
         self._sbd_unique_names = {}
         self._chunked, self._single_hdf5 = {}, {}
         self._noise_reader, self._prephase_reader = None, None
+        ds_name = None  # Grouping can fail before a dataset identity is available.
         try:
             for ds_name, rows in self.manifest.groupby("dataset_name", sort=False):
                 wanted = set(rows.trace_name)

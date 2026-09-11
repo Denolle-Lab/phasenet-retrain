@@ -1,4 +1,5 @@
 """Offline #34A fixtures: source timestamps are independent of manifest offsets."""
+import hashlib
 import json
 from pathlib import Path
 import pickle
@@ -156,6 +157,30 @@ class LoaderContractTests(unittest.TestCase):
         fake.metadata["trace_chunk"] = "01"
         with self.assertRaisesRegex(ValueError, "Ambiguous"):
             md.ManifestDataset._build_name_index(fake)
+
+    def test_initialization_failures_preserve_error_and_log_dataset_identity(self):
+        cases = (
+            ({"trace_name": "trace"}, KeyError, "dataset_name", None),
+            ({"dataset_name": "unknown_source", "trace_name": "trace"},
+             ValueError, "Unknown dataset 'unknown_source'", "unknown_source"),
+        )
+        for number, (row, error_type, message, dataset_name) in enumerate(cases):
+            with self.subTest(dataset_name=dataset_name):
+                manifest = self.root / f"invalid_{number}.csv"
+                pd.DataFrame([row]).to_csv(manifest, index=False)
+                with self.assertRaises(error_type) as caught:
+                    md.ManifestDataset(manifest)
+                self.assertEqual(caught.exception.args, (message,))
+                records = [json.loads(line)
+                           for file in self.root.glob(f"invalid_{number}.rejected.*.jsonl")
+                           for line in file.read_text().splitlines()]
+                self.assertEqual(len(records), 1)
+                self.assertIsNone(records[0]["row_index"])
+                self.assertEqual(records[0]["dataset_name"], dataset_name)
+                self.assertEqual(records[0]["error_type"], error_type.__name__)
+                self.assertEqual(records[0]["reason"], str(caught.exception))
+                self.assertEqual(records[0]["manifest_sha256"],
+                                 hashlib.sha256(manifest.read_bytes()).hexdigest())
 
     def test_unknown_rate_orientation_missing_trace_reject_and_log(self):
         for defect in ("rate", "orientation", "trace", "labels", "nan_wave"):

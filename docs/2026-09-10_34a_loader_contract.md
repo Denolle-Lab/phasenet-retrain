@@ -74,9 +74,9 @@ python -m unittest discover -s tests -p test_manifest_dataset.py -v
 python -m pytest tests -q
 ```
 
-The loader suite has 14 tests covering direct and real SeisBench HDF5 readers, bucketed CW/WC storage, 20/40/50/62.5/100/120/200/250/500 Hz (plus 80 Hz direct), independent pulse times, fractional indices, P-only/S-only rows, crop endpoints, support trimming, missing channels, unknown rates/orientation, conflicting metadata, explicit noise, preload failure, and spawned workers. Waveform and label peak times must agree with independently generated source times within one target sample. No network dataset download or trained-model scoring is required.
+The loader suite has 15 tests covering direct and real SeisBench HDF5 readers, bucketed CW/WC storage, 20/40/50/62.5/100/120/200/250/500 Hz (plus 80 Hz direct), independent pulse times, fractional indices, P-only/S-only rows, crop endpoints, support trimming, missing channels, unknown rates/orientation, conflicting metadata, explicit noise, preload failure, initialization-error logging, and spawned workers. Waveform and label peak times must agree with independently generated source times within one target sample. No network dataset download or trained-model scoring is required.
 
-Local validation on 2026-09-10: **14 loader tests passed**, using Python 3.11, PyTorch 2.7.1, SeisBench `0.9.1.dev16+g3667d44`, NumPy 1.26.4, and SciPy 1.16.0. The existing base-environment suite passed **31 tests**, with the loader module skipped there because that environment lacks PyTorch. Multiprocessing tests required normal OS shared-memory access outside the restricted execution sandbox.
+Local validation on 2026-09-10: **15 loader tests passed**, using Python 3.11, PyTorch 2.7.1, SeisBench `0.9.1.dev16+g3667d44`, NumPy 1.26.4, and SciPy 1.16.0. The existing base-environment suite passed **31 tests**, with the loader module skipped there because that environment lacks PyTorch. Multiprocessing tests required normal OS shared-memory access outside the restricted execution sandbox.
 
 This is local evidence for **34A**, pending review and checks against the pinned server environment. Issue #34 stays open:
 

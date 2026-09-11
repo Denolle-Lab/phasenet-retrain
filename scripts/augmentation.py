@@ -460,9 +460,11 @@ class EventSuperposition(Transform):
     base peak (one scalar; relative component amplitudes preserved). Merged:
     arrivals (shifted; those outside are listed as dropped; missing event_ids
     become the second window's trace_name or "superposed"), unknown intervals
-    (union), negative_support (weakest wins), valid_samples (minimum of the
-    base support and the end of the second's support in the base frame),
-    component_mask (and; channels missing in either are zeroed).
+    (union), negative_support (weakest wins), component_mask (and; channels
+    missing in either are zeroed). valid_samples stays the base's: outside
+    its own support the second window adds silence, which is neither invalid
+    nor unknown; its support span in the mixture's time base is recorded as
+    second_support_s.
     Targets from overlapping arrivals follow label_targets (per-channel
     maximum, then renormalisation).
     """
@@ -523,13 +525,14 @@ class EventSuperposition(Transform):
         out.arrivals = list(out.arrivals) + added
         out.unknown_intervals = list(out.unknown_intervals) + clip_intervals(second.unknown_intervals, dt, out.duration_s)
         out.negative_support = merge_support(out.negative_support, second.negative_support)
-        valid = max(min(n_valid, shift + second.n_valid, n), 0)
-        out.valid_samples = None if valid >= n else valid
+        # The base's support is unchanged: outside its own support the second
+        # window contributes silence, which is neither invalid nor unknown.
         out.component_mask = tuple(bool(x) for x in real)
         out.meta["dropped_arrivals"] = list(out.meta.get("dropped_arrivals", ())) + [a.to_dict() for a in dropped]
         _record(out, self.name, offset_s=dt + t_second - t_base, offset_drawn_s=offset, shift_s=dt,
                 amplitude_ratio=ratio, gain=gain, n_added=len(added), n_dropped=len(dropped),
-                second_trace=second.meta.get("trace_name"), second_support=second.negative_support)
+                second_support_s=(s0 / rate, s1 / rate), second_trace=second.meta.get("trace_name"),
+                second_negative_support=second.negative_support)
         return out
 
 

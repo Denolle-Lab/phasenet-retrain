@@ -252,6 +252,8 @@ def test_event_superposition_merges_arrivals_and_masks_with_unknown_winning():
         shift = rec["shift_s"]
         assert out.unknown_intervals == [(pytest.approx(60.0 + shift), pytest.approx(62.0 + shift))]
         assert out.valid_samples is None and out.component_mask == (True, True, True)
+        lo_s, hi_s = rec["second_support_s"]
+        assert lo_s == pytest.approx(max(shift, 0.0)) and hi_s == pytest.approx(min(shift + 120.0, 120.0))
         built = targets_for(out, MASKED)
         u0, u1 = out.unknown_intervals[0]
         assert built.mask[int(u0 * RATE):int(u1 * RATE)].max() == 0.0
@@ -267,14 +269,25 @@ def test_event_superposition_support_rules():
     assert aug.merge_support("certified", "reviewed") == "reviewed"
     assert aug.merge_support("certified", "certified") == "certified"
     base = pulse_sample(negative_support="unknown")
+    # a second window whose support (40 s) ends before the base's late S at 55 s
     provider = second_provider(negative_support="certified", unknown_intervals=[], component_mask=(True, True, False),
-                               valid_samples=5000)
+                               valid_samples=4000)
     out = aug.EventSuperposition(provider, prob=1.0, offset_s=(3.0, 3.0))(base, np.random.default_rng(1))
     rec = out.meta["augmentations"][-1]
     assert out.negative_support == "unknown"
     assert out.component_mask == (True, True, False) and np.all(out.waveform[2] == 0)
-    shift_samples = int(round(rec["shift_s"] * RATE))
-    assert out.valid_samples == min(N_STORED, shift_samples + 5000)
+    # the base's support is untouched, nothing unknown was added, and the second's span is recorded
+    assert out.valid_samples is None and out.n_valid == N_STORED and out.unknown_intervals == []
+    shift_s = rec["shift_s"]
+    assert rec["second_support_s"] == (pytest.approx(shift_s), pytest.approx(shift_s + 40.0))
+    assert shift_s + 40.0 < 55.0
+    end = int(round((shift_s + 40.0) * RATE))
+    np.testing.assert_array_equal(out.waveform[:2, end:], base.waveform[:2, end:])
+    assert check_peaks(out) == 4
+    late_s = next(a for a in out.arrivals if a.phase == "S" and a.event_id is None)
+    assert late_s.time_s == 55.0
+    built = targets_for(out, MASKED)
+    assert built.mask[5500] == 1.0 and built.targets[1, 5500] >= 0.99
     # no arrival to anchor on: recorded skip, sample otherwise unchanged
     empty = aug.EventSuperposition(provider, prob=1.0)(pulse_sample(arrivals=()), np.random.default_rng(0))
     assert "skipped" in empty.meta["augmentations"][-1] and empty.arrivals == []

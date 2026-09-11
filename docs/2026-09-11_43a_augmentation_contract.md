@@ -30,7 +30,7 @@ and the record reproduce every mixture.
 | `RandomCrop(window_samples, anchor_range=(0.1, 0.7))` | crop of `window_samples` starting at a whole sample; a shorter window is zero-padded | shifted by the start; a supervising arrival (any arrival when none supervises) is placed at a fraction of the window drawn from `anchor_range`, so it is always inside; arrivals outside are dropped and listed in `meta["dropped_arrivals"]` (crop frame) | shifted and clipped to the crop | `min(max(n_valid - start, 0), window)`; padding lies beyond it | unchanged |
 | `NoiseSuperposition(noise_provider, prob=0.6, snr_bins)` | adds provider noise scaled to a target SNR (definition below); noise zeroed on missing channels and beyond `valid_samples` | unchanged | unchanged | unchanged | unchanged; the provider states what pool it serves |
 | `NonStationaryNoise(noise_provider=None, prob=0.3, snr_bins)` | provider noise (white when no provider) times an envelope: linear ramp, step at 20 to 80 % of the support, or a burst over at least 20 % of it with 0.5 s cosine tapers; scaled to the target SNR at full level | unchanged | unchanged | unchanged | unchanged |
-| `EventSuperposition(sample_provider, prob=0.3, offset_s=(2, 40), amplitude_ratio=(0.1, 1.0))` | adds a second window scaled by one scalar so its peak is `amplitude_ratio` times the base peak; the second anchor (earliest supervising arrival, else earliest arrival) lands at the base anchor plus an offset of magnitude from `offset_s`, sign at random, restricted to what fits inside the base valid support; shift rounded to whole samples | base plus the second's shifted arrivals; those outside dropped and listed; a missing `event_id` becomes the second's `trace_name` or `"superposed"` | union (second's shifted and clipped) | `min(base n_valid, shift + second n_valid)` | mask: and, zeroing channels missing in either; support: weakest wins (unknown over reviewed over certified) |
+| `EventSuperposition(sample_provider, prob=0.3, offset_s=(2, 40), amplitude_ratio=(0.1, 1.0))` | adds a second window scaled by one scalar so its peak is `amplitude_ratio` times the base peak; the second anchor (earliest supervising arrival, else earliest arrival) lands at the base anchor plus an offset of magnitude from `offset_s`, sign at random, restricted to what fits inside the base valid support; shift rounded to whole samples | base plus the second's shifted arrivals; those outside dropped and listed; a missing `event_id` becomes the second's `trace_name` or `"superposed"` | union (second's shifted and clipped) | unchanged (the base's): outside its own support the second window adds silence, neither invalid nor unknown; its span in the mixture's time base is recorded as `second_support_s` | mask: and, zeroing channels missing in either; support: weakest wins (unknown over reviewed over certified) |
 | `Spike(prob=0.03, amplitude=(5, 50), width_samples=(1, 3))` | offset of `amplitude` times window RMS over 1 to 3 samples on one real channel (all, half the time) | unchanged | unchanged | unchanged | unchanged |
 | `DCStep(prob=0.03, amplitude=(0.5, 5))` | step of `amplitude` times RMS on one real channel to the end of the support | unchanged | unchanged | unchanged | unchanged |
 | `Gap(prob=0.03, duration_s=(0.1, 3.0))` | zeros on every channel over the gap | unchanged | gap appended, so `targets_for` masks it | unchanged | unchanged |
@@ -178,8 +178,9 @@ sample; dropped arrivals are listed; a gap is masked to 0 through
 `targets_for`; the realised SNR is within 0.5 dB of the target (recomputed
 from the added noise, not read from the record); superposition merges
 arrivals with distinct event ids, unknown support wins, the second's unknown
-interval follows the shift and is masked, `valid_samples` takes the minimum
-and `component_mask` the and; `RateTransform` keeps the pulse time (offset 0)
+interval follows the shift and is masked, a shorter second window leaves the
+base's `valid_samples` and its late S supervised, and `component_mask` takes
+the and; `RateTransform` keeps the pulse time (offset 0)
 and attenuates energy above 1.2 times the intermediate Nyquist by more than
 20 dB (measured 35 to 41 dB at 20, 40, 50 Hz on white noise) with the
 passband within 0.5 dB (measured under 0.02 dB); `ChannelDrop` updates the
@@ -206,8 +207,3 @@ and switches every group off.
 - Scientific value is 47A: paired seeds, equal update budgets, no-augmentation
   and white-noise controls, one group at a time. None of the probabilities
   above is validated.
-- `EventSuperposition.valid_samples` follows the strategy's minimum rule.
-  Samples after the second window's support carry base data only and could
-  be supervised under the base's support; if 47A finds the rule costs S
-  supervision on short second windows, dropping the minimum is a one-line
-  change and a test update.

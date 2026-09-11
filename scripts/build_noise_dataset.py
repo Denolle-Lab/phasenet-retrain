@@ -24,11 +24,21 @@ Run from repo root:
     python scripts/build_noise_dataset.py [--seed 42] [--dry-run]
 
 Resume: re-running the script skips traces already in metadata.csv.
+
+2026-09-11 (#33A): the exclusion bundle (scripts/exclusion_bundle.py) is
+applied at extraction with kind="noise": held-out windows on the station
+location and the trace start time (trace_start_time), the 2016/2021 hold-out
+on the start-time year, quarantine of rows without a station location or
+start time (TXED noise has no station coordinates and is quarantined under
+the default policy). metadata.csv now records `starttime` and
+`independence_unverified`; a metadata.csv with the old header is not resumed
+(use --out-dir). exclusion_report.json beside metadata.csv records the counts.
 """
 
 import argparse
 import csv
 import os
+import sys
 import warnings
 from pathlib import Path
 
@@ -48,6 +58,9 @@ import seisbench.data as sbd
 
 # ── paths ──────────────────────────────────────────────────────────────────────
 REPO_ROOT  = Path(__file__).parent.parent.resolve()
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+import exclusion_bundle as eb  # noqa: E402  versioned exclusions on station location + start time (#33A)
+
 OUT_DIR    = REPO_ROOT / "data" / "noise_global"
 HDF5_PATH  = OUT_DIR / "waveforms.hdf5"
 META_PATH  = OUT_DIR / "metadata.csv"
@@ -61,6 +74,7 @@ META_FIELDS = [
     "latitude", "longitude", "tectonic_setting", "region",
     "starttime", "sampling_rate",
     "trace_P_arrival_sample", "trace_S_arrival_sample",
+    "independence_unverified",
 ]
 
 # ── source configurations ──────────────────────────────────────────────────────
@@ -128,6 +142,18 @@ def _safe_float(v):
         return None if np.isnan(f) else f
     except (TypeError, ValueError):
         return None
+
+
+def _text(v):
+    """str(v), or "" for None/NaN."""
+    if v is None:
+        return ""
+    try:
+        if pd.isna(v):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return str(v)
 
 
 def lat_lon_to_region(lat, lon):
@@ -245,10 +271,12 @@ def stratify_by_lat(df, lat_col, cap, rng):
 
 # ── per-source extraction ──────────────────────────────────────────────────────
 
-def process_source(cfg, rng, existing_names, data_grp, meta_writer, dry_run=False):
+def process_source(cfg, rng, existing_names, data_grp, meta_writer, dry_run=False,
+                   bundle=None, reports=None):
     """
     Extract noise waveforms from one SeisBench source.
-    Returns (n_written, n_skipped).
+    `bundle` (required) is the exclusion bundle; its kind="noise" report is
+    appended to `reports`. Returns (n_written, n_skipped).
     """
     name = cfg["name"]
     print(f"\n[{name}]", flush=True)
@@ -270,6 +298,23 @@ def process_source(cfg, rng, existing_names, data_grp, meta_writer, dry_run=Fals
     noise_mask = meta[cat_col].str.lower().str.contains(cfg["cat_val"], na=False)
     noise_meta = meta[noise_mask]
     print(f"  {len(noise_meta):,} noise traces available")
+
+    # ── exclusion bundle (#33A): windows on station location + trace start ────
+    if bundle is None:
+        raise ValueError("process_source needs the exclusion bundle (scripts/exclusion_bundle.py)")
+    noise_meta, ex_report = eb.apply_exclusions(
+        noise_meta, bundle, kind="noise", dataset=name,
+        station_lat_col=cfg.get("lat_col"), station_lon_col=cfg.get("lon_col"),
+        start_col="trace_start_time" if "trace_start_time" in noise_meta.columns else None)
+    print(f"  {len(noise_meta):,} after the exclusion bundle (in-window {ex_report['n_in_window']:,}, "
+          f"{sorted(eb.hs.HOLDOUT_YEARS)} start {ex_report['n_year_holdout']:,}, "
+          f"quarantined unknown {ex_report['n_quarantined_unknown']:,}, "
+          f"kept-flagged {ex_report['n_unknown_kept_flagged']:,})")
+    if reports is not None:
+        reports.append(ex_report)
+    if len(noise_meta) == 0:
+        return 0, 0
+    flags = noise_meta[eb.FLAG_COL]   # indexed by position in `meta` (reset above)
 
     # ── sub-sample / stratify ─────────────────────────────────────────────────
     cap = cfg.get("cap")
@@ -341,10 +386,11 @@ def process_source(cfg, rng, existing_names, data_grp, meta_writer, dry_run=Fals
             "longitude":              f"{lon:.4f}" if lon is not None else "",
             "tectonic_setting":       tectonic,
             "region":                 region,
-            "starttime":              "",
+            "starttime":              _text(row.get("trace_start_time")),
             "sampling_rate":          TARGET_SR,
             "trace_P_arrival_sample": "",
             "trace_S_arrival_sample": "",
+            "independence_unverified": bool(flags.get(pos_idx, False)),
         })
 
         existing_names.add(tname)
@@ -361,7 +407,19 @@ def process_source(cfg, rng, existing_names, data_grp, meta_writer, dry_run=Fals
 # ── main ───────────────────────────────────────────────────────────────────────
 
 def main(args):
+    global OUT_DIR, HDF5_PATH, META_PATH
+    if args.out_dir:
+        OUT_DIR   = REPO_ROOT / args.out_dir
+        HDF5_PATH = OUT_DIR / "waveforms.hdf5"
+        META_PATH = OUT_DIR / "metadata.csv"
     rng = np.random.default_rng(args.seed)
+
+    # ── exclusion bundle (#33A): fail closed before anything is written ───────
+    bundle = eb.load_bundle(require_certified=not args.allow_uncertified_bundle)
+    print(f"Exclusion bundle {bundle['sha256'][:12]} certified={bundle['certified']} "
+          f"allow_unknown={bundle['quarantine_policy']['allow_unknown']}")
+    reports = []
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     expected = sum(
@@ -385,6 +443,13 @@ def main(args):
                 existing_names.add(row["trace_name"])
         if existing_names:
             print(f"Resuming — {len(existing_names):,} traces already in metadata.csv\n")
+    if META_PATH.exists() and META_PATH.stat().st_size:
+        with open(META_PATH) as f:
+            header = f.readline().strip().split(",")
+        if header != META_FIELDS:
+            sys.exit(f"{META_PATH} has columns {header}; this version writes {META_FIELDS} "
+                     "(starttime filled, independence_unverified). Use --out-dir for a new noise set "
+                     "instead of resuming one built without the exclusion bundle.")
 
     # ── open output files ──────────────────────────────────────────────────────
     if not args.dry_run:
@@ -407,7 +472,7 @@ def main(args):
     for cfg in NOISE_CONFIGS:
         nw, ns = process_source(
             cfg, rng, existing_names, data_grp, meta_writer,
-            dry_run=args.dry_run,
+            dry_run=args.dry_run, bundle=bundle, reports=reports,
         )
         total_written += nw
         total_skipped += ns
@@ -419,6 +484,13 @@ def main(args):
     if not args.dry_run and hdf5_file is not None:
         hdf5_file.close()
         meta_file.close()
+        eb.append_provenance(OUT_DIR, "extractions", {
+            "script": "scripts/build_noise_dataset.py",
+            "created_utc": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds"),
+            "bundle_sha256": bundle["sha256"], "bundle_certified": bundle["certified"],
+            "git_commit": eb._git_commit(REPO_ROOT), "seed": args.seed, "exclusions": reports,
+        })
+        print(f"Exclusion counts appended to {OUT_DIR / 'provenance.json'}")
 
     print(f"\n{'='*60}")
     print(f"Total noise traces written : {total_written:,}")
@@ -444,4 +516,8 @@ if __name__ == "__main__":
     parser.add_argument("--seed",    type=int, default=42)
     parser.add_argument("--dry-run", action="store_true",
                         help="Count available traces without writing anything")
+    parser.add_argument("--out-dir", default=None,
+                        help="Output directory relative to the repo (default: data/noise_global)")
+    parser.add_argument("--allow-uncertified-bundle", action="store_true",
+                        help="Proceed even if the exclusion bundle does not certify every source snapshot")
     main(parser.parse_args())

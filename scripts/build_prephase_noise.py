@@ -25,11 +25,21 @@ Run from repo root:
 
 Resume: re-running skips traces already in metadata.csv.
 Next:   python scripts/add_prephase_to_manifests.py
+
+2026-09-11 (#33A): the exclusion bundle (scripts/exclusion_bundle.py) is
+applied per source dataset before extraction, twice: kind="signal" on the
+manifest rows (listed (dataset, chunk, trace_name), source origin in a
+held-out window, 2016/2021 origin, quarantine of unknown origins), then
+kind="noise" on the parent trace's station location and trace_start_time
+joined from the source metadata. metadata.csv gains `starttime` and
+`independence_unverified`; a metadata.csv with the old header is not resumed
+(use --out-dir). Counts go to <out-dir>/provenance.json.
 """
 
 import argparse
 import csv
 import os
+import sys
 import warnings
 from pathlib import Path
 
@@ -48,6 +58,9 @@ seisbench.cache_root = SEISBENCH_CACHE
 import seisbench.data as sbd
 
 REPO_ROOT = Path(__file__).parent.parent.resolve()
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+import exclusion_bundle as eb  # noqa: E402  (#33A)
+
 OUT_DIR   = REPO_ROOT / "data" / "noise_prephase"
 HDF5_PATH = OUT_DIR / "waveforms.hdf5"
 META_PATH = OUT_DIR / "metadata.csv"
@@ -64,6 +77,7 @@ META_FIELDS = [
     "latitude", "longitude",
     "tectonic_setting", "region",
     "distance_bin", "sampling_rate",
+    "starttime", "independence_unverified",
 ]
 
 CHUNKED_PATHS = {
@@ -98,6 +112,18 @@ def _safe_float(v):
         return None if np.isnan(f) else f
     except (TypeError, ValueError):
         return None
+
+
+def _text(v):
+    """str(v), or "" for None/NaN."""
+    if v is None:
+        return ""
+    try:
+        if pd.isna(v):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return str(v)
 
 
 def lat_lon_to_region(lat, lon):
@@ -211,8 +237,10 @@ class ChunkedReader:
 # ── per-dataset processing ─────────────────────────────────────────────────────
 
 def process_dataset(ds_name, rows, existing_names, data_grp, meta_writer,
-                    dry_run, rng, cap):
+                    dry_run, rng, cap, bundle=None, reports=None):
     print(f"\n[{ds_name}]  {len(rows):,} candidate manifest rows", flush=True)
+    if bundle is None:
+        raise ValueError("process_dataset needs the exclusion bundle (scripts/exclusion_bundle.py)")
 
     if ds_name in SKIP_DATASETS:
         print("  SKIP — noise source")
@@ -261,6 +289,39 @@ def process_dataset(ds_name, rows, existing_names, data_grp, meta_writer,
     else:
         chunked_meta = {}
         chunked_reader = None
+
+    # ── exclusion bundle (#33A) ───────────────────────────────────────────────
+    # 1. the parent trace as a signal row: listed key, source origin window, year
+    cand = pd.DataFrame(rows)
+    cand, sig_rep = eb.apply_exclusions(cand, bundle, kind="signal", dataset=ds_name)
+    cand = cand.rename(columns={eb.FLAG_COL: "_signal_flag"})
+    # 2. the noise window itself: station location and trace start time of the
+    #    parent trace, joined from the source metadata
+    join_cols = [c for c in ("station_latitude_deg", "station_longitude_deg", "trace_start_time")
+                 if c in meta.columns]
+    if join_cols and "trace_name" in meta.columns and len(cand):
+        key = ["trace_name", "chunk"] if is_chunked else ["trace_name"]
+        src = meta[key + join_cols].copy()
+        src["trace_name"] = src["trace_name"].astype(str)
+        cand["trace_name"] = cand["trace_name"].astype(str)
+        if is_chunked:
+            src["chunk"] = src["chunk"].astype(str)
+            cand["chunk"] = cand["chunk"].fillna("").astype(str)
+        cand = cand.merge(src.drop_duplicates(subset=key), on=key, how="left")
+    cand, noise_rep = eb.apply_exclusions(cand, bundle, kind="noise", dataset=ds_name)
+    if "_signal_flag" in cand.columns:
+        cand[eb.FLAG_COL] = cand[eb.FLAG_COL] | cand["_signal_flag"].astype(bool)
+        cand = cand.drop(columns=["_signal_flag"])
+    print(f"  {len(cand):,} after the exclusion bundle "
+          f"(signal: listed {sig_rep['n_trace_listed']:,}, in-window {sig_rep['n_in_window']:,}, "
+          f"years {sig_rep['n_year_holdout']:,}, quarantined {sig_rep['n_quarantined_unknown']:,}; "
+          f"station/start: in-window {noise_rep['n_in_window']:,}, years {noise_rep['n_year_holdout']:,}, "
+          f"quarantined {noise_rep['n_quarantined_unknown']:,})")
+    if reports is not None:
+        reports.append({"dataset": ds_name, "signal": sig_rep, "noise": noise_rep})
+    rows = cand.to_dict("records")
+    if not rows:
+        return 0, 0
 
     # ── shuffle and cap ────────────────────────────────────────────────────────
     perm = rng.permutation(len(rows))
@@ -344,6 +405,8 @@ def process_dataset(ds_name, rows, existing_names, data_grp, meta_writer,
             "region":           region,
             "distance_bin":     str(row.get("distance_bin", "") or ""),
             "sampling_rate":    TARGET_SR,
+            "starttime":        _text(row.get("trace_start_time", _get("trace_start_time"))),
+            "independence_unverified": bool(row.get(eb.FLAG_COL, False)),
         })
 
         existing_names.add(tname)
@@ -377,12 +440,25 @@ def _load_chunked_meta(ds_path):
 # ── main ───────────────────────────────────────────────────────────────────────
 
 def main(args):
+    global OUT_DIR, HDF5_PATH, META_PATH
+    if args.out_dir:
+        OUT_DIR   = REPO_ROOT / args.out_dir
+        HDF5_PATH = OUT_DIR / "waveforms.hdf5"
+        META_PATH = OUT_DIR / "metadata.csv"
     rng = np.random.default_rng(args.seed)
+
+    # ── exclusion bundle (#33A): fail closed before anything is written ───────
+    bundle = eb.load_bundle(require_certified=not args.allow_uncertified_bundle)
+    print(f"Exclusion bundle {bundle['sha256'][:12]} certified={bundle['certified']} "
+          f"allow_unknown={bundle['quarantine_policy']['allow_unknown']}")
+    reports = []
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # ── load manifests ─────────────────────────────────────────────────────────
-    train_csv = REPO_ROOT / "data" / "manifests" / "train.csv"
-    val_csv   = REPO_ROOT / "data" / "manifests" / "val.csv"
+    manifests_dir = REPO_ROOT / args.manifests_dir
+    train_csv = manifests_dir / "train.csv"
+    val_csv   = manifests_dir / "val.csv"
 
     dfs = []
     for p in [train_csv, val_csv]:
@@ -416,6 +492,12 @@ def main(args):
                 existing_names.add(row["trace_name"])
         if existing_names:
             print(f"Resuming — {len(existing_names):,} traces already extracted\n")
+    if META_PATH.exists() and META_PATH.stat().st_size:
+        with open(META_PATH) as f:
+            header = f.readline().strip().split(",")
+        if header != META_FIELDS:
+            sys.exit(f"{META_PATH} has columns {header}; this version writes {META_FIELDS}. "
+                     "Use --out-dir for a new noise set instead of resuming one built without the exclusion bundle.")
 
     # ── open output files ──────────────────────────────────────────────────────
     if not args.dry_run:
@@ -441,6 +523,7 @@ def main(args):
             ds_name, rows, existing_names,
             data_grp, meta_writer,
             dry_run=args.dry_run, rng=rng, cap=args.cap_per_ds,
+            bundle=bundle, reports=reports,
         )
         total_written += nw
         total_skipped += ns
@@ -451,6 +534,14 @@ def main(args):
     if not args.dry_run and h5 is not None:
         h5.close()
         meta_file.close()
+        eb.append_provenance(OUT_DIR, "extractions", {
+            "script": "scripts/build_prephase_noise.py",
+            "created_utc": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds"),
+            "bundle_sha256": bundle["sha256"], "bundle_certified": bundle["certified"],
+            "git_commit": eb._git_commit(REPO_ROOT), "seed": args.seed,
+            "manifests_dir": str(args.manifests_dir), "cap_per_ds": args.cap_per_ds, "exclusions": reports,
+        })
+        print(f"Exclusion counts appended to {OUT_DIR / 'provenance.json'}")
 
     # ── summary ────────────────────────────────────────────────────────────────
     print(f"\n{'='*60}")
@@ -482,4 +573,10 @@ if __name__ == "__main__":
                         help="Max traces to extract per source dataset (default: 5000)")
     parser.add_argument("--dry-run",    action="store_true",
                         help="Count eligible traces without writing data")
+    parser.add_argument("--manifests-dir", default="data/manifests",
+                        help="Manifest directory (train.csv, val.csv) to draw parent traces from")
+    parser.add_argument("--out-dir", default=None,
+                        help="Output directory relative to the repo (default: data/noise_prephase)")
+    parser.add_argument("--allow-uncertified-bundle", action="store_true",
+                        help="Proceed even if the exclusion bundle does not certify every source snapshot")
     main(parser.parse_args())

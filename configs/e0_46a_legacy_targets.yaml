@@ -1,0 +1,71 @@
+# E0 / checkpoint 46A, corrected-loader arm with legacy targets.
+#
+#  Same rows and recipe as v7 (configs/finetune_jma_wc_global_v7.yaml:
+#  hard-argmax CE, KD alpha=0.3 T=4, LR 5e-6, batch 1024) through the 34A
+#  loader (rate contract, bucket names, rejection ledger). The only change
+#  between the two 46A corrected arms is data.label_policy. The third arm,
+#  the pinned 3bf98c4 loader, runs through scripts/audit_v7_rows.py's
+#  load_legacy (PR #63) and has no config here. Run three seeds (42, 43, 44).
+#  Do not run before 33A, 34B, 34C, 35C and 44B are released
+#  (docs/2026-09-10_issue_execution.md).
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "jma_wc"
+    freeze_layers: []
+
+training:
+  batch_size: 1024
+  num_workers: 16
+  max_epochs: 60
+  learning_rate: 0.000005
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.3
+    temperature: 4.0
+
+  soft_ce: false
+  timing_beta: 0.0
+  presence_gamma: 0.0
+  focal_gamma: 0.0
+
+  scheduler:
+    name: "ReduceLROnPlateau"
+    mode: "min"
+    factor: 0.5
+    patience: 5
+    min_lr: 1.0e-6
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 20
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_v2/train.csv"
+  val_manifest:   "data/manifests_v2/val.csv"
+  test_manifest:  "data/manifests_v2/test.csv"
+  window_length: 3001
+  label_policy: "legacy"
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "e0_46a_legacy_targets_seed42"
+  checkpoint_dir: "checkpoints/e0_46a_legacy_targets_seed42"
+  metrics_csv: "results/e0_46a_legacy_targets_seed42_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  amp: true
+
+seed: 42

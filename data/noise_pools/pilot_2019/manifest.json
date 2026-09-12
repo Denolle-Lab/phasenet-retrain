@@ -1,0 +1,296 @@
+{
+  "pool": "pilot_2019",
+  "checkpoint": "42A",
+  "git_commit": "f6d193c2129f8ed7d9af2b643215fd6dce2891bd",
+  "created": "2026-09-12T13:24:12+00:00",
+  "parameters": {
+    "window_s": 120.0,
+    "lead_s": 120.0,
+    "global_min_mag": 2.5,
+    "catalogue_lead_s": 7200.0,
+    "coda_spans": [
+      [
+        7.0,
+        null,
+        10800.0
+      ],
+      [
+        5.0,
+        15.0,
+        1800.0
+      ]
+    ],
+    "polar_lat_deg": 60.0,
+    "taup_model": "iasp91",
+    "phases": "first P of ttp, first S of tts",
+    "day_duration_s": 86400.0,
+    "days": [
+      "2019-03-12"
+    ],
+    "waveform_client": "IRIS",
+    "global_catalogue": "USGS",
+    "holdout_fraction": 0.2,
+    "split_seed_tag": "42A",
+    "max_minutes": 20.0,
+    "fdsn_timeout_s": 120,
+    "fdsn_tries": 3,
+    "feature_thresholds": {
+      "microseism_frac": 0.5,
+      "mains_line_frac": 0.05,
+      "hv_low_ratio": 3.0,
+      "spectral_flatness_flat": 0.3,
+      "kurtosis_impulsive": 8.0,
+      "high_freq_frac_cultural": 0.5,
+      "n_zero_frac": 0.05,
+      "clip_frac": 0.01,
+      "quiet_rms_percentile": 10.0,
+      "work_hours": [
+        6,
+        20
+      ]
+    },
+    "model_screening": false
+  },
+  "stations": [
+    {
+      "network": "IU",
+      "station": "KIP",
+      "location": "00",
+      "channel_band": "BH",
+      "key": "IU.KIP",
+      "latitude": 21.42,
+      "longitude": -158.0112,
+      "local_catalogue": {
+        "key": "IU.KIP",
+        "client": "USGS",
+        "radius_deg": 4.0,
+        "min_mag": 0.0,
+        "completeness_mag": 2.0
+      },
+      "source_flag": null
+    },
+    {
+      "network": "IU",
+      "station": "ANMO",
+      "location": "00",
+      "channel_band": "BH",
+      "key": "IU.ANMO",
+      "latitude": 34.94591,
+      "longitude": -106.4572,
+      "local_catalogue": null,
+      "source_flag": null
+    }
+  ],
+  "bundle": {
+    "present": true,
+    "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/bundle_42a_laptop.json",
+    "sha256": "e419160ef68730180bf8e8b0cdfb0141401c71c8973d4c34a0cf15cc8aec0694",
+    "certified": false,
+    "version": 1
+  },
+  "exclusion_report": {
+    "kind": "noise",
+    "dataset": "noise_pool",
+    "n_input": 993,
+    "n_kept": 993,
+    "n_removed": 0,
+    "n_trace_listed": 0,
+    "n_in_window": 0,
+    "n_year_holdout": 0,
+    "n_quarantined_unknown": 0,
+    "n_unknown_kept_flagged": 0,
+    "windows": {},
+    "trace_list_checked": false,
+    "columns": {
+      "time": "start_time",
+      "lat": "station_latitude_deg",
+      "lon": "station_longitude_deg"
+    },
+    "allow_unknown": false,
+    "bundle_sha256": "e419160ef68730180bf8e8b0cdfb0141401c71c8973d4c34a0cf15cc8aec0694"
+  },
+  "catalogue_queries": [
+    {
+      "client": "USGS",
+      "params": {
+        "starttime": "2019-03-11T22:00:00.000000Z",
+        "endtime": "2019-03-13T00:00:00.000000Z",
+        "minmagnitude": 2.5
+      },
+      "cache": "data/noise_pools/raw/events/USGS_global_M2.5_2019-03-12_86400s.xml",
+      "when": "2026-09-12T13:23:59+00:00",
+      "from_cache": false,
+      "n_events": 69
+    },
+    {
+      "client": "USGS",
+      "params": {
+        "starttime": "2019-03-11T22:00:00.000000Z",
+        "endtime": "2019-03-13T00:00:00.000000Z",
+        "minmagnitude": 0.0,
+        "latitude": 21.42,
+        "longitude": -158.0112,
+        "maxradius": 4.0
+      },
+      "cache": "data/noise_pools/raw/events/USGS_local_IU.KIP_r4.0_M0.0_2019-03-12_86400s.xml",
+      "when": "2026-09-12T13:24:00+00:00",
+      "from_cache": false,
+      "n_events": 13
+    }
+  ],
+  "fetches": [
+    {
+      "station": "IU.KIP",
+      "day": "2019-03-12",
+      "duration_s": 86400.0,
+      "client": "IRIS",
+      "cache": "data/noise_pools/raw/IU.KIP.00.BH_2019-03-12_86400s.mseed",
+      "from_cache": false,
+      "seconds": 1.2,
+      "n_traces_raw": 3,
+      "n_channels": 3,
+      "channels": [
+        "BH1",
+        "BH2",
+        "BHZ"
+      ],
+      "rate_hz": 40.0
+    },
+    {
+      "station": "IU.ANMO",
+      "day": "2019-03-12",
+      "duration_s": 86400.0,
+      "client": "IRIS",
+      "cache": "data/noise_pools/raw/IU.ANMO.00.BH_2019-03-12_86400s.mseed",
+      "from_cache": false,
+      "seconds": 1.0,
+      "n_traces_raw": 3,
+      "n_channels": 3,
+      "channels": [
+        "BH1",
+        "BH2",
+        "BHZ"
+      ],
+      "rate_hz": 40.0
+    }
+  ],
+  "station_days": [
+    {
+      "day": "2019-03-12",
+      "station": "IU.KIP",
+      "n_windows": 720,
+      "n_empty": 0,
+      "n_rejected_arrival": 227,
+      "n_coda": 0,
+      "n_events": 82,
+      "rate_hz": 40.0,
+      "channels": [
+        "BHZ",
+        "BH1",
+        "BH2"
+      ],
+      "npz": "windows/IU.KIP.00.BH_2019-03-12.npz"
+    },
+    {
+      "day": "2019-03-12",
+      "station": "IU.ANMO",
+      "n_windows": 720,
+      "n_empty": 0,
+      "n_rejected_arrival": 220,
+      "n_coda": 0,
+      "n_events": 69,
+      "rate_hz": 40.0,
+      "channels": [
+        "BHZ",
+        "BH1",
+        "BH2"
+      ],
+      "npz": "windows/IU.ANMO.00.BH_2019-03-12.npz"
+    }
+  ],
+  "failures": [],
+  "budget": {
+    "max_minutes": 20.0,
+    "elapsed_s": 13.3,
+    "exhausted_before": null
+  },
+  "census": {
+    "n_rows": 993,
+    "by_station": {
+      "IU.ANMO": 500,
+      "IU.KIP": 493
+    },
+    "by_class": {
+      "ocean_microseism": 497,
+      "quiet_baseline": 496
+    },
+    "by_category": {
+      "background": 993
+    },
+    "by_support": {
+      "certified": 493,
+      "unknown": 500
+    },
+    "by_split": {
+      "holdout": 493,
+      "train": 500
+    },
+    "by_class_source": {
+      "features": 993
+    }
+  },
+  "schema": [
+    "pool",
+    "noise_class",
+    "ontology_category",
+    "negative_support",
+    "arrivals_json",
+    "network",
+    "station",
+    "location",
+    "channel_band",
+    "station_latitude_deg",
+    "station_longitude_deg",
+    "rate_hz",
+    "start_time",
+    "duration_s",
+    "npz_path",
+    "npz_index",
+    "source",
+    "class_source",
+    "class_confidence",
+    "catalogue_used",
+    "completeness_mag",
+    "event_free",
+    "nearest_arrival_s",
+    "exclusion_bundle_sha256",
+    "independence_unverified",
+    "split",
+    "rms",
+    "rms_log10",
+    "microseism_band_frac",
+    "primary_band_frac",
+    "secondary_band_frac",
+    "secondary_band_power_log10",
+    "high_freq_frac",
+    "mains_line_frac",
+    "mains_hz",
+    "hv_low_ratio",
+    "spectral_flatness",
+    "kurtosis",
+    "n_zero_frac",
+    "clip_frac",
+    "hour_of_day",
+    "station_rms_log10_p10",
+    "station_secondary_p50"
+  ],
+  "log": [
+    "[13:23:58] exclusion bundle /private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/bundle_42a_laptop.json: sha256 e419160ef687 certified=False",
+    "[13:23:59] IU.KIP at 21.4200, -158.0112",
+    "[13:23:59] IU.ANMO at 34.9459, -106.4572",
+    "[13:24:00] 2019-03-12: 69 global events M>=2.5 in [2019-03-11T22:00:00.000000Z, 2019-03-13T00:00:00.000000Z]",
+    "[13:24:00]   IU.KIP: 13 local events, completeness stated M2.0",
+    "[13:24:03]   IU.KIP 2019-03-12: 720 windows at 40 Hz, 227 rejected by 82 events (1.7 s TauP), 0 kept as coda",
+    "[13:24:08]   IU.ANMO 2019-03-12: 720 windows at 40 Hz, 220 rejected by 69 events (0.6 s TauP), 0 kept as coda"
+  ]
+}

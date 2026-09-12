@@ -4,6 +4,7 @@ synthetic QuakeML-like frames and without network: the query function is
 monkeypatched.  Run with:  python -m pytest tests -q
 """
 import datetime
+import json
 import pathlib
 import sys
 
@@ -53,6 +54,22 @@ def test_sample_days_is_deterministic_stratified_and_seed_dependent():
     assert sc.sample_days("INGV", 2018, 2, "other") != a     # the seed tag moves the sample
     assert sc.sample_days("NOA", 2018, 2, "39a") != a        # so does the operator
     assert sc.sample_days("INGV", 2019, 2, "39a") != a       # and the year
+
+
+def test_sample_days_takes_whole_quarters_when_the_target_reaches_the_quarter_length():
+    full = sc.sample_days("INGV", 2018, 92, "39a")               # Q3 and Q4 of 2018 have 92 days
+    assert [d for _, d in full] == [d for q in (1, 2, 3, 4) for d in sc.quarter_days(2018, q)]
+    assert sc.sample_days("INGV", 2018, 10 ** 6, "39a") == full
+    mostly = sc.sample_days("INGV", 2018, 91, "39a")             # Q1 (90) and Q2 (91) whole, Q3 and Q4 drawn
+    per_q = {q: [d for qq, d in mostly if qq == q] for q in (1, 2, 3, 4)}
+    assert per_q[1] == sc.quarter_days(2018, 1) and per_q[2] == sc.quarter_days(2018, 2)
+    assert len(per_q[3]) == len(per_q[4]) == 91 and set(per_q[3]) < set(sc.quarter_days(2018, 3))
+    assert per_q[3] == sorted(per_q[3])
+
+
+def test_sample_days_grows_as_a_prefix():
+    one = sc.sample_days("NOA", 2019, 1, "39a"); two = sc.sample_days("NOA", 2019, 2, "39a")
+    assert len(one) == 4 and len(two) == 8 and set(one) < set(two)
 
 
 def test_quarter_days_cover_the_year_exactly_once():
@@ -171,13 +188,52 @@ def test_census_day_respects_an_exhausted_budget(tmp_path):
 
 
 def test_http_get_reuses_the_raw_cache_and_counts_its_cost(tmp_path, monkeypatch):
-    dest = tmp_path / "x.xml"
-    dest.write_bytes(b"<q/>")
-    dest.with_suffix(".xml.meta.json").write_text('{"status": 200, "seconds": 2.5, "bytes": 4, "url": "u", "when": "w"}')
+    url = "http://example/query?starttime=2018-01-27T00:00:00&endtime=2018-01-28T00:00:00"
+    path, meta = sc.cache_paths(url, tmp_path / "x.xml")
+    assert path.parent == tmp_path and path.suffix == ".xml" and path.name.startswith("x.") and path.name != "x.xml"
+    assert meta == path.with_name(path.name + ".meta.json")
+    path.write_bytes(b"<q/>")
+    meta.write_text(json.dumps(dict(status=200, seconds=2.5, bytes=4, url=url, when="w")))
     monkeypatch.setattr(sc.urllib.request, "urlopen", lambda *a, **k: (_ for _ in ()).throw(AssertionError("network")))
     cost = sc.Cost()
-    status, path = sc.http_get("http://example/none", dest, cost)
-    assert status == 200 and path == dest and cost.n_queries == 1 and cost.n_cached == 1 and cost.seconds == 2.5 and cost.bytes == 4
+    status, got = sc.http_get(url, tmp_path / "x.xml", cost)
+    assert status == 200 and got == path and cost.n_queries == 1 and cost.n_cached == 1 and cost.seconds == 2.5 and cost.bytes == 4
+
+
+class _Response:
+    def __init__(self, body, status=200):
+        self.body, self.status = body, status
+
+    def read(self):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_http_get_refetches_when_the_cached_url_differs(tmp_path, monkeypatch):
+    url_a = "http://example/query?starttime=2018-01-27T00:00:00&endtime=2018-01-28T00:00:00"
+    url_b = url_a + "&minmagnitude=2"
+    path_a, meta_a = sc.cache_paths(url_a, tmp_path / "x.xml")
+    path_b, meta_b = sc.cache_paths(url_b, tmp_path / "x.xml")
+    assert path_a != path_b                                # the parameters change the cache file
+    path_b.write_bytes(b"<stale/>")                        # a body under url_b's name whose sidecar records url_a
+    meta_b.write_text(json.dumps(dict(status=200, seconds=2.5, bytes=8, url=url_a, when="w")))
+    calls = []
+    monkeypatch.setattr(sc.urllib.request, "urlopen",
+                        lambda req, timeout=None: calls.append(req.full_url) or _Response(b"<fresh/>"))
+    cost = sc.Cost()
+    status, got = sc.http_get(url_b, tmp_path / "x.xml", cost)
+    assert status == 200 and got == path_b and calls == [url_b]
+    assert path_b.read_bytes() == b"<fresh/>" and json.loads(meta_b.read_text())["url"] == url_b
+    assert cost.n_queries == 1 and cost.n_cached == 0 and cost.bytes == 8
+    status, got = sc.http_get(url_b, tmp_path / "x.xml", cost)          # now cached under its own URL
+    assert got == path_b and calls == [url_b] and cost.n_cached == 1
+    status, got = sc.http_get(url_a, tmp_path / "x.xml", cost)          # the other parameter set is its own file
+    assert got == path_a and calls == [url_b, url_a] and path_b.read_bytes() == b"<fresh/>"
 
 
 # ── run_bulletin, summary assembly ───────────────────────────────────────────
@@ -187,7 +243,7 @@ def test_run_bulletin_writes_day_files_and_summary(tmp_path):
 
     def fetch(operator, day, raw_dir, cost, budget, min_magnitude=None, max_events=None, seed_tag=""):
         calls.append((operator, day))
-        if operator == "NOA" and day.month == 4:
+        if operator == "NOA" and day.month in (4, 5, 6):          # NOA's Q2 day fails, whichever day is drawn
             return _fetch_fail(operator, day, raw_dir, cost, budget)
         return _fetch_ok(operator, day, raw_dir, cost, budget)
 

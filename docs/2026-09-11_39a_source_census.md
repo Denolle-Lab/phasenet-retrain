@@ -11,12 +11,18 @@ what the server run has to add.
 ## 1. Method
 
 **Bulletin operators.** The census treats an operator-year as the population
-and samples days from it. The days are chosen by
-`sha256(operator|year|Qq|seed_tag|k) mod days-in-quarter`, `days_per_quarter`
-distinct days per quarter, so the sample depends on nothing in the data and a
-rerun with the same `--seed-tag` asks the same days. Each sampled day is
-queried along the path `scripts/build_heldout_testset.py` already uses for
-that operator:
+and samples days from it: `days_per_quarter` distinct days per quarter, a
+quarter taken whole when it has no more days than that, otherwise its days
+sorted by `sha256(operator|year|Qq|seed_tag|date)` and the first
+`days_per_quarter` kept. The sample depends on nothing in the data, a rerun
+with the same `--seed-tag` asks the same days, and a larger
+`days_per_quarter` extends the smaller sample. (The 16 days of section 2 were
+drawn at commit 7580636 by the earlier rule,
+`sha256(operator|year|Qq|seed_tag|k) mod days-in-quarter` with repeats
+rejected, which PR #75 replaced after review; seed tag `39a` maps to other
+days under the current rule, and the days that ran are the `day` column of
+the committed CSVs.) Each sampled day is queried along the path
+`scripts/build_heldout_testset.py` already uses for that operator:
 
 | Operator | Path (builder function) | Query | Evaluation mode exposed |
 |---|---|---|---|
@@ -42,7 +48,11 @@ records the factor.
 Every request goes through one HTTP function with a 120 s timeout, three
 tries with 5/15/30 s backoff, a `--max-minutes` wall-clock budget checked
 before each request, and a raw cache under `data/census/raw/` (ignored by
-git; a rerun reuses the cached body and re-counts its recorded cost). A day
+git; one file per request URL, the first 12 hex digits of `sha256(url)` in the
+file name and the full URL in the `.meta.json` sidecar; a rerun reuses a
+cached body only when the sidecar records the same URL, query parameters
+included, and re-counts its recorded cost; the files the section 2 run wrote
+at commit 7580636 carry no URL hash and are not read). A day
 that fails after the retries is a row with `status=failed` and the error
 text; a day the budget did not reach is `status=not_attempted`. Neither
 enters the estimates.
@@ -314,9 +324,10 @@ counts. Until it runs, no SeisBench source's manual share is a number.
 Still open on the bulletin side, all runnable here: the other operators
 (GeoNet, USGS, ISC, franceseisme), more years including the held-out 2016
 and 2021 so the year rule is exercised, two days per quarter, and a
-shared-event join between operators on common days. The `--seed-tag`
-should stay `39a` so the same days are asked again and the raw cache is
-reused.
+shared-event join between operators on common days. A rerun of INGV and NOA
+2018 and 2019 with `--seed-tag 39a` draws different days from the 16 of
+section 2 (the sampling rule changed in PR #75, section 1) and refetches them;
+the 83 MB cache of the section 2 run can be deleted.
 
 Not in scope of this checkpoint: waveform accessibility, response state
 and native rate per station (a station-side census against the FDSN

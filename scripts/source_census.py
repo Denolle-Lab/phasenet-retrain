@@ -19,8 +19,8 @@ A stratified census of usable supervision, in two parts.
    scripts/heldout_sequences.py, and the acquisition cost (queries,
    seconds, bytes, failures). The operator-year total is the day mean
    times the days in the year, with a percentile bootstrap over sampled
-   days (95 %). Raw responses are cached under data/census/raw/ (ignored);
-   the CSVs are committed.
+   days (95 %). Raw responses are cached under data/census/raw/ (ignored),
+   one file per request URL; the CSVs are committed.
 
 2. SeisBench sources: data/census/seisbench_sources.csv from the committed
    records (notebooks/audit_results/summary_statistics.csv,
@@ -125,18 +125,22 @@ def quarter_days(year: int, quarter: int) -> list:
 
 
 def sample_days(operator: str, year: int, days_per_quarter: int, seed_tag: str) -> list:
-    """[(quarter, date), ...]: days_per_quarter distinct days per quarter, chosen by
-    sha256(operator|year|quarter|seed_tag|k) mod days-in-quarter. No content enters."""
+    """[(quarter, date), ...]: days_per_quarter distinct days per quarter. A quarter with
+    at most days_per_quarter days is taken whole; otherwise its days are sorted by
+    sha256(operator|year|Qq|seed_tag|date) and the first days_per_quarter kept, so no
+    content enters, the same seed tag asks the same days, and a larger days_per_quarter
+    extends the smaller sample. No rejection loop: the cost is one hash per day.
+    (The 2026-09-12 demonstration in data/census/ was drawn at commit 7580636 by
+    sha256(operator|year|Qq|seed_tag|k) mod days-in-quarter with repeats rejected;
+    seed tag 39a maps to other days under this rule.)"""
     out = []
     for q in (1, 2, 3, 4):
         days = quarter_days(year, q)
-        chosen, k = [], 0
-        while len(chosen) < min(days_per_quarter, len(days)):
-            h = hashlib.sha256(f"{operator}|{year}|Q{q}|{seed_tag}|{k}".encode()).hexdigest()
-            k += 1
-            d = days[int(h[:16], 16) % len(days)]
-            if d not in chosen:
-                chosen.append(d)
+        if days_per_quarter >= len(days):
+            chosen = days
+        else:
+            chosen = sorted(days, key=lambda d: hashlib.sha256(
+                f"{operator}|{year}|Q{q}|{seed_tag}|{d.isoformat()}".encode()).hexdigest())[:days_per_quarter]
         out += [(q, d) for d in sorted(chosen)]
     return out
 
@@ -185,19 +189,33 @@ def _is_too_large(code, body: str) -> bool:
     return code == 413 or "too much" in b or "request too large" in b or "too many" in b
 
 
+def cache_paths(url: str, dest: Path) -> tuple:
+    """(body_path, meta_path) of one request: `dest` with the first 12 hex digits of
+    sha256(url) inserted before its suffix (catalog.xml -> catalog.<hash>.xml), so two
+    requests for the same day that differ only in their parameters (minmagnitude,
+    includearrivals, ...) never share a cache file. The sidecar records the full URL."""
+    h = hashlib.sha256(url.encode()).hexdigest()[:12]
+    body = dest.with_name(f"{dest.stem}.{h}{dest.suffix}")
+    return body, body.with_suffix(body.suffix + ".meta.json")
+
+
 def http_get(url: str, dest: Path, cost: Cost, timeout: int = HTTP_TIMEOUT_S, tries: int = 3) -> tuple:
-    """GET url into dest (with a .meta.json sidecar: status, seconds, bytes, when, url).
-    A cached response is reused and its recorded cost is counted again, so a rerun
-    reports the same acquisition cost. Returns (status_code, path or None).
+    """GET url into the file cache_paths(url, dest) names (with a .meta.json sidecar:
+    status, seconds, bytes, when, url). A cached response is reused only when its sidecar
+    records this exact URL, query string included; its recorded cost is then counted
+    again, so a rerun reports the same acquisition cost. A cached file whose sidecar
+    records another URL is refetched, not reused. Returns (status_code, path or None).
     204 -> (204, None). 413 / 'too much' -> TooLarge. 400 -> BadRequest (no retry).
     Other HTTP errors, URL errors and timeouts are retried with backoff."""
-    meta_path = dest.with_suffix(dest.suffix + ".meta.json")
+    dest, meta_path = cache_paths(url, dest)
     if dest.exists() and meta_path.exists():
         m = json.loads(meta_path.read_text())
-        cost.n_queries += 1; cost.n_cached += 1; cost.seconds += m["seconds"]; cost.bytes += m["bytes"]
-        if m["status"] == 204:
-            return 204, None
-        return m["status"], dest
+        if m.get("url") == url:
+            cost.n_queries += 1; cost.n_cached += 1; cost.seconds += m["seconds"]; cost.bytes += m["bytes"]
+            if m["status"] == 204:
+                return 204, None
+            return m["status"], dest
+        log(f"    cache {dest.name} records another URL ({str(m.get('url'))[:80]}); refetching")
     dest.parent.mkdir(parents=True, exist_ok=True)
     last = None
     for i in range(tries):

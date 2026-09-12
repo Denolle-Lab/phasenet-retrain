@@ -19,6 +19,7 @@ for regression cases, protected acceptance candidates and QA access logging.
 | `station_map.csv` | yes | bare station codes (ISC, JMA) resolved to `NET.STA` against the inventories, with ambiguities listed |
 | `stations.csv` | yes | candidate stations within the radius, reference-pick counts inside the windows, distance, route, and whether waveforms were fetched |
 | `manifest.json` | yes | the registry entry, git commit, Python/obspy/pandas versions, every query with its service URL and UTC time, counts, and the sha256 and size of every file including the waveforms |
+| `evaluability_stations.csv` | yes | one row per registered station and scoring window: waveform coverage, gaps and reference counts inside the coverage, written by `scripts/certify_evaluability.py` (#37A); the case-level table is `../evaluability.csv` |
 | `waveforms/*.mseed` | no | raw MiniSEED, one file per station, band and window; re-fetchable and verifiable against the manifest |
 | `build.log`, `cache/` | no | the run log; downloaded JMA and Zenodo files |
 

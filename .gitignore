@@ -119,6 +119,8 @@ lightning_logs/
 !data/heldout_testset/*/stations.csv
 !data/heldout_testset/*/station_map.csv
 !data/heldout_testset/*/manifest.json
+!data/heldout_testset/evaluability.csv
+!data/heldout_testset/*/evaluability_stations.csv
 data/heldout_testset/*/waveforms/
 data/heldout_testset/*/cache/
 data/heldout_testset/*/build.log

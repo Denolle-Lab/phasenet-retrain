@@ -186,11 +186,29 @@ def test_waveform_coverage_gaps_and_components(env):
     assert t.loc["NET.C", "covered_any_s"] == pytest.approx(WIN_S, abs=0.05) and t.loc["NET.C", "covered_3c_s"] == 0
     assert not t.loc["NET.C", "covered"] and t.loc["NET.C", "n_channels"] == 2
     assert t.loc["NET.D", "measured"] and not t.loc["NET.D", "covered"] and t.loc["NET.D", "gap_s"] == WIN_S
+    assert t["read_error"].fillna("").eq("").all()
     assert row["stations_covered"] == 2 and row["stations_rate_lt_100hz"] == 1
     assert row["ref_fetched_P_dedup"] == 5 and row["ref_covered_P_dedup"] == 2 and row["ref_rm_covered_P"] == 2
     # gaps are counted in three-component coverage: B 20 s, C (two components) and D (no file) the whole window
     assert row["gap_count_total"] == 3 and row["gap_s_total"] == pytest.approx(2 * WIN_S + 20, abs=0.02)
     assert row["ref_per_covered_hour"] == pytest.approx(3 / ((2 * WIN_S - 20) / 3600), rel=1e-3)
+
+
+def test_unreadable_mseed_counts_as_a_full_gap_and_does_not_abort(env):
+    full = [(0, WIN_S)]
+    waveforms = {"NET.A": ({"HHE": full, "HHN": full, "HHZ": full}, 100.0),
+                 "NET.B": ({"HHE": full, "HHN": full, "HHZ": full}, 100.0)}
+    picks = [pick(1, "NET.A", "P", 100.0), pick(1, "NET.B", "P", 100.0)]
+    make_case(env, "synth_dev", picks, [station("NET.A"), station("NET.B")], waveforms=waveforms)
+    # corrupt B's file after it was written
+    bad = next((env / "synth_dev" / "waveforms").glob("NET.B__*.mseed"))
+    bad.write_bytes(b"not a miniseed record at all")
+    row = certify(env, "synth_dev", FAST)
+    t = pd.read_csv(env / "synth_dev" / "evaluability_stations.csv").set_index("station")
+    assert t.loc["NET.A", "covered"] and (pd.isna(t.loc["NET.A", "read_error"]) or t.loc["NET.A", "read_error"] == "")
+    assert not t.loc["NET.B", "covered"] and t.loc["NET.B", "gap_s"] == WIN_S
+    assert isinstance(t.loc["NET.B", "read_error"], str) and t.loc["NET.B", "read_error"]
+    assert row["stations_covered"] == 1
 
 
 def test_acceptance_case_gets_only_a_provisional_row_and_access_is_logged(env):

@@ -92,7 +92,7 @@ BULLETIN_REVIEWED = {
 STATION_COLUMNS = [
     "key", "window", "t0", "t1", "station", "network", "code", "band", "rate", "km", "fetched",
     "file", "measured", "n_locations", "n_channels", "rates_hz", "covered_any_s", "covered_3c_s",
-    "coverage_fraction_3c", "gap_count", "gap_s", "covered",
+    "coverage_fraction_3c", "gap_count", "gap_s", "covered", "read_error",
     "ref_P_window", "ref_S_window", "ref_P_covered", "ref_S_covered", "ref_P_covered_rm", "ref_S_covered_rm",
 ] + [f"{tier}_{phase}" for tier in TIERS for phase in PHASES]
 
@@ -264,7 +264,8 @@ def resolution_category(station, network, fetched, ambiguous_targets):
 def certify_case(key, case_dir, waveform_dir, rules, role, log_path=None):
     """Compute the case row and the per-station table. Records a reference_qa access first."""
     access_id = policy.record_access(key, "reference_qa", data_root=case_dir.parent, log_path=log_path,
-                                     settings=dict(rules, checkpoint=CHECKPOINT))
+                                     settings=dict(rules, checkpoint=CHECKPOINT,
+                                                   certify_evaluability_sha256=policy.file_hash(Path(__file__))))
     tol = float(rules["match_tol_s"])
     picks = pd.read_parquet(case_dir / "picks.parquet")
     catalog = pd.read_parquet(case_dir / "catalog.parquet") if (case_dir / "catalog.parquet").exists() \
@@ -313,15 +314,23 @@ def certify_case(key, case_dir, waveform_dir, rules, role, log_path=None):
                        network=r.network, code=r.code, band=r.band, rate=r.rate, km=r.km, fetched=bool(r.fetched),
                        file=fname, measured=False, n_locations=np.nan, n_channels=np.nan, rates_hz="",
                        covered_any_s=np.nan, covered_3c_s=np.nan, coverage_fraction_3c=np.nan,
-                       gap_count=np.nan, gap_s=np.nan, covered=False)
+                       gap_count=np.nan, gap_s=np.nan, covered=False, read_error="")
             if r.fetched and measured_any:
                 row["measured"] = True
+                m = None
                 if path.is_file():
-                    m = measure_file(path, lo, hi)
+                    try:
+                        m = measure_file(path, lo, hi)
+                    except Exception as exc:  # noqa: BLE001 - one bad file must not abort the census
+                        row["read_error"] = f"{type(exc).__name__}: {exc}"
+                        print(f"    {key} window {i} {r.station}: unreadable MiniSEED, counted as a full gap "
+                              f"({type(exc).__name__})", file=sys.stderr)
+                if m is not None:
                     row.update({k: v for k, v in m.items() if k in row})
                     row["coverage_fraction_3c"] = m["covered_3c_s"] / (hi - lo)
                     intervals = m["intervals_3c"]
                 else:
+                    # missing or unreadable: a full-window gap, never a silent pass
                     row.update(n_locations=0, n_channels=0, covered_any_s=0.0, covered_3c_s=0.0,
                                coverage_fraction_3c=0.0, gap_count=1, gap_s=hi - lo)
                     intervals = []

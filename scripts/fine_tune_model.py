@@ -225,7 +225,7 @@ class PhaseNetFinetune(nn.Module):
 
     def compute_loss_and_metrics(
         self, x: torch.Tensor, y: torch.Tensor, mask: torch.Tensor = None
-    ) -> Dict[str, torch.Tensor]:
+    ) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         """
         Forward pass + loss + per-phase accuracy.
 

@@ -102,7 +102,7 @@ def run_epoch(model, loader, device, optimiser=None, scaler=None, grad_clip=1.0)
     term_sums = {k: 0.0 for k in TERM_KEYS}      # averaged over batches
     count_sums = {k: 0.0 for k in COUNT_KEYS}    # summed over the epoch
     p_residuals, s_residuals = [], []
-    n_batches = 0
+    n_batches = n_skipped = 0
 
     with torch.set_grad_enabled(training):
         for batch in loader:
@@ -135,7 +135,9 @@ def run_epoch(model, loader, device, optimiser=None, scaler=None, grad_clip=1.0)
             loss_val = loss.item()
             acc_val  = metrics["acc"].item()
             if not (math.isfinite(loss_val) and math.isfinite(acc_val)):
-                n_batches -= 1  # exclude non-finite batches from averages
+                # exclude the batch from every average; n_batches is only
+                # incremented at the end of the loop body, so no decrement
+                n_skipped += 1
                 continue
             tot_loss += loss_val
             tot_acc  += acc_val
@@ -161,10 +163,13 @@ def run_epoch(model, loader, device, optimiser=None, scaler=None, grad_clip=1.0)
 
             n_batches += 1
 
+    if n_batches == 0:
+        raise RuntimeError(f"No finite batch in this epoch ({n_skipped} skipped as non-finite)")
     results = {
         "loss":      tot_loss / n_batches,
         "acc":       tot_acc  / n_batches,
         "grad_norm": tot_grad_norm / n_batches if training else float("nan"),
+        "n_batches_skipped": float(n_skipped),
     }
     for ph in ("N", "P", "S"):
         if phase_total[ph] > 0:

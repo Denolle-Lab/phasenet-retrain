@@ -502,6 +502,60 @@ def test_score_single_model_counts_gap_reference_as_uncovered(sequence_dir):
     assert list(again.rows[again.rows.scope == "window"].threshold.unique()) == [0.1, 0.3]
 
 
+def test_write_keeps_missing_models_as_a_list_column(sequence_dir):
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+    tmp = sequence_dir
+    res = scorer.score(KEY, {"A": Model("A"), "B": Model("B")}, annotate_fn=synth_annotate, thresholds=[0.3],
+                       annotations_root=tmp / "ann", out_dir=tmp / "scores")
+    assert res.excluded.to_dict("records") == [dict(window_id=WID, station="HL.PRK", missing_models=["b" * 64])]
+    path = tmp / "scores" / KEY / res.access_id / "excluded.parquet"
+    typ = pq.read_schema(path).field("missing_models").type
+    assert pa.types.is_list(typ) and pa.types.is_string(typ.value_type)
+    back = pd.read_parquet(path)
+    assert list(back.columns) == cs.EXCLUDED_COLUMNS
+    assert back.assign(missing_models=back.missing_models.map(list)).to_dict("records") == res.excluded.to_dict("records")
+    # an empty exclusion table has the same on-disk schema
+    none = scorer.score(KEY, {"A": Model("A")}, annotate_fn=synth_annotate, thresholds=[0.3],
+                        annotations_root=tmp / "ann", out_dir=tmp / "scores")
+    empty = tmp / "scores" / KEY / none.access_id / "excluded.parquet"
+    assert len(none.excluded) == 0 and pq.read_schema(empty).equals(pq.read_schema(path), check_metadata=False)
+    assert list(pd.read_parquet(empty).columns) == cs.EXCLUDED_COLUMNS
+
+
+def test_pick_store_schema_is_identical_with_and_without_picks(sequence_dir):
+    tmp = sequence_dir
+    full = scorer.score(KEY, {"A": Model("A")}, annotate_fn=synth_annotate, thresholds=[0.3],
+                        annotations_root=tmp / "ann", out_dir=tmp / "scores")
+    empty = scorer.score(KEY, {"A": Model("A")}, annotate_fn=synth_annotate, thresholds=[0.95],   # above every peak
+                         annotations_root=tmp / "ann", out_dir=tmp / "scores", budget_threshold=0.95)
+    assert len(full.picks) > 0 and len(empty.picks) == 0
+    assert list(full.picks.columns) == list(empty.picks.columns) == scorer.PICK_STORE_COLUMNS
+    assert {"i_on", "i_off", "i_peak"} <= set(scorer.PICK_STORE_COLUMNS)
+    assert full.picks.dtypes.equals(empty.picks.dtypes)
+    assert (full.rows[full.rows.scope == "window"].emitted > 0).any() and (empty.rows.emitted == 0).all()
+    disk = [pd.read_parquet(tmp / "scores" / KEY / r.access_id / "picks.parquet") for r in (full, empty)]
+    assert list(disk[0].columns) == list(disk[1].columns) == scorer.PICK_STORE_COLUMNS
+    assert disk[0].dtypes.equals(disk[1].dtypes) and disk[0].dtypes.equals(full.picks.dtypes)
+    both = pd.concat(disk, ignore_index=True)
+    assert len(both) == len(full.picks) and both.dtypes.equals(full.picks.dtypes)
+
+
+def test_score_rejects_unknown_budget_reference_before_any_annotation(sequence_dir):
+    tmp = sequence_dir
+
+    def forbidden(model, stream):
+        pytest.fail("annotated although budget_reference is invalid")
+
+    with pytest.raises(ValueError, match="budget_reference 'Z' is not among the models \\['A', 'B'\\]"):
+        scorer.score(KEY, {"A": Model("A"), "B": Model("B")}, annotate_fn=forbidden, thresholds=[0.3],
+                     annotations_root=tmp / "ann", out_dir=tmp / "scores", budget_reference="Z")
+    assert not (tmp / "access.jsonl").exists() and not (tmp / "ann").exists() and not (tmp / "scores").exists()
+    ok = scorer.score(KEY, {"A": Model("A"), "B": Model("B")}, annotate_fn=synth_annotate, thresholds=[0.3],
+                      annotations_root=tmp / "ann", budget_reference="B")
+    assert set(ok.budget.budget_reference) == {"B"}
+
+
 def test_main_prints_window_and_budget_tables_and_writes_artifacts(sequence_dir, monkeypatch, capsys):
     tmp = sequence_dir
     fake_models = types.ModuleType("seisbench.models")

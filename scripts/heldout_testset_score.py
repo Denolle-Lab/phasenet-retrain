@@ -48,8 +48,29 @@ THRESHOLDS = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
 MATCH_TOL = reg.MATCH_TOL_S
 REFERENCE_TIERS = ("manual",)
 BUDGET_TOLERANCE = 0.10
-PICK_STORE_COLUMNS = ["pick_id", "model_id", "model", "threshold", "station", "phase", "time", "score",
-                      "matched_event", "ref_id", "residual", "window_id", "access_id", "key"]
+# The pick store schema, defined once so an empty store (no emitted pick) and a
+# populated one have identical columns and dtypes. i_on/i_off/i_peak are the
+# trigger on/off/peak sample indices of continuous_scoring.PICK_COLUMNS.
+PICK_STORE_SCHEMA = {
+    "pick_id": object, "model_id": object, "model": object, "threshold": float, "station": object, "phase": object,
+    "time": "datetime64[ns, UTC]", "score": float, "matched_event": object, "ref_id": object, "residual": float,
+    "window_id": object, "access_id": object, "key": object, "i_on": "int64", "i_off": "int64", "i_peak": "int64",
+}
+PICK_STORE_COLUMNS = list(PICK_STORE_SCHEMA)
+ARTIFACTS = ("rows", "picks", "matches", "failures", "excluded", "budget")
+
+
+def empty_pick_store() -> pd.DataFrame:
+    return pd.DataFrame({c: pd.Series(dtype=d) for c, d in PICK_STORE_SCHEMA.items()})
+
+
+def _excluded_table(frame: pd.DataFrame):
+    """excluded as an arrow table with missing_models typed list<string>, empty or not."""
+    import pyarrow as pa
+    schema = pa.schema([("window_id", pa.string()), ("station", pa.string()), ("missing_models", pa.list_(pa.string()))])
+    frame = frame[cs.EXCLUDED_COLUMNS] if len(frame) else pd.DataFrame({c: pd.Series(dtype=object) for c in cs.EXCLUDED_COLUMNS})
+    return pa.Table.from_pandas(frame.assign(missing_models=frame["missing_models"].map(list)), schema=schema,
+                                preserve_index=False)
 
 
 @dataclass
@@ -66,13 +87,21 @@ class ScoreResult:
     out_dir: Path = None
 
     def write(self, out_dir) -> Path:
+        """One parquet file per frame of ARTIFACTS plus models.csv (name -> model_id).
+
+        excluded.parquet keeps continuous_scoring.EXCLUDED_COLUMNS with
+        missing_models as a parquet list<string> column (pyarrow), so the
+        on-disk schema is the in-memory one; pandas reads it back as an
+        array-like per row (`.map(list)` restores Python lists).
+        """
+        import pyarrow.parquet as pq
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-        for name in ("rows", "picks", "matches", "failures", "excluded", "budget"):
-            frame = getattr(self, name)
-            if name == "excluded" and len(frame):
-                frame = frame.assign(missing_models=frame["missing_models"].map(lambda m: ",".join(m)))
-            frame.to_parquet(out_dir / f"{name}.parquet", index=False)
+        for name in ARTIFACTS:
+            if name == "excluded":
+                pq.write_table(_excluded_table(self.excluded), out_dir / "excluded.parquet")
+            else:
+                getattr(self, name).to_parquet(out_dir / f"{name}.parquet", index=False)
         pd.DataFrame([dict(model=k, model_id=v) for k, v in self.models.items()]).to_csv(out_dir / "models.csv", index=False)
         self.out_dir = out_dir
         return out_dir
@@ -133,6 +162,8 @@ def score(key: str, models: dict, annotate_fn=None, thresholds=THRESHOLDS, annot
     are reused, so a rerun with more thresholds does no inference.
     """
     policy.authorize_scoring([key])
+    if budget_reference is not None and budget_reference not in models:
+        raise ValueError(f"budget_reference {budget_reference!r} is not among the models {sorted(models)}")
     thresholds = cs.dedup_thresholds(thresholds)
     fingerprints = {name: policy.model_fingerprint(model) for name, model in models.items()}
     model_ids = {name: fp["state_sha256"] for name, fp in fingerprints.items()}
@@ -205,7 +236,7 @@ def score(key: str, models: dict, annotate_fn=None, thresholds=THRESHOLDS, annot
     # 5. pick store: every emitted pick with its matched reference event (null when unmatched)
     assign = matches[["pick_id", "event", "ref_id", "residual"]].rename(columns={"event": "matched_event"})
     picks = picks.merge(assign, on="pick_id", how="left").assign(access_id=access_id, key=key)
-    picks = picks[PICK_STORE_COLUMNS + ["i_on", "i_off", "i_peak"]] if len(picks) else pd.DataFrame(columns=PICK_STORE_COLUMNS)
+    picks = picks[PICK_STORE_COLUMNS].astype(PICK_STORE_SCHEMA) if len(picks) else empty_pick_store()
     if len(picks) and picks["pick_id"].duplicated().any():
         raise ValueError("Pick ids are not unique")
 

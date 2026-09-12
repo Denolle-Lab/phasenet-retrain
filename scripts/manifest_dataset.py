@@ -37,6 +37,9 @@ import seisbench.data as sbd
 
 from waveform_contract import (CONTRACT_VERSION, METADATA_FIELDS, TraceRecord, canonical_waveform,
                                has_rate, metadata_rate, present, read_hdf5_trace, resample_waveform, text_value, valid_rate)
+from arrivals import (ARRIVALS_COLUMN, NEGATIVE_SUPPORT_COLUMN, arrivals_from_columns, arrivals_from_json,
+                      shift_arrivals)
+from label_targets import LEGACY, LabelPolicy, build_targets
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Chunked HDF5 reader (for MLAAPDE and CWA)
@@ -250,13 +253,13 @@ def _gaussian_label(size, centre, sigma=LABEL_SIGMA):
 
 def make_labels(p_offset, s_offset, window_len=WINDOW_LEN):
     """
-    Build (3, window_len) label tensor in PSN order; label policy changes belong to #41.
-    s_offset=None/NaN produces a zero S channel.
+    Build (3, window_len) label tensor in PSN order with the legacy (v7)
+    formula: Gaussian P and S, N = 1 - max(P, S), every sample supervised.
+    Kept for callers of the historical API; the label policy lives in
+    label_targets.py (#41A). s_offset=None/NaN produces a zero S channel.
     """
-    p_lbl = _gaussian_label(window_len, p_offset)
-    s_lbl = _gaussian_label(window_len, s_offset)
-    noise = np.clip(1.0 - np.maximum(p_lbl, s_lbl), 0.0, 1.0)
-    return np.stack([p_lbl, s_lbl, noise]).astype(np.float32)  # PSN — matches jma_wc label convention
+    arrivals = arrivals_from_columns(p_offset, s_offset, float(TARGET_SR))
+    return build_targets(arrivals, window_len, float(TARGET_SR), policy=LEGACY).targets
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -272,7 +275,13 @@ class ManifestDataset(Dataset):
     records are appended to a per-process JSONL beside the manifest by default.
     """
 
-    def __init__(self, manifest_csv, augment=False, window_len=WINDOW_LEN, rejection_log=None):
+    def __init__(self, manifest_csv, augment=False, window_len=WINDOW_LEN, rejection_log=None,
+                 label_policy=None, return_mask=False):
+        # label_policy: None keeps the legacy targets and the (waveform, labels)
+        # API; "legacy", "masked" or a dict select a label_targets.LabelPolicy
+        # (#41A). return_mask=True makes __getitem__ yield (waveform, labels, mask).
+        self.policy = LabelPolicy.from_config(label_policy)
+        self.return_mask = bool(return_mask)
         self.manifest_path = Path(manifest_csv)
         self.manifest_hash = hashlib.sha256(self.manifest_path.read_bytes()).hexdigest()
         self.manifest = pd.read_csv(manifest_csv, low_memory=False,
@@ -434,21 +443,45 @@ class ManifestDataset(Dataset):
                 wf *= np.random.uniform(0.5, 2.0)
                 if np.random.random() < 0.1:
                     wf = -wf
-            labels = make_labels(offsets["P"], offsets["S"], self.window_len)
+            # Arrival list (#41A): `arrivals_json` holds seconds from the source
+            # trace start with a provenance tier per arrival and overrides the
+            # legacy P/S columns for the targets; the crop anchor above still
+            # comes from the columns. Legacy columns are tier "manual".
+            if present(row.get(ARRIVALS_COLUMN)):
+                arrivals = shift_arrivals(arrivals_from_json(row[ARRIVALS_COLUMN]), -start / TARGET_SR)
+            else:
+                arrivals = arrivals_from_columns(offsets["P"], offsets["S"], float(TARGET_SR))
+            if present(row.get(NEGATIVE_SUPPORT_COLUMN)):
+                negative_support = str(row[NEGATIVE_SUPPORT_COLUMN]).strip()
+            else:
+                # Explicit noise pools are treated as event-free; certifying them
+                # is #42. Signal rows carry no evidence of absence.
+                negative_support = "certified" if is_noise else "unknown"
+            built = build_targets(arrivals, self.window_len, float(TARGET_SR),
+                                  negative_support=negative_support, valid_samples=valid_samples,
+                                  policy=self.policy)
+            if not is_noise and self.policy.name == "masked" and built.n_supervised == 0:
+                raise ValueError("Signal row has no supervised sample under the masked label policy "
+                                 f"(negative support {negative_support!r}, arrivals {built.info['used']})")
             info = dict(contract=CONTRACT_VERSION, source_rate_hz=record.sampling_rate,
                         effective_reader_rate_hz=record.sampling_rate,
                         arrival_rate_hz=index_rate, target_rate_hz=TARGET_SR,
                         source_start_time=record.start_time, crop_start_sample=start,
                         crop_start_offset_s=start / TARGET_SR, valid_samples=valid_samples,
                         component_mask=record.component_mask, arrival_offsets=offsets,
-                        excluded_arrivals=rejected_picks)
-            return torch.from_numpy(wf), torch.from_numpy(labels), info
+                        excluded_arrivals=rejected_picks,
+                        label_policy=self.policy.name, negative_support=negative_support,
+                        arrivals=[a.to_dict() for a in arrivals], n_supervised=built.n_supervised,
+                        supervised_fraction=built.info["supervised_fraction"], mask=built.mask)
+            return torch.from_numpy(wf), torch.from_numpy(built.targets), info
         except Exception as exc:
             self._reject(int(idx), row, exc)
             raise RuntimeError(f"Rejected manifest row {idx}: {exc}") from exc
 
     def __getitem__(self, idx):
-        waveform, labels, _ = self.get_sample_with_metadata(idx)
+        waveform, labels, info = self.get_sample_with_metadata(idx)
+        if self.return_mask:
+            return waveform, labels, torch.from_numpy(info["mask"])
         return waveform, labels
 
     def __len__(self):

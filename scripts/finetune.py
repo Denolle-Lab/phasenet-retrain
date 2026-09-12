@@ -82,6 +82,10 @@ def load_checkpoint(path: Path, model, optimiser=None, scaler=None):
 # Core epoch loop (AMP-aware)
 # ──────────────────────────────────────────────────────────────────────────────
 
+TERM_KEYS  = ("loss_ce", "loss_kd", "loss_P", "loss_S", "loss_N", "supervised_fraction")
+COUNT_KEYS = ("pos_P", "pos_S")
+
+
 def run_epoch(model, loader, device, optimiser=None, scaler=None, grad_clip=1.0):
     """
     One pass. Returns dict of averaged scalars.
@@ -95,17 +99,23 @@ def run_epoch(model, loader, device, optimiser=None, scaler=None, grad_clip=1.0)
     tot_loss = tot_acc = tot_grad_norm = 0.0
     phase_correct = {"N": 0.0, "P": 0.0, "S": 0.0}
     phase_total   = {"N": 0,   "P": 0,   "S": 0}
+    term_sums = {k: 0.0 for k in TERM_KEYS}      # averaged over batches
+    count_sums = {k: 0.0 for k in COUNT_KEYS}    # summed over the epoch
     p_residuals, s_residuals = [], []
-    n_batches = 0
+    n_batches = n_skipped = 0
 
     with torch.set_grad_enabled(training):
-        for x, y in loader:
+        for batch in loader:
+            x, y = batch[0], batch[1]
+            mask = batch[2] if len(batch) > 2 else None   # (B, T) supervised samples (#41A)
             # non_blocking: CPU→GPU transfer overlaps with compute
             x = x.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
+            if mask is not None:
+                mask = mask.to(device, non_blocking=True)
 
             with torch.autocast(device_type=device.type, enabled=use_amp):
-                metrics, probs = model.compute_loss_and_metrics(x, y)
+                metrics, probs = model.compute_loss_and_metrics(x, y, mask)
                 loss = metrics["loss"]
 
             if training:
@@ -125,10 +135,18 @@ def run_epoch(model, loader, device, optimiser=None, scaler=None, grad_clip=1.0)
             loss_val = loss.item()
             acc_val  = metrics["acc"].item()
             if not (math.isfinite(loss_val) and math.isfinite(acc_val)):
-                n_batches -= 1  # exclude non-finite batches from averages
+                # exclude the batch from every average; n_batches is only
+                # incremented at the end of the loop body, so no decrement
+                n_skipped += 1
                 continue
             tot_loss += loss_val
             tot_acc  += acc_val
+            for k in TERM_KEYS:
+                if k in metrics:
+                    term_sums[k] += metrics[k].item()
+            for k in COUNT_KEYS:
+                if k in metrics:
+                    count_sums[k] += metrics[k].item()
 
             n = x.shape[0] * x.shape[-1]  # batch × time samples
             for ph in ("N", "P", "S"):
@@ -145,14 +163,21 @@ def run_epoch(model, loader, device, optimiser=None, scaler=None, grad_clip=1.0)
 
             n_batches += 1
 
+    if n_batches == 0:
+        raise RuntimeError(f"No finite batch in this epoch ({n_skipped} skipped as non-finite)")
     results = {
         "loss":      tot_loss / n_batches,
         "acc":       tot_acc  / n_batches,
         "grad_norm": tot_grad_norm / n_batches if training else float("nan"),
+        "n_batches_skipped": float(n_skipped),
     }
     for ph in ("N", "P", "S"):
         if phase_total[ph] > 0:
             results[f"{ph}_acc"] = phase_correct[ph] / phase_total[ph]
+    for k in TERM_KEYS:
+        results[k] = term_sums[k] / n_batches if n_batches else float("nan")
+    for k in COUNT_KEYS:
+        results[k] = count_sums[k]
 
     sr = 100.0
     if p_residuals:
@@ -170,6 +195,10 @@ def run_epoch(model, loader, device, optimiser=None, scaler=None, grad_clip=1.0)
 # ──────────────────────────────────────────────────────────────────────────────
 # Training driver
 # ──────────────────────────────────────────────────────────────────────────────
+
+def _r6(value):
+    return round(value, 6) if value is not None and value == value else ""
+
 
 def _plot_progress(metrics_csv: str, log_cfg: dict):
     """Regenerate all training curve plots from the current metrics CSV."""
@@ -214,7 +243,7 @@ def train(config: dict, resume_path=None, init_from=None):
     # ── data ──────────────────────────────────────────────────────────────────
     t_load = time.time()
     print("\nPre-loading datasets into RAM (done once; all epochs will be fast)...")
-    train_loader, val_loader, _ = build_dataloaders(config)
+    train_loader, val_loader, _ = build_dataloaders(config, splits=("train", "val"))
     print(f"Data ready in {(time.time()-t_load)/60:.1f} min\n")
 
     # ── model ─────────────────────────────────────────────────────────────────
@@ -340,6 +369,8 @@ def train(config: dict, resume_path=None, init_from=None):
             "val_p_mae_s":      round(p_mae, 6) if p_mae == p_mae else "",
             "val_s_mae_s":      round(s_mae, 6) if s_mae == s_mae else "",
             "lr":               lr_now,
+            **{f"train_{k}": _r6(train_m.get(k)) for k in TERM_KEYS + COUNT_KEYS},
+            **{f"val_{k}": _r6(val_m.get(k)) for k in ("loss_ce", "loss_kd", "supervised_fraction") + COUNT_KEYS},
         })
 
         # Regenerate all training plots after every epoch so progress is visible live
@@ -383,7 +414,7 @@ def run_test(config: dict, ckpt_path: str):
     use_amp = hw_cfg.get("amp", True) and device.type == "cuda"
 
     print(f"\nLoading checkpoint for test: {ckpt_path}")
-    _, _, test_loader = build_dataloaders(config)
+    _, _, test_loader = build_dataloaders(config, splits=("test",))
 
     model = PhaseNetFinetune(config).to(device)
     load_checkpoint(Path(ckpt_path), model)

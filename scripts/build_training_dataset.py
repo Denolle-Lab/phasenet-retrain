@@ -712,9 +712,13 @@ def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
     )
     # #33A: a row with an origin fingerprint has an identity too (origin
     # coincidence groups it with equivalent events of other datasets), so it
-    # is grouped rather than handed to the vendor split.
+    # is grouped rather than handed to the vendor split. hs._to_utc, not a
+    # bare pd.to_datetime: pandas >= 2 infers one format from the first value
+    # and coerces the rest to NaT, which would hand a row with fractional
+    # seconds to the vendor split while its twin is grouped (the same parser
+    # eb.origin_unions uses, so "has a fingerprint" and "is grouped" agree).
     if all(c in df.columns for c in (hs.TIME_COL, hs.LAT_COL, hs.LON_COL)):
-        has_key |= (pd.to_datetime(df[hs.TIME_COL], errors="coerce", utc=True).notna()
+        has_key |= (hs._to_utc(df[hs.TIME_COL]).notna()
                     & pd.to_numeric(df[hs.LAT_COL], errors="coerce").notna()
                     & pd.to_numeric(df[hs.LON_COL], errors="coerce").notna()).to_numpy()
 

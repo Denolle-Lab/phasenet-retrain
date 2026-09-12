@@ -102,6 +102,10 @@ class UncertifiedBundleError(RuntimeError):
     """The bundle exists and is consistent but does not certify a source snapshot."""
 
 
+class ManifestSchemaError(ValueError):
+    """An append would drop a column of the new rows (the manifest header lacks it)."""
+
+
 # ── hashing ────────────────────────────────────────────────────────────────────
 
 def sha256_text(text: str) -> str:
@@ -773,6 +777,31 @@ def assert_not_historical(path, checksums_csv=None, repo_root=None) -> None:
     if rel in listed:
         raise PermissionError(f"{rel} is a historical manifest listed in {checksums_csv.name} and is immutable; "
                               "build a new manifest directory instead")
+
+
+def assert_append_columns(manifest_columns, row_columns, path) -> None:
+    """Refuse an append whose rows carry a column the manifest at `path` lacks.
+
+    The append scripts write new rows in the manifest's own column order, so a
+    column absent from the header would be dropped without a trace; for
+    FLAG_COL that erases the quarantine signal of an allow_unknown bundle.
+    The manifest is not rewritten to gain the column: an append never touches
+    an existing row (a pandas round trip would reformat them), so the rows a
+    manifest was built with stay byte-identical whether or not it is listed
+    in data/manifest_checksums.csv. Remedy: rebuild the manifest with
+    scripts/build_training_dataset.py (it writes FLAG_COL since #33A), or
+    copy it to a new manifest directory with the column added, False for
+    every existing row.
+    """
+    have = set(map(str, manifest_columns))
+    missing = [c for c in row_columns if c not in have]
+    if missing:
+        what = "the quarantine flag" if missing == [FLAG_COL] else f"column(s) {missing}"
+        raise ManifestSchemaError(
+            f"{path} has no column {missing}; appending would drop {what} silently. "
+            "Existing manifests are never rewritten: rebuild with scripts/build_training_dataset.py "
+            f"(writes {FLAG_COL} since #33A) or add the column(s) to a copy in a new manifest "
+            f"directory ({FLAG_COL}=False for every existing row).")
 
 
 def append_provenance(directory, key: str, record: dict) -> Path:

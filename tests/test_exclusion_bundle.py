@@ -359,6 +359,51 @@ def test_groups_land_in_one_split(seed):
     assert both["split"].nunique() == 1 and both["dataset"].nunique() == 2
 
 
+def _import_btd(monkeypatch):
+    """build_training_dataset without SeisBench or an event-key cache."""
+    fake_data = types.ModuleType("seisbench.data")
+    fake_data.__getattr__ = lambda name: object          # sbd.STEAD etc. at import time
+    fake_ek = types.ModuleType("event_keys")
+    fake_ek.trace_key_map = lambda name: {}
+    fake_ek.trace_key_map_any_chunk = lambda name: {}
+    monkeypatch.setitem(sys.modules, "seisbench", types.ModuleType("seisbench"))
+    monkeypatch.setitem(sys.modules, "seisbench.data", fake_data)
+    monkeypatch.setitem(sys.modules, "event_keys", fake_ek)
+    monkeypatch.delitem(sys.modules, "build_training_dataset", raising=False)
+    import build_training_dataset as btd
+    return btd
+
+
+def test_assign_splits_keys_both_iso_formats(monkeypatch):
+    """assign_splits decides "has an origin fingerprint" with hs._to_utc: a
+    time column mixing ISO strings with and without fractional seconds keys
+    every row (pandas >= 2 with a bare to_datetime would NaT the second format
+    and hand those rows to the vendor split), and the two formats are grouped
+    together when they name the same origin."""
+    btd = _import_btd(monkeypatch)
+    pair = pd.DataFrame({
+        "dataset_name": ["stead", "stead"], "trace_name": ["plain", "fractional"], "chunk": ["", ""],
+        "orig_split": ["test", "test"],
+        hs.TIME_COL: ["2018-01-01T00:00:00", "2018-01-01T00:00:00.5"],
+        hs.LAT_COL: [10.0, 10.0], hs.LON_COL: [10.0, 10.0],
+    })
+    # both keyed: neither row follows its vendor split (val_frac = test_frac = 0 sends every group to train)
+    split = btd.assign_splits(pair, np.random.default_rng(0), val_frac=0.0, test_frac=0.0)
+    assert split.tolist() == ["train", "train"]
+    # and grouped: 0.5 s apart at one location, the pair shares a split among filler events at default fractions
+    filler = pd.DataFrame({
+        "dataset_name": ["geofon"] * 40, "trace_name": [f"g{i}" for i in range(40)], "chunk": [""] * 40,
+        "orig_split": ["train"] * 40,
+        hs.TIME_COL: pd.date_range("2015-01-01", periods=40, freq="1h").strftime("%Y-%m-%dT%H:%M:%S"),
+        hs.LAT_COL: np.linspace(-60, 60, 40), hs.LON_COL: np.linspace(-170, 170, 40),
+    })
+    df = pd.concat([pair, filler], ignore_index=True)
+    for seed in range(6):
+        split = btd.assign_splits(df, np.random.default_rng(seed))
+        assert split.iloc[0] == split.iloc[1], (seed, split.iloc[:2].tolist())
+    assert {btd.assign_splits(df, np.random.default_rng(s)).iloc[0] for s in range(30)} >= {"train", "val", "test"}
+
+
 # ── noise rows: station coordinates and start time ───────────────────────────
 
 def test_noise_windows_on_station_coordinates_and_start_time(repo):
@@ -433,6 +478,103 @@ def test_historical_manifests_are_refused(tmp_path):
     p = eb.append_provenance(tmp_path, "noise_appends", {"n": 1})
     eb.append_provenance(tmp_path, "noise_appends", {"n": 2})
     assert [r["n"] for r in json.loads(p.read_text())["noise_appends"]] == [1, 2]
+
+
+def test_append_refuses_when_manifest_lacks_a_row_column():
+    rows = ["dataset_name", "trace_name", eb.FLAG_COL]
+    eb.assert_append_columns(["trace_name", "dataset_name", "chunk", eb.FLAG_COL], rows, "train.csv")
+    with pytest.raises(eb.ManifestSchemaError, match=f"no column \\['{eb.FLAG_COL}'\\].*never rewritten"):
+        eb.assert_append_columns(["dataset_name", "trace_name", "chunk"], rows, "train.csv")
+    with pytest.raises(eb.ManifestSchemaError, match="p_col"):
+        eb.assert_append_columns(["dataset_name"], ["dataset_name", "p_col"], "val.csv")
+    assert issubclass(eb.ManifestSchemaError, ValueError)
+
+
+MANIFEST_COLS = ["dataset_name", "trace_name", "chunk", "p_arrival_sample", "s_arrival_sample", "distance_km",
+                 "distance_bin", "p_col", "s_col", hs.TIME_COL, hs.LAT_COL, hs.LON_COL, eb.FLAG_COL]
+
+
+def _certified_bundle(repo, monkeypatch, **extra):
+    """A certified bundle in the fixture repo, and exclusion_bundle pointed at it."""
+    _fill_cache(repo)
+    monkeypatch.setenv("SEISBENCH_CACHE_ROOT", str(repo / "cache"))
+    path, bundle = build(repo, **extra)
+    assert bundle["certified"] is True
+    monkeypatch.setattr(eb, "REPO_ROOT", repo)
+    monkeypatch.setattr(eb, "BUNDLE_PATH", path)
+    monkeypatch.setattr(eb, "USER_LABEL_ERROR_CACHE", repo / "nowhere")
+    eb._cached_trace_exclusions.cache_clear()
+    return bundle
+
+
+def _write_manifests(directory, columns):
+    """train.csv and val.csv with one signal row each in the given column order; returns their bytes."""
+    directory.mkdir(parents=True)
+    out = {}
+    for name in ("train", "val"):
+        row = {"dataset_name": "stead", "trace_name": f"{name}_sig", "chunk": "", "p_arrival_sample": 500.0,
+               "s_arrival_sample": 900.0, "distance_km": 12.5, "distance_bin": "local", "p_col": "P", "s_col": "S",
+               hs.TIME_COL: T0, hs.LAT_COL: 30.0, hs.LON_COL: 10.0, eb.FLAG_COL: False}
+        pd.DataFrame([row], columns=columns).to_csv(directory / f"{name}.csv", index=False)
+        out[name] = (directory / f"{name}.csv").read_bytes()
+    return out
+
+
+def _noise_meta(dataset):
+    """Ten noise rows on a station outside every window; row 3 has no start time."""
+    start = ["2018-06-01T00:00:00"] * 10
+    start[3] = None
+    return pd.DataFrame({"trace_name": [f"{dataset}_{i}" for i in range(10)], "latitude": 30.0, "longitude": 10.0,
+                         "starttime": start, "tectonic_setting": "subduction", "region": "fixture",
+                         "source_dataset": "stead"})
+
+
+@pytest.mark.parametrize("script", ["add_noise_to_manifests", "add_prephase_to_manifests"])
+def test_append_scripts_keep_flag_and_refuse_pre_33a_manifest(repo, monkeypatch, tmp_path, script):
+    """With an allow_unknown bundle the kept-flagged rows reach the manifest
+    with independence_unverified True, in each manifest's own column order,
+    and the pre-existing rows are byte-identical. A manifest whose header
+    predates the flag column is refused and left untouched."""
+    mod = __import__(script)
+    _certified_bundle(repo, monkeypatch, allow_unknown=True)
+    dataset = "noise_global" if script == "add_noise_to_manifests" else "noise_prephase"
+    meta = tmp_path / "metadata.csv"
+    _noise_meta(dataset).to_csv(meta, index=False)
+    monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(mod, "NOISE_META", meta)
+    if script == "add_noise_to_manifests":
+        audit = tmp_path / "audit.csv"
+        pd.DataFrame({"trace_name": [f"{dataset}_{i}" for i in range(10)], "max_p_prob": 0.01, "max_s_prob": 0.01}).to_csv(audit, index=False)
+        monkeypatch.setattr(mod, "NOISE_AUDIT", audit)
+
+    # val.csv in a different column order from train.csv: each file keeps its own
+    before = _write_manifests(tmp_path / "m33a", MANIFEST_COLS)
+    pd.read_csv(tmp_path / "m33a" / "val.csv")[MANIFEST_COLS[::-1]].to_csv(tmp_path / "m33a" / "val.csv", index=False)
+    before["val"] = (tmp_path / "m33a" / "val.csv").read_bytes()
+    monkeypatch.setattr(sys, "argv", [script, "--manifests-dir", "m33a"])
+    mod.main()
+    added = {}
+    for name in ("train", "val"):
+        raw = (tmp_path / "m33a" / f"{name}.csv").read_bytes()
+        assert raw.startswith(before[name]), name                     # header and existing row untouched
+        df = pd.read_csv(tmp_path / "m33a" / f"{name}.csv")
+        assert df.loc[df.dataset_name == "stead", eb.FLAG_COL].tolist() == [False]
+        added[name] = df[df.dataset_name == dataset].set_index("trace_name")
+    assert len(added["train"]) == 9 and len(added["val"]) == 1
+    flags = pd.concat([added["train"], added["val"]])[eb.FLAG_COL].astype(bool)
+    assert flags.sum() == 1 and bool(flags[f"{dataset}_3"])
+    assert (pd.concat([added["train"], added["val"]])["distance_bin"] == "noise").all()
+    prov = json.loads((tmp_path / "m33a" / "provenance.json").read_text())["noise_appends"]
+    assert prov[0]["exclusions"]["n_unknown_kept_flagged"] == 1 and prov[0]["n_added_train"] == 9
+
+    # a manifest built before #33A: no flag column -> refused, nothing written
+    before = _write_manifests(tmp_path / "m_old", [c for c in MANIFEST_COLS if c != eb.FLAG_COL])
+    monkeypatch.setattr(sys, "argv", [script, "--manifests-dir", "m_old"])
+    with pytest.raises(eb.ManifestSchemaError, match=eb.FLAG_COL):
+        mod.main()
+    for name in ("train", "val"):
+        assert (tmp_path / "m_old" / f"{name}.csv").read_bytes() == before[name]
+    assert not (tmp_path / "m_old" / "provenance.json").exists()
 
 
 # ── the manifest builder end to end, without SeisBench ───────────────────────

@@ -126,7 +126,11 @@ lowers that to "sequence list present" and is recorded in the provenance.
 `build_training_dataset.py` keeps its final gate and runs it twice: the
 chunk-aware `check_manifest`, then `apply_exclusions` on each written split,
 which must remove nothing. The two append scripts refuse any manifest path
-listed in `data/manifest_checksums.csv`. The two extraction scripts refuse to
+listed in `data/manifest_checksums.csv`, and refuse (`ManifestSchemaError`)
+a manifest whose header lacks `independence_unverified` rather than rewriting
+it with the column added: an append never touches an existing row, so the
+flag of an `--allow-unknown` bundle cannot be dropped silently and the rows a
+manifest was built with stay byte-identical. The two extraction scripts refuse to
 resume a `metadata.csv` whose header predates this change (`--out-dir` starts
 a new set), because those rows were extracted without the bundle and carry
 no start time.

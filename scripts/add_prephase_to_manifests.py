@@ -13,6 +13,15 @@ every such row is quarantined under the default policy). Historical
 manifests listed in data/manifest_checksums.csv are refused; the append is
 recorded in <manifests-dir>/provenance.json.
 
+Schema: the new rows are written in each manifest's own column order, and a
+manifest whose header lacks independence_unverified (built before #33A) is
+refused (exclusion_bundle.ManifestSchemaError) rather than rewritten with
+the column added, because an append never touches an existing row: the rows
+a manifest was built with stay byte-identical whether or not it is listed in
+manifest_checksums.csv, and the flag of an --allow-unknown bundle is never
+dropped silently. Rebuild the manifest with build_training_dataset.py or copy
+it to a new directory with the column added (False for every existing row).
+
 Run from repo root after build_prephase_noise.py:
     python scripts/add_prephase_to_manifests.py [--manifests-dir data/manifests]
 """
@@ -98,6 +107,10 @@ def main():
 
     train_df = pd.read_csv(TRAIN_CSV, low_memory=False)
     val_df   = pd.read_csv(VAL_CSV,   low_memory=False)
+    # refuse before any write: a column the header lacks would be dropped
+    row_cols = list(rows[0].keys())
+    eb.assert_append_columns(train_df.columns, row_cols, TRAIN_CSV)
+    eb.assert_append_columns(val_df.columns, row_cols, VAL_CSV)
 
     existing_train = set(
         train_df[train_df["dataset_name"] == "noise_prephase"]["trace_name"]
@@ -113,11 +126,10 @@ def main():
         print("All pre-phase noise traces already in manifests — nothing to add.")
         return
 
-    cols = list(train_df.columns)
-    pd.DataFrame(new_train, columns=cols).to_csv(
+    pd.DataFrame(new_train, columns=list(train_df.columns)).to_csv(
         TRAIN_CSV, mode="a", header=False, index=False
     )
-    pd.DataFrame(new_val, columns=cols).to_csv(
+    pd.DataFrame(new_val, columns=list(val_df.columns)).to_csv(
         VAL_CSV, mode="a", header=False, index=False
     )
 

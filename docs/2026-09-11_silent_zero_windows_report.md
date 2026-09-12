@@ -27,9 +27,11 @@ Training does not read waveforms from a dataset object. It reads a
 manifest, `data/manifests_v2/train.csv`, one row per example, carrying
 `dataset_name`, `trace_name`, `chunk`, `p_arrival_sample`,
 `s_arrival_sample`. For each row `ManifestDataset.__getitem__` fetches the
-waveform by `trace_name`, resamples it, cuts a 3,001-sample window around
-the P pick, and builds a label array with three channels, P, S and N
-(noise), from Gaussians at the pick samples. The v7 recipe preloads every
+waveform by `trace_name`, resamples it, cuts a 3,001-sample window with
+the P pick placed 30 % of the way in (900 samples of pre-arrival context,
+2,100 after; `_window` at `3bf98c4` line 224), and builds a label array
+with three channels, P, S and N (noise), from Gaussians at the pick
+samples. The v7 recipe preloads every
 row once into RAM (`scripts/fast_manifest_dataset.py`,
 `CachedManifestDataset`) and serves those cached windows for all 44 epochs.
 

@@ -47,11 +47,11 @@ setting, so that a storm season does not silence the picker for the year.
 | Nuisance-pick budget, P | 50 unmatched picks per station-day on quiet days |
 | Nuisance-pick budget, S | 50 unmatched picks per station-day on quiet days |
 | Sensitivity values reported | 20 and 100 |
-| Interval | 95 % percentile bootstrap over station-day blocks |
+| Interval | 95 % percentile bootstrap with stations as blocks (all days of a drawn station move together, because days of one station are not independent) |
 | Precision target | interval half-width ≤ 20 % of the budget |
 | Minimum exposure per stratum | 20 stations with ≥ 3 calibration days each |
 | Reviewed sample | 200 unmatched picks per weight and region, reviewed by a person, to estimate the fraction that are real events absent from the catalogue |
-| Fallback | a stratum below minimum exposure is pooled with the nearest region class and flagged `pooled_with`; it never passes silently |
+| Fallback | a stratum below minimum exposure is pooled with the first neighbour region class (same instrument class, season and condition; neighbour order in `REGION_NEIGHBOURS`) whose days make the combination sufficient, and the table row carries `pooled_with` and `exposure_ok_pooled`; when no neighbour suffices the stratum publishes no threshold |
 
 The unmatched-pick rate is emitted picks with no catalogue arrival within
 0.5 s at that station, per station-day. It is reported as "unmatched-pick
@@ -70,8 +70,8 @@ interval on the fraction of unmatched picks that are missed events.
    annotation store), extract picks at every threshold of the sweep
    (0.05 to 0.95 in steps of 0.05) with the production trigger rule, match
    to the catalogue, and compute the unmatched rate per station-day.
-4. Per stratum, phase and threshold: rate and block-bootstrap interval
-   (`block_bootstrap_rate`). The operating threshold is the lowest threshold
+4. Per stratum, phase and threshold: rate and station-block bootstrap interval
+   (`block_bootstrap_rate`, `block="station"`). The operating threshold is the lowest threshold
    whose interval upper bound is within budget (`operating_threshold`); if the
    precision target fails (`precision_ok`), the stratum needs more exposure
    before a threshold is published.

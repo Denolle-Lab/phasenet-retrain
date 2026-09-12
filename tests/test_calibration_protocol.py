@@ -48,19 +48,53 @@ def test_roles_and_exclusions_are_respected():
         cp.select_calibration_days(bad)
 
 
-def test_exposure_check_flags_thin_strata():
-    av = availability(n_stations=60)
+def rich_availability(n_stations=60, n_days=6, region="dense_local"):
+    """Each station has n_days DJF days with a station-fixed condition, so
+    the (region, broadband, DJF, quiet) stratum meets the minimum exposure."""
+    rows = []
+    for i in range(n_stations):
+        for d in range(n_days):
+            rows.append(dict(station=f"XX.R{i:03d}", day=f"2022-01-{d + 3:02d}", region_class=region,
+                             instrument_class="broadband", season="DJF", power_percentile=10 if i % 2 else 90,
+                             role="unassigned"))
+    return pd.DataFrame(rows)
+
+
+def test_exposure_check_flags_thin_strata_and_pools_them():
+    av = rich_availability()
     days = cp.select_calibration_days(av, fraction=1.0)
     table = cp.exposure_check(days)
-    assert set(table.columns) >= {"region_class", "condition", "n_stations", "n_station_days", "exposure_ok"}
+    assert set(table.columns) >= {"region_class", "condition", "n_stations", "n_station_days", "exposure_ok",
+                                  "pooled_with", "exposure_ok_pooled", "n_station_days_pooled"}
+    assert table["exposure_ok"].any()
+    assert (table.loc[table["exposure_ok"], "pooled_with"] == "").all()
     thin = cp.exposure_check(days[days.station.isin(days.station.unique()[:5])])
     assert not thin["exposure_ok"].any()
+    # alone, a thin stratum cannot pool with anything: no neighbour exists
+    assert (thin["pooled_with"] == "").all() and not thin["exposure_ok_pooled"].any()
+    # a thin sparse_regional stratum next to a rich dense_local one is pooled with it
+    rich = days.copy()
+    thin_rows = cp.select_calibration_days(rich_availability(n_stations=4, region="sparse_regional"), fraction=1.0)
+    both = cp.exposure_check(pd.concat([rich, thin_rows], ignore_index=True))
+    sr = both[both["region_class"] == "sparse_regional"]
+    assert (~sr["exposure_ok"]).all() and (sr["pooled_with"] == "dense_local").all() and sr["exposure_ok_pooled"].all()
+    assert (sr["n_station_days_pooled"] > sr["n_station_days"]).all()
 
 
 def test_rates_bootstrap_and_operating_threshold():
-    per_day = pd.DataFrame({"key": [f"k{i}" for i in range(40)], "unmatched": np.r_[np.full(20, 10.0), np.full(20, 30.0)]})
+    per_day = pd.DataFrame({"key": [f"k{i}" for i in range(40)], "unmatched": np.r_[np.full(20, 10.0), np.full(20, 30.0)],
+                            "station": [f"S{i // 4}" for i in range(40)]})
     rate, (lo, hi) = cp.block_bootstrap_rate(per_day, n_boot=500)
     assert rate == pytest.approx(20.0) and lo < 20.0 < hi
+    rate_d, (lo_d, hi_d) = cp.block_bootstrap_rate(per_day, n_boot=500, block="station_day")
+    assert rate_d == pytest.approx(20.0)
+    # stations hold 4 days each with identical counts: station blocks are
+    # fewer and more homogeneous, so the interval is at least as wide
+    assert (hi - lo) >= (hi_d - lo_d) * 0.9
+    with pytest.raises(ValueError):
+        cp.block_bootstrap_rate(per_day.drop(columns=["station"]), n_boot=10)
+    with pytest.raises(ValueError):
+        cp.block_bootstrap_rate(per_day, n_boot=10, block="pick")
     assert cp.unmatched_rate(pd.DataFrame({"matched": [True, False, False]}), 2.0) == 1.0
     sweep = pd.DataFrame([
         dict(phase="P", threshold=0.1, rate=80.0, ci_low=70.0, ci_high=90.0),

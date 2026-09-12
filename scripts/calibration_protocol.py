@@ -116,18 +116,58 @@ def select_calibration_days(availability: pd.DataFrame, fraction: float = 0.15, 
     return out.reset_index(drop=True)
 
 
-def exposure_check(days: pd.DataFrame, budget: Budget = Budget()) -> pd.DataFrame:
-    """Per stratum: stations, station-days, and whether the minimum exposure
-    holds. A stratum below the minimum is reported `pooled_with` its nearest
-    region class rather than silently passing."""
+# Nearest region class for the pooled fallback, in order of preference. A thin
+# stratum is pooled with the first listed neighbour that, combined with it,
+# meets the minimum exposure; pooling never crosses instrument class, season
+# or condition.
+REGION_NEIGHBOURS = {
+    "dense_local": ("sparse_regional", "island_coastal", "volcanic"),
+    "sparse_regional": ("dense_local", "island_coastal", "polar"),
+    "island_coastal": ("sparse_regional", "dense_local", "volcanic"),
+    "volcanic": ("island_coastal", "dense_local", "sparse_regional"),
+    "polar": ("sparse_regional", "island_coastal", "dense_local"),
+}
+STRATUM = ["region_class", "instrument_class", "season", "condition"]
+
+
+def _exposure_ok(g: pd.DataFrame, budget: Budget) -> bool:
+    per_sta = g.groupby("station").size()
+    return bool(g["station"].nunique() >= budget.min_stations_per_stratum
+                and (per_sta >= budget.min_days_per_station).sum() >= budget.min_stations_per_stratum)
+
+
+def exposure_check(days: pd.DataFrame, budget: Budget = Budget(), neighbours=REGION_NEIGHBOURS) -> pd.DataFrame:
+    """Per stratum: stations, station-days, `exposure_ok` on the stratum's own
+    days, and the pooled fallback.
+
+    A stratum below the minimum exposure is pooled with the first neighbour
+    region class (same instrument class, season and condition) whose days,
+    combined with its own, meet the minimum; that class is written in
+    `pooled_with` and `exposure_ok_pooled` is True. When no neighbour makes
+    the combination sufficient, `pooled_with` is "" and `exposure_ok_pooled`
+    is False: the stratum cannot publish a threshold. A stratum that meets
+    the minimum on its own has `pooled_with` "" and both flags True.
+    """
+    groups = {keys: g for keys, g in days.groupby(STRATUM)}
     rows = []
-    for keys, g in days.groupby(["region_class", "instrument_class", "season", "condition"]):
-        n_sta = g["station"].nunique()
-        per_sta = g.groupby("station").size()
-        ok = n_sta >= budget.min_stations_per_stratum and (per_sta >= budget.min_days_per_station).sum() >= budget.min_stations_per_stratum
-        rows.append(dict(zip(["region_class", "instrument_class", "season", "condition"], keys),
-                         n_stations=int(n_sta), n_station_days=int(len(g)), exposure_ok=bool(ok)))
-    return pd.DataFrame(rows)
+    for keys, g in groups.items():
+        region, instrument, season, condition = keys
+        ok = _exposure_ok(g, budget)
+        pooled_with, ok_pooled, n_pooled_days = "", ok, int(len(g))
+        if not ok:
+            for other in neighbours.get(region, ()):
+                h = groups.get((other, instrument, season, condition))
+                if h is None:
+                    continue
+                combined = pd.concat([g, h], ignore_index=True)
+                if _exposure_ok(combined, budget):
+                    pooled_with, ok_pooled, n_pooled_days = other, True, int(len(combined))
+                    break
+        rows.append(dict(zip(STRATUM, keys), n_stations=int(g["station"].nunique()), n_station_days=int(len(g)),
+                         exposure_ok=ok, pooled_with=pooled_with, exposure_ok_pooled=ok_pooled,
+                         n_station_days_pooled=n_pooled_days))
+    return pd.DataFrame(rows, columns=STRATUM + ["n_stations", "n_station_days", "exposure_ok", "pooled_with",
+                                                 "exposure_ok_pooled", "n_station_days_pooled"])
 
 
 def unmatched_rate(picks: pd.DataFrame, exposure_days: float) -> float:
@@ -137,15 +177,34 @@ def unmatched_rate(picks: pd.DataFrame, exposure_days: float) -> float:
     return float((~picks["matched"]).sum() / exposure_days)
 
 
-def block_bootstrap_rate(per_day: pd.DataFrame, n_boot: int = 2000, ci=0.95, seed: int = 0) -> tuple:
-    """Rate and percentile interval with station-day blocks resampled
-    (columns: key, unmatched). Stations, not picks, are the unit."""
+def block_bootstrap_rate(per_day: pd.DataFrame, n_boot: int = 2000, ci=0.95, seed: int = 0,
+                         block: str = "station") -> tuple:
+    """Unmatched picks per station-day and a percentile interval.
+
+    per_day columns: `unmatched` (count on one station-day), `key`, and
+    `station` when `block="station"`. The resampling unit is the block:
+    `"station"` resamples whole stations (every day of a drawn station comes
+    with it), which is the protocol's unit because days of one station are
+    not independent; `"station_day"` resamples station-days. The rate is the
+    mean over station-days; the interval is on that mean.
+    """
     if per_day.empty:
         return float("nan"), (float("nan"), float("nan"))
+    if block not in ("station", "station_day"):
+        raise ValueError("block must be 'station' or 'station_day'")
     rng = np.random.default_rng(seed)
     counts = per_day["unmatched"].to_numpy(dtype=float)
     rate = counts.mean()
-    boots = rng.choice(counts, size=(n_boot, counts.size), replace=True).mean(axis=1)
+    if block == "station":
+        if "station" not in per_day:
+            raise ValueError("block='station' needs a station column")
+        blocks = [g["unmatched"].to_numpy(dtype=float) for _, g in per_day.groupby("station")]
+        n_blk = len(blocks)
+        draws = rng.integers(0, n_blk, size=(n_boot, n_blk))
+        sums = np.array([b.sum() for b in blocks]); sizes = np.array([b.size for b in blocks])
+        boots = sums[draws].sum(axis=1) / sizes[draws].sum(axis=1)
+    else:
+        boots = rng.choice(counts, size=(n_boot, counts.size), replace=True).mean(axis=1)
     lo, hi = np.percentile(boots, [100 * (1 - ci) / 2, 100 * (1 + ci) / 2])
     return float(rate), (float(lo), float(hi))
 

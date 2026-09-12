@@ -136,9 +136,20 @@ def gc_distance_deg(lat1, lon1, lat2, lon2):
     return np.degrees(2 * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0))))
 
 
+# pandas >= 2 infers one strptime format from the first value and coerces every
+# value in another format (with/without fractional seconds, 'T' or ' ') to NaT,
+# which would quarantine rows for a formatting accident; ISO8601 parses them all.
+_ISO_FORMAT = "ISO8601" if int(pd.__version__.split(".")[0]) >= 2 else None
+
+
 def _to_utc(series: pd.Series) -> pd.Series:
-    t = pd.to_datetime(series, errors="coerce", utc=True)
-    return t
+    s = pd.Series(series)
+    if _ISO_FORMAT is not None and not pd.api.types.is_datetime64_any_dtype(s) and s.dtype == object:
+        try:
+            return pd.to_datetime(s, errors="coerce", utc=True, format=_ISO_FORMAT)
+        except (TypeError, ValueError):
+            pass
+    return pd.to_datetime(s, errors="coerce", utc=True)
 
 
 def window_hits(origin_time, lat, lon) -> pd.DataFrame:
@@ -211,8 +222,13 @@ def holdout_year_mask(origin_time) -> pd.Series:
     return t.dt.year.isin(list(HOLDOUT_YEARS)).fillna(False).astype(bool)
 
 
-def load_sequence_exclusions(path: Path = EXCLUSION_CSV, required: bool = True) -> dict:
-    """{dataset: frozenset(trace_name)} from the committed exclusion list.
+def load_sequence_exclusions(path: Path = EXCLUSION_CSV, required: bool = True,
+                             chunk_aware: bool = False) -> dict:
+    """{dataset: frozenset(trace_name)} from the committed exclusion list, or,
+    with `chunk_aware`, {dataset: {trace_name: frozenset(chunk)}} where chunk
+    "" means every chunk of that trace name (issue #33: mlaapde, cwa and
+    aq2009gm reuse trace_name as a slot index across chunks, so a name-only
+    key over-excludes unrelated slots).
 
     Fails closed: if the list is missing and `required`, raise so that no
     manifest can be built without it. The list is produced on the lab
@@ -229,8 +245,36 @@ def load_sequence_exclusions(path: Path = EXCLUSION_CSV, required: bool = True) 
                 "2026-09-07 on may contain the held-out sequences."
             )
         return {}
-    df = pd.read_csv(path, usecols=["dataset", "trace_name"], dtype=str)
-    return {ds: frozenset(g["trace_name"]) for ds, g in df.groupby("dataset")}
+    if not chunk_aware:
+        df = pd.read_csv(path, usecols=["dataset", "trace_name"], dtype=str)
+        return {ds: frozenset(g["trace_name"]) for ds, g in df.groupby("dataset")}
+    df = pd.read_csv(path, usecols=lambda c: c in ("dataset", "trace_name", "chunk"),
+                     dtype=str, keep_default_na=False)
+    if "chunk" not in df.columns:
+        df["chunk"] = ""
+    out = {}
+    for ds, g in df.groupby("dataset"):
+        d = {}
+        for t, c in zip(g["trace_name"], g["chunk"].astype(str)):
+            d.setdefault(t, set()).add(c)
+        out[ds] = {t: frozenset(cs) for t, cs in d.items()}
+    return out
+
+
+def listed_mask(trace_names, chunks, bad) -> np.ndarray:
+    """True where a row's (trace_name, chunk) is listed in `bad`: either a set
+    of trace names (any chunk) or {trace_name: frozenset(chunks)} in which
+    chunk "" matches every chunk of that trace name."""
+    names = pd.Series(trace_names).astype(str).reset_index(drop=True)
+    if not isinstance(bad, dict):
+        return names.isin(bad).to_numpy(dtype=bool)
+    wild = {t for t, cs in bad.items() if "" in cs}
+    spec = {f"{t}\x1f{c}" for t, cs in bad.items() for c in cs if c != ""}
+    mask = names.isin(wild).to_numpy(dtype=bool)
+    if spec:
+        ch = pd.Series(chunks).fillna("").astype(str).reset_index(drop=True)
+        mask |= (names + "\x1f" + ch).isin(spec).to_numpy(dtype=bool)
+    return mask
 
 
 def check_manifest(manifest: pd.DataFrame, exclusions: dict,
@@ -238,7 +282,9 @@ def check_manifest(manifest: pd.DataFrame, exclusions: dict,
     """Verify a manifest against the exclusion list and the year hold-out.
 
     Returns a dict with counts. `n_excluded_present` must be 0 and
-    `n_year_holdout` must be 0 for the manifest to be usable. Rows with no
+    `n_year_holdout` must be 0 for the manifest to be usable. `exclusions`
+    is either shape returned by load_sequence_exclusions (chunk-aware or
+    not); scripts/exclusion_bundle.py `check` is the bundle-verified form. Rows with no
     origin time are counted in `n_year_unverifiable` (a manifest written
     by the patched build_training_dataset.py carries source_origin_time;
     older manifests need the metadata join done by
@@ -249,7 +295,8 @@ def check_manifest(manifest: pd.DataFrame, exclusions: dict,
     for ds, g in manifest.groupby(ds_col):
         bad = exclusions.get(ds)
         if bad:
-            present += int(g["trace_name"].isin(bad).sum())
+            chunks = g["chunk"] if "chunk" in g.columns else pd.Series([""] * len(g))
+            present += int(listed_mask(g["trace_name"], chunks, bad).sum())
     flags = flag_rows(manifest, time_col, lat_col, lon_col)
     return dict(
         n_rows=int(len(manifest)),

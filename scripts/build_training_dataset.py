@@ -25,11 +25,19 @@ Manifest columns:
                       event fingerprint (NaN when the source has none), so the
                       held-out-sequence and 2016/2021 year hold-out can be
                       re-verified on the manifest itself (2026-09-07)
+  independence_unverified
+                      True when the row has no testable origin and was kept
+                      under the bundle's allow_unknown quarantine policy
+                      (2026-09-11, #33A); always False under the default policy
 
-Exclusions applied, in order: benchmark traces, held-out external sequences
-(data/exclusions/heldout_sequences.csv, scripts/heldout_sequences.py; the
-build refuses to run without it), 2016/2021 whole-year hold-out, label-error
-flagged traces, benchmark events under another trace_name.
+Exclusions applied, in order: benchmark traces, the exclusion bundle
+(data/exclusions/bundle.json, scripts/exclusion_bundle.py, #33A: the listed
+(dataset, chunk, trace_name) rows of data/exclusions/heldout_sequences.csv,
+origins inside a held-out window, 2016/2021 origins, and quarantine of rows
+whose origin time or location is missing; the build refuses to run without a
+valid bundle), label-error flagged traces, benchmark events under another
+trace_name. provenance.json beside the manifests records the bundle hash, git
+commit, per-source counts and the manifest key hashes.
 
 Usage:
   python scripts/build_training_dataset.py
@@ -37,9 +45,11 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import sys
 import warnings
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -56,6 +66,7 @@ import seisbench.data as sbd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import heldout_sequences as hs  # held-out external sequences + 2016/2021 year hold-out (2026-09-07)
+import exclusion_bundle as eb   # versioned exclusion bundle, (dataset, chunk, trace_name) identity (#33A)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Distance helpers
@@ -369,18 +380,17 @@ def normalise_split(s):
 
 def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_balanced=False,
                      label_error_exclude=None, label_error_report=None,
-                     sequence_exclude=None, strict_year_holdout=False, holdout_report=None):
+                     bundle=None, holdout_report=None):
     """
     Load one dataset, filter for valid P picks, compute distances, apply cap.
     benchmark_exclude : set of trace_name strings to exclude (benchmark traces).
-    sequence_exclude  : set of trace_name strings from data/exclusions/heldout_sequences.csv
-                        (the external test sequences, scripts/heldout_sequences.py). Applied
-                        beside benchmark_exclude. The 2016/2021 whole-year hold-out is applied
-                        here too, from the metadata's source_origin_time.
-    strict_year_holdout : if True, rows with NO origin time are dropped as well (they cannot
-                        be proven to lie outside 2016/2021); default keeps them and reports
-                        the count as year_unverifiable in holdout_report.
-    holdout_report    : optional list to append per-dataset removal counts to.
+    bundle            : the exclusion bundle (scripts/exclusion_bundle.py, #33A); required.
+                        exclusion_bundle.apply_exclusions(kind="signal") removes the listed
+                        (dataset, chunk, trace_name) rows, rows whose source origin lies in a
+                        held-out window and rows with a 2016/2021 origin; rows whose origin
+                        time or location is missing are quarantined per the bundle's policy
+                        (dropped, or kept with `independence_unverified` set).
+    holdout_report    : optional list to append the per-dataset apply_exclusions counts to.
     event_exclude     : frozenset of event_keys.py fingerprints to exclude — catches
                         the same earthquake landing in the benchmark under a
                         DIFFERENT trace_name (issue #32), which benchmark_exclude
@@ -448,47 +458,25 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         if n_removed:
             print(f"    excluded {n_removed:,} benchmark traces → {len(meta):,} remaining")
 
-    # ── exclude the held-out external test sequences (2026-09-07 audit) ──────
-    n_seq_removed = 0
-    if sequence_exclude and "trace_name" in meta.columns:
-        before = len(meta)
-        keep_seq = ~meta["trace_name"].isin(sequence_exclude)
-        meta   = meta.loc[keep_seq].copy()
-        p_vals = p_vals.loc[keep_seq]
-        n_seq_removed = before - len(meta)
-        if n_seq_removed:
-            print(f"    excluded {n_seq_removed:,} held-out-sequence traces → {len(meta):,} remaining")
-
-    # ── whole-year hold-out: no 2016 / 2021 origins in any manifest ─────────
+    # ── exclusion bundle (#33A): listed (dataset, chunk, trace_name) rows, ──
+    #    held-out windows, 2016/2021 origins, quarantine of unknown origins
+    if bundle is None:
+        raise ValueError("process_dataset needs the exclusion bundle (scripts/exclusion_bundle.py); "
+                         "nothing is built without it")
     before = len(meta)
-    if hs.TIME_COL in meta.columns:
-        year_drop = hs.holdout_year_mask(meta[hs.TIME_COL])
-        year_drop.index = meta.index
-        n_unverifiable = int(pd.to_datetime(meta[hs.TIME_COL], errors="coerce", utc=True).isna().sum())
-    else:
-        year_drop = pd.Series(False, index=meta.index)
-        n_unverifiable = len(meta)
-    if strict_year_holdout and n_unverifiable:
-        if hs.TIME_COL in meta.columns:
-            year_drop |= pd.to_datetime(meta[hs.TIME_COL], errors="coerce", utc=True).isna().values
-        else:
-            year_drop[:] = True
-    meta   = meta.loc[~year_drop].copy()
-    p_vals = p_vals.loc[~year_drop]
-    n_year_removed = before - len(meta)
-    if n_year_removed:
-        print(f"    excluded {n_year_removed:,} rows with a {sorted(hs.HOLDOUT_YEARS)} origin"
-              f"{' or no origin time (strict)' if strict_year_holdout else ''} → {len(meta):,} remaining")
-    if n_unverifiable and not strict_year_holdout:
-        print(f"    WARNING: {n_unverifiable:,} rows have no source_origin_time; year hold-out "
-              f"unverifiable for them (kept; use --strict-year-holdout to drop)")
+    meta, ex_report = eb.apply_exclusions(meta, bundle, kind="signal", dataset=name)
+    p_vals = p_vals.loc[meta.index]
+    if before - len(meta):
+        print(f"    excluded {before - len(meta):,} rows by the exclusion bundle "
+              f"(listed {ex_report['n_trace_listed']:,}, in-window {ex_report['n_in_window']:,}, "
+              f"{sorted(hs.HOLDOUT_YEARS)} origin {ex_report['n_year_holdout']:,}, "
+              f"quarantined unknown {ex_report['n_quarantined_unknown']:,}) → {len(meta):,} remaining")
+    if ex_report["n_unknown_kept_flagged"]:
+        print(f"    WARNING: {ex_report['n_unknown_kept_flagged']:,} rows have no origin time or location; "
+              f"kept with {eb.FLAG_COL}=True (bundle policy allow_unknown) and outside any independence claim")
     if holdout_report is not None:
-        holdout_report.append({
-            "dataset": name,
-            "n_sequence_excluded": n_seq_removed,
-            "n_year_excluded": n_year_removed,
-            "n_year_unverifiable": 0 if strict_year_holdout else n_unverifiable,
-        })
+        holdout_report.append({"dataset": name, **{k: v for k, v in ex_report.items()
+                                                    if k.startswith("n_") or k in ("trace_list_checked", "bundle_sha256")}})
 
     # ── exclude Aguilar-flagged bad-label traces (issue #10) ──────────────────
     if label_error_exclude and "trace_name" in meta.columns:
@@ -582,6 +570,7 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         "source_origin_time":   meta[hs.TIME_COL].values if hs.TIME_COL in meta.columns else np.nan,
         "source_latitude_deg":  meta[hs.LAT_COL].values  if hs.LAT_COL  in meta.columns else np.nan,
         "source_longitude_deg": meta[hs.LON_COL].values  if hs.LON_COL  in meta.columns else np.nan,
+        eb.FLAG_COL:         meta[eb.FLAG_COL].values,
         "orig_split":        (
             meta["split"].map(normalise_split).values
             if "split" in meta.columns
@@ -640,9 +629,11 @@ def _event_group_ids(df):
     Positional group id per row of df (0..len(df)-1 order), such that rows
     sharing any event_keys.py fingerprint end up in the same group — so an
     earthquake's traces move together across train/val/test instead of being
-    split independently. Datasets not registered in event_keys.py (no known
-    id column, e.g. teleseismic-only sources like geofon) fall back to one
-    singleton group per row — today's trace-level behavior, unchanged.
+    split independently. Rows whose source origins coincide within
+    exclusion_bundle.origin_unions' tolerances (2 s, 0.1 deg) are unioned too,
+    so an equivalent event present in two datasets (or in a dataset with no
+    id column, e.g. geofon) stays in one split (#33A). Rows with neither a
+    key nor an origin fingerprint are singleton groups, as before.
     """
     import event_keys as ek
 
@@ -660,18 +651,7 @@ def _event_group_ids(df):
                   f"— falling back to trace-level assignment for it")
             maps[dname] = {}
 
-    parent = list(range(n))
-
-    def find(x):
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a, b):
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
+    uf = eb.UnionFind(n)
 
     key_to_first_row = {}
     for pos in range(n):
@@ -682,11 +662,16 @@ def _event_group_ids(df):
         keys = maps.get(dnames[pos], {}).get((tnames[pos], chunks[pos]), frozenset())
         for k in keys:
             if k in key_to_first_row:
-                union(pos, key_to_first_row[k])
+                uf.union(pos, key_to_first_row[k])
             else:
                 key_to_first_row[k] = pos
 
-    return np.array([find(i) for i in range(n)])
+    # #33A: equivalent events across datasets (same origin within tolerance)
+    if all(c in df.columns for c in (hs.TIME_COL, hs.LAT_COL, hs.LON_COL)):
+        for i, j in eb.origin_unions(df[hs.TIME_COL], df[hs.LAT_COL], df[hs.LON_COL]):
+            uf.union(int(i), int(j))
+
+    return uf.labels()
 
 
 def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
@@ -725,6 +710,17 @@ def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
         (bool(maps.get(dnames[i], {}).get((tnames[i], chunks[i]), frozenset())) for i in range(n)),
         dtype=bool, count=n,
     )
+    # #33A: a row with an origin fingerprint has an identity too (origin
+    # coincidence groups it with equivalent events of other datasets), so it
+    # is grouped rather than handed to the vendor split. hs._to_utc, not a
+    # bare pd.to_datetime: pandas >= 2 infers one format from the first value
+    # and coerces the rest to NaT, which would hand a row with fractional
+    # seconds to the vendor split while its twin is grouped (the same parser
+    # eb.origin_unions uses, so "has a fingerprint" and "is grouped" agree).
+    if all(c in df.columns for c in (hs.TIME_COL, hs.LAT_COL, hs.LON_COL)):
+        has_key |= (hs._to_utc(df[hs.TIME_COL]).notna()
+                    & pd.to_numeric(df[hs.LAT_COL], errors="coerce").notna()
+                    & pd.to_numeric(df[hs.LON_COL], errors="coerce").notna()).to_numpy()
 
     split = pd.Series("", index=df.index, dtype=str)
 
@@ -740,33 +736,15 @@ def assign_splits(df, rng, val_frac=0.10, test_frac=0.10):
         m = len(sub)
         group_pos = _event_group_ids(sub)
 
-        groups = {}
-        for pos, gid in enumerate(group_pos):
-            groups.setdefault(gid, []).append(pos)
-        group_keys = list(groups.keys())
-        rng.shuffle(group_keys)
+        # whole groups into val, then test, the rest train (exclusion_bundle
+        # keeps the rule so the fixture tests exercise the same code)
+        assign = eb.fill_splits_by_group(group_pos, rng, val_frac=val_frac, test_frac=test_frac)
 
-        n_val_target  = int(val_frac  * m)
-        n_test_target = int(test_frac * m)
-
-        assign = np.full(m, "train", dtype=object)
-        gi, count = 0, 0
-        while gi < len(group_keys) and count < n_val_target:
-            for pos in groups[group_keys[gi]]:
-                assign[pos] = "val"
-            count += len(groups[group_keys[gi]])
-            gi += 1
-        count = 0
-        while gi < len(group_keys) and count < n_test_target:
-            for pos in groups[group_keys[gi]]:
-                assign[pos] = "test"
-            count += len(groups[group_keys[gi]])
-            gi += 1
-
-        n_multi = sum(1 for g in group_keys if len(groups[g]) > 1)
-        print(f"    event-aware split: {m:,} rows -> {len(group_keys):,} groups "
+        _, sizes = np.unique(group_pos, return_counts=True)
+        n_multi = int((sizes > 1).sum())
+        print(f"    event-aware split: {m:,} rows -> {len(sizes):,} groups "
               f"({n_multi:,} multi-trace events, "
-              f"{len(group_keys) - n_multi:,} singleton events / no-key rows without orig_split)")
+              f"{len(sizes) - n_multi:,} singleton events / no-key rows without orig_split)")
 
         split.loc[ungrouped_idx] = assign
 
@@ -876,8 +854,8 @@ def load_benchmark_exclusions():
 SKIP_SOURCES_THIS_ROUND = frozenset({"obst2024", "obs"})
 
 
-def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_year_holdout=False,
-         include_obs=False):
+def main(output_dir, seed, s_balanced=False, label_error_filter=True, include_obs=False,
+         allow_uncertified_bundle=False):
     rng = np.random.default_rng(seed)
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -889,16 +867,28 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_yea
     print(f"  Random seed          : {seed}")
     print(f"  S-balanced mode      : {s_balanced}")
     print(f"  Label-error filter   : {label_error_filter}")
-    print(f"  Year hold-out        : {sorted(hs.HOLDOUT_YEARS)} (strict={strict_year_holdout})")
+    print(f"  Year hold-out        : {sorted(hs.HOLDOUT_YEARS)} (unknown origins: bundle quarantine policy)")
     print("=" * 70)
 
     # ── load benchmark exclusions ────────────────────────────────────────────
     benchmark_exclusions, benchmark_event_exclusions = load_benchmark_exclusions()
     label_error_exclusions = load_label_error_exclusions() if label_error_filter else {}
-    # Held-out external sequences (Kaikoura, Norcia, Thessaly, Ridgecrest,
-    # Monroe): fails closed if the committed list is missing.
-    sequence_exclusions = hs.load_sequence_exclusions()
-    print(f"  Loaded {sum(len(v) for v in sequence_exclusions.values()):,} held-out-sequence traces "
+    # Exclusion bundle (#33A): fails closed when absent, stale or, unless
+    # --allow-uncertified-bundle, not certifying every source snapshot. The
+    # sequence list itself is always required.
+    bundle_check = {}
+    bundle = eb.load_bundle(require_certified=not allow_uncertified_bundle, report=bundle_check)
+    if not bundle["sequence_list_present"]:
+        sys.exit(f"ERROR: the exclusion bundle records {hs.EXCLUSION_CSV.name} as absent; run "
+                 "audit_heldout_sequences.py on the server, commit the list and rebuild the bundle")
+    sequence_exclusions = eb.trace_exclusions(bundle)
+    print(f"  Exclusion bundle     : {bundle['sha256'][:16]}... certified={bundle['certified']} "
+          f"allow_unknown={bundle['quarantine_policy']['allow_unknown']} "
+          f"({len(bundle_check['checked'])} inputs verified, {len(bundle_check['unchecked'])} unchecked)")
+    if not bundle["certified"]:
+        print(f"  WARNING: bundle not certified (unhashed sources: {', '.join(bundle['uncertified_sources'])}); "
+              "these manifests carry no source-snapshot certificate")
+    print(f"  Loaded {sum(len(v) for v in sequence_exclusions.values()):,} held-out-sequence trace names "
           f"across {len(sequence_exclusions)} datasets from {hs.EXCLUSION_CSV.relative_to(Path(__file__).parent.parent)}")
 
     # ── process all datasets ─────────────────────────────────────────────────
@@ -912,13 +902,11 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_yea
         exclude = benchmark_exclusions.get(cfg["name"], set())
         event_exclude = benchmark_event_exclusions.get(cfg["name"], frozenset())
         le_exclude = label_error_exclusions.get(cfg["name"], frozenset())
-        seq_exclude = sequence_exclusions.get(cfg["name"], frozenset())
         df = process_dataset(cfg, rng, benchmark_exclude=exclude,
                               event_exclude=event_exclude, s_balanced=s_balanced,
                               label_error_exclude=le_exclude,
                               label_error_report=label_error_report,
-                              sequence_exclude=seq_exclude,
-                              strict_year_holdout=strict_year_holdout,
+                              bundle=bundle,
                               holdout_report=holdout_report)
         if df is not None:
             frames.append(df)
@@ -952,6 +940,7 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_yea
         "distance_km", "distance_bin",
         "p_col", "s_col",
         "source_origin_time", "source_latitude_deg", "source_longitude_deg",
+        eb.FLAG_COL,
     ]
     train_df[KEEP_COLS].to_csv(out_path / "train.csv", index=False)
     val_df[KEEP_COLS].to_csv(out_path / "val.csv",   index=False)
@@ -971,19 +960,52 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, strict_yea
     summary = pd.DataFrame(rows)
     summary.to_csv(out_path / "composition_summary.csv", index=False)
 
-    if holdout_report:
-        ho_df = pd.DataFrame(holdout_report)
-        ho_df.to_csv(out_path / "heldout_removal_report.csv", index=False)
-        print("\n  Held-out sequence / year removal (2026-09-07 audit):")
-        for _, r in ho_df.iterrows():
-            print(f"    {r['dataset']:16s}  sequences {r['n_sequence_excluded']:>7,}  "
-                  f"years {r['n_year_excluded']:>7,}  year-unverifiable {r['n_year_unverifiable']:>7,}")
-        # final gate: nothing written may sit in a window or a held-out year
-        for split_name, df in [("train", train_df), ("val", val_df), ("test", test_df)]:
-            rep = hs.check_manifest(df, sequence_exclusions)
-            if rep["n_excluded_present"] or rep["n_in_window"] or rep["n_year_holdout"]:
-                sys.exit(f"ERROR: {split_name} manifest violates the hold-out: {rep}")
-        print("  Hold-out gate: train/val/test contain no held-out-sequence trace and no 2016/2021 origin")
+    ho_df = pd.DataFrame(holdout_report)
+    ho_df.to_csv(out_path / "heldout_removal_report.csv", index=False)
+    print("\n  Exclusion bundle removal per source (#33A):")
+    for _, r in ho_df.iterrows():
+        print(f"    {r['dataset']:16s}  listed {r['n_trace_listed']:>7,}  in-window {r['n_in_window']:>7,}  "
+              f"years {r['n_year_holdout']:>7,}  quarantined {r['n_quarantined_unknown']:>7,}  "
+              f"kept-flagged {r['n_unknown_kept_flagged']:>7,}")
+    # final gate: nothing written may be listed, sit in a window or in a
+    # held-out year (chunk-aware check_manifest, then the bundle itself)
+    gate = {}
+    for split_name, df in [("train", train_df), ("val", val_df), ("test", test_df)]:
+        rep = hs.check_manifest(df, sequence_exclusions)
+        if rep["n_excluded_present"] or rep["n_in_window"] or rep["n_year_holdout"]:
+            sys.exit(f"ERROR: {split_name} manifest violates the hold-out: {rep}")
+        _, brep = eb.apply_exclusions(df, bundle, kind="signal")
+        if brep["n_removed"]:
+            sys.exit(f"ERROR: {split_name} manifest violates the exclusion bundle: {brep}")
+        gate[split_name] = {**rep, "bundle": brep}
+    print("  Hold-out gate: train/val/test contain no listed trace, no in-window origin and no 2016/2021 origin")
+
+    # ── provenance beside the manifests (#33A) ───────────────────────────────
+    from hash_manifests import hash_manifest
+    manifest_hashes = {}
+    for fn in ("train.csv", "val.csv", "test.csv"):
+        digest, n_rows = hash_manifest(out_path / fn)
+        manifest_hashes[fn] = {"sha256_of_sorted_keys": digest, "n_rows": int(n_rows)}
+    provenance = {
+        "bundle_sha256": bundle["sha256"],
+        "bundle_path": str(eb.BUNDLE_PATH.relative_to(eb.REPO_ROOT)),
+        "bundle_certified": bundle["certified"],
+        "bundle_uncertified_sources": bundle["uncertified_sources"],
+        "bundle_rules_sha256": bundle["rules"]["sha256"],
+        "bundle_policy_sha256": bundle["inputs"]["evaluation_suites"]["policy_sha256"],
+        "quarantine_policy": bundle["quarantine_policy"],
+        "git_commit": eb._git_commit(eb.REPO_ROOT),
+        "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "builder": "scripts/build_training_dataset.py",
+        "options": {"seed": seed, "s_balanced": s_balanced, "label_error_filter": label_error_filter,
+                    "include_obs": include_obs, "allow_uncertified_bundle": allow_uncertified_bundle},
+        "per_source": holdout_report,
+        "gate": gate,
+        "manifests": manifest_hashes,
+    }
+    (out_path / "provenance.json").write_text(
+        json.dumps(provenance, indent=2, sort_keys=True, default=eb._json_default) + "\n")
+    print(f"  Provenance written to {out_path / 'provenance.json'} (bundle {bundle['sha256'][:12]})")
 
     if label_error_report:
         le_df = pd.DataFrame(label_error_report)
@@ -1015,11 +1037,17 @@ if __name__ == "__main__":
     parser.add_argument("--no-label-error-filter", action="store_true",
                         help="Skip excluding Aguilar-flagged bad-label traces (GitHub #10; on by default)")
     parser.add_argument("--strict-year-holdout", action="store_true",
-                        help="Also drop rows with no source_origin_time (cannot be proven outside 2016/2021)")
+                        help="Deprecated no-op: the exclusion bundle's quarantine policy decides what happens "
+                             "to rows without an origin time or location (default: dropped)")
+    parser.add_argument("--allow-uncertified-bundle", action="store_true",
+                        help="Build even if the exclusion bundle does not certify every source snapshot "
+                             "(the sequence list is still required); recorded in provenance.json")
     parser.add_argument("--include-obs", action="store_true",
                         help="Include obst2024 and obs (ocean-bottom) sources, which are skipped this round (2026-09-08)")
     args = parser.parse_args()
+    if args.strict_year_holdout:
+        print("NOTE: --strict-year-holdout is a no-op; the exclusion bundle's quarantine policy applies")
     main(args.output_dir, args.seed, s_balanced=args.s_balanced,
          label_error_filter=not args.no_label_error_filter,
-         strict_year_holdout=args.strict_year_holdout,
-         include_obs=args.include_obs)
+         include_obs=args.include_obs,
+         allow_uncertified_bundle=args.allow_uncertified_bundle)

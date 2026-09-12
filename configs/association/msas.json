@@ -1,0 +1,26 @@
+{
+  "association_cutoff_km": 250.0,
+  "depth_range_km": [
+    0.0,
+    60.0
+  ],
+  "layers": [],
+  "location_tolerance_km": 2.0,
+  "margin_km": 50.0,
+  "min_p_picks": 3,
+  "min_picks": 6,
+  "min_s_picks": 0,
+  "n_p_and_s_picks": 2,
+  "n_picks_p_and_s_policy": "require",
+  "notes": "Proposal for mainshock-aftershock sequences: crustal vp/vs 6.0/3.4 km/s, 1.5 s tolerance.",
+  "p_velocity": 6.0,
+  "region": "msas",
+  "s_velocity": 3.4,
+  "sha256": "be32d8ffcaa3f4e9884e5ee340838174d6d8939e05758765aec5a77e490d8ac8",
+  "spatial_tolerance_km": 10.0,
+  "time_before_s": 300.0,
+  "time_tolerance_s": 1.5,
+  "velocity_model": "homogeneous",
+  "version": "1",
+  "versioned": "Frozen associator parameters. sha256 is computed over the canonical JSON of every field except notes and versioned; it is recorded as config_sha256 in every events, assignments and matches row and in run.json of each run. To change a value: edit, bump version, and rewrite the file with AssociatorConfig.save (or `event_association.py --rehash <file>`) so the stored hash matches; AssociatorConfig.load refuses a file whose stored hash disagrees with its content."
+}

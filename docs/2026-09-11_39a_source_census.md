@@ -11,18 +11,23 @@ what the server run has to add.
 ## 1. Method
 
 **Bulletin operators.** The census treats an operator-year as the population
-and samples days from it: `days_per_quarter` distinct days per quarter, a
-quarter taken whole when it has no more days than that, otherwise its days
-sorted by `sha256(operator|year|Qq|seed_tag|date)` and the first
-`days_per_quarter` kept. The sample depends on nothing in the data, a rerun
-with the same `--seed-tag` asks the same days, and a larger
-`days_per_quarter` extends the smaller sample. (The 16 days of section 2 were
-drawn at commit 7580636 by the earlier rule,
-`sha256(operator|year|Qq|seed_tag|k) mod days-in-quarter` with repeats
-rejected, which PR #75 replaced after review; seed tag `39a` maps to other
-days under the current rule, and the days that ran are the `day` column of
-the committed CSVs.) Each sampled day is queried along the path
-`scripts/build_heldout_testset.py` already uses for that operator:
+and samples `days_per_quarter` distinct days per quarter from it, by
+operator, year, quarter and `--seed-tag` only, so the sample depends on
+nothing in the data and a rerun with the same seed tag and `--sampler` asks
+the same days. A quarter with no more days than `days_per_quarter` is taken
+whole. Otherwise the rule is the `--sampler` argument, recorded in the
+`sampler` column of every per-day row and of `bulletin_summary.csv`:
+
+| `--sampler` | Rule for a quarter | Where used |
+|---|---|---|
+| `v1` | for k = 0, 1, ...: `days[sha256(operator\|year\|Qq\|seed_tag\|k)[:16] mod days-in-quarter]`, repeats skipped, until `days_per_quarter` days are in hand (the rule of commit 7580636) | the committed run of section 2; `--sampler v1 --seed-tag 39a` reproduces its 16 days (test `test_sampler_v1_reproduces_the_committed_demonstration_days`) |
+| `v2` (default) | the quarter's days sorted by `sha256(operator\|year\|Qq\|seed_tag\|date)`, the first `days_per_quarter` kept; one hash per day, and a larger `days_per_quarter` extends the smaller sample | new runs |
+
+The two rules map the same seed tag to different days. Day files written
+before the option existed carry no `sampler` column and are read as `v1`
+(the only rule that existed when they were written). Each sampled day is
+queried along the path `scripts/build_heldout_testset.py` already uses for
+that operator:
 
 | Operator | Path (builder function) | Query | Evaluation mode exposed |
 |---|---|---|---|
@@ -83,9 +88,11 @@ value counts per phase and the rows inside held-out windows and years.
 
 ## 2. Demonstration: INGV and NOA, 2018 and 2019, one day per quarter
 
-Command (run 2026-09-12 13:09 to 13:22 UTC; 12.5 minutes of the 30-minute
-budget; the NOA 2019 file was regenerated from the raw cache after a
-note-format fix, same counts):
+Command (run 2026-09-12 13:09 to 13:22 UTC at commit 7580636; 12.5 minutes
+of the 30-minute budget; the NOA 2019 file was regenerated from the raw cache
+after a note-format fix, same counts). The `--sampler` option did not exist
+yet; the run used the rule that is now `--sampler v1`, and the committed day
+files carry no `sampler` column:
 
 ```sh
 python scripts/source_census.py bulletin --operators INGV NOA --years 2018 2019 \
@@ -324,10 +331,11 @@ counts. Until it runs, no SeisBench source's manual share is a number.
 Still open on the bulletin side, all runnable here: the other operators
 (GeoNet, USGS, ISC, franceseisme), more years including the held-out 2016
 and 2021 so the year rule is exercised, two days per quarter, and a
-shared-event join between operators on common days. A rerun of INGV and NOA
-2018 and 2019 with `--seed-tag 39a` draws different days from the 16 of
-section 2 (the sampling rule changed in PR #75, section 1) and refetches them;
-the 83 MB cache of the section 2 run can be deleted.
+shared-event join between operators on common days. New runs use
+`--sampler v2` (the default); `--sampler v1 --seed-tag 39a` asks the 16 days
+of section 2 again, but refetches them, because the raw cache written at
+commit 7580636 carries no URL hash in its file names (section 1) and is not
+read. That 83 MB cache can be deleted.
 
 Not in scope of this checkpoint: waveform accessibility, response state
 and native rate per station (a station-side census against the FDSN

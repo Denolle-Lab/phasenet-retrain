@@ -4,6 +4,7 @@ synthetic QuakeML-like frames and without network: the query function is
 monkeypatched.  Run with:  python -m pytest tests -q
 """
 import datetime
+import hashlib
 import json
 import pathlib
 import sys
@@ -43,32 +44,75 @@ def _picks(rows):
 
 # ── deterministic day sampling ─────────────────────────────────────────────────
 
-def test_sample_days_is_deterministic_stratified_and_seed_dependent():
-    a = sc.sample_days("INGV", 2018, 2, "39a")
-    b = sc.sample_days("INGV", 2018, 2, "39a")
+@pytest.mark.parametrize("sampler", sc.SAMPLERS)
+def test_sample_days_is_deterministic_stratified_and_seed_dependent(sampler):
+    a = sc.sample_days("INGV", 2018, 2, "39a", sampler)
+    b = sc.sample_days("INGV", 2018, 2, "39a", sampler)
     assert a == b
     assert [q for q, _ in a] == [1, 1, 2, 2, 3, 3, 4, 4]
     for q, d in a:
         assert d.year == 2018 and (d.month - 1) // 3 + 1 == q
-    assert len({d for _, d in a}) == 8                       # distinct days
-    assert sc.sample_days("INGV", 2018, 2, "other") != a     # the seed tag moves the sample
-    assert sc.sample_days("NOA", 2018, 2, "39a") != a        # so does the operator
-    assert sc.sample_days("INGV", 2019, 2, "39a") != a       # and the year
+    assert len({d for _, d in a}) == 8                                # distinct days
+    assert sc.sample_days("INGV", 2018, 2, "other", sampler) != a     # the seed tag moves the sample
+    assert sc.sample_days("NOA", 2018, 2, "39a", sampler) != a        # so does the operator
+    assert sc.sample_days("INGV", 2019, 2, "39a", sampler) != a       # and the year
 
 
-def test_sample_days_takes_whole_quarters_when_the_target_reaches_the_quarter_length():
-    full = sc.sample_days("INGV", 2018, 92, "39a")               # Q3 and Q4 of 2018 have 92 days
+def test_sample_days_default_is_v2_and_the_two_rules_differ():
+    assert sc.DEFAULT_SAMPLER == "v2" and sc.sample_days("INGV", 2018, 1, "39a") == sc.sample_days("INGV", 2018, 1, "39a", "v2")
+    assert sc.sample_days("INGV", 2018, 1, "39a", "v1") != sc.sample_days("INGV", 2018, 1, "39a", "v2")
+    with pytest.raises(ValueError):
+        sc.sample_days("INGV", 2018, 1, "39a", "v3")
+
+
+def test_sampler_v1_reproduces_the_committed_demonstration_days():
+    """The 16 days of data/census/bulletin_{INGV,NOA}_{2018,2019}.csv (run 2026-09-12 at
+    commit 7580636, seed tag 39a, one day per quarter) are what sampler v1 draws."""
+    assert [d.isoformat() for _, d in sc.sample_days("INGV", 2018, 1, "39a", "v1")] == \
+        ["2018-01-27", "2018-04-20", "2018-08-22", "2018-11-25"]
+    for op in ("INGV", "NOA"):
+        for year in (2018, 2019):
+            committed = pd.read_csv(sc.CENSUS_DIR / f"bulletin_{op}_{year}.csv")
+            assert committed["seed_tag"].eq("39a").all() and "sampler" not in committed.columns
+            assert [d.isoformat() for _, d in sc.sample_days(op, year, 1, "39a", "v1")] == committed["day"].tolist()
+
+
+def _draw_7580636(operator, year, days_per_quarter, seed_tag):
+    """sample_days as committed at 7580636 (rejection loop, no short-circuit)."""
+    out = []
+    for q in (1, 2, 3, 4):
+        days = sc.quarter_days(year, q)
+        chosen, k = [], 0
+        while len(chosen) < min(days_per_quarter, len(days)):
+            h = hashlib.sha256(f"{operator}|{year}|Q{q}|{seed_tag}|{k}".encode()).hexdigest()
+            k += 1
+            d = days[int(h[:16], 16) % len(days)]
+            if d not in chosen:
+                chosen.append(d)
+        out += [(q, d) for d in sorted(chosen)]
+    return out
+
+
+@pytest.mark.parametrize("k", [1, 2, 5, 90, 91, 92, 120])
+def test_sampler_v1_equals_the_7580636_loop_including_whole_quarters(k):
+    assert sc.sample_days("NOA", 2019, k, "39a", "v1") == _draw_7580636("NOA", 2019, k, "39a")
+
+
+@pytest.mark.parametrize("sampler", sc.SAMPLERS)
+def test_sample_days_takes_whole_quarters_when_the_target_reaches_the_quarter_length(sampler):
+    full = sc.sample_days("INGV", 2018, 92, "39a", sampler)          # Q3 and Q4 of 2018 have 92 days
     assert [d for _, d in full] == [d for q in (1, 2, 3, 4) for d in sc.quarter_days(2018, q)]
-    assert sc.sample_days("INGV", 2018, 10 ** 6, "39a") == full
-    mostly = sc.sample_days("INGV", 2018, 91, "39a")             # Q1 (90) and Q2 (91) whole, Q3 and Q4 drawn
+    assert sc.sample_days("INGV", 2018, 10 ** 6, "39a", sampler) == full
+    mostly = sc.sample_days("INGV", 2018, 91, "39a", sampler)        # Q1 (90) and Q2 (91) whole, Q3 and Q4 drawn
     per_q = {q: [d for qq, d in mostly if qq == q] for q in (1, 2, 3, 4)}
     assert per_q[1] == sc.quarter_days(2018, 1) and per_q[2] == sc.quarter_days(2018, 2)
     assert len(per_q[3]) == len(per_q[4]) == 91 and set(per_q[3]) < set(sc.quarter_days(2018, 3))
     assert per_q[3] == sorted(per_q[3])
 
 
-def test_sample_days_grows_as_a_prefix():
-    one = sc.sample_days("NOA", 2019, 1, "39a"); two = sc.sample_days("NOA", 2019, 2, "39a")
+@pytest.mark.parametrize("sampler", sc.SAMPLERS)
+def test_sample_days_grows_as_a_prefix(sampler):
+    one = sc.sample_days("NOA", 2019, 1, "39a", sampler); two = sc.sample_days("NOA", 2019, 2, "39a", sampler)
     assert len(one) == 4 and len(two) == 8 and set(one) < set(two)
 
 
@@ -249,12 +293,15 @@ def test_run_bulletin_writes_day_files_and_summary(tmp_path):
 
     days = sc.run_bulletin(["INGV", "NOA"], [2018, 2019], 1, "t", None, out_dir=tmp_path, raw_dir=tmp_path / "raw", fetch=fetch)
     assert len(days) == 16 and len(calls) == 16
+    assert days["sampler"].eq("v2").all() and [(op, d) for op, d in calls] == \
+        [(op, d) for op in ("INGV", "NOA") for y in (2018, 2019) for _, d in sc.sample_days(op, y, 1, "t", "v2")]
     for op in ("INGV", "NOA"):
         for y in (2018, 2019):
             assert (tmp_path / f"bulletin_{op}_{y}.csv").exists()
     summary = pd.read_csv(tmp_path / "bulletin_summary.csv")
     assert list(summary["operator"]) == ["INGV", "INGV", "INGV", "NOA", "NOA", "NOA"]
     assert list(summary["year"].astype(str)) == ["2018", "2019", "all"] * 2
+    assert summary["sampler"].eq("v2").all() and list(summary.columns[:4]) == ["operator", "year", "seed_tag", "sampler"]
     ingv18 = summary[(summary.operator == "INGV") & (summary.year.astype(str) == "2018")].iloc[0]
     assert ingv18["days_sampled"] == 4 and ingv18["days_ok"] == 4 and ingv18["days_failed"] == 0
     assert ingv18["p_manual_year_est"] == pytest.approx(365 * 1.0) and ingv18["s_manual_year_est"] == pytest.approx(365.0)
@@ -270,6 +317,33 @@ def test_run_bulletin_writes_day_files_and_summary(tmp_path):
     # the summary is rebuilt from the day files alone
     again = sc.write_summary(tmp_path)
     assert len(again) == 6 and again["p_manual_year_est"].tolist() == summary["p_manual_year_est"].tolist()
+
+
+def test_run_bulletin_with_sampler_v1_asks_the_v1_days_and_records_it(tmp_path):
+    calls = []
+
+    def fetch(operator, day, raw_dir, cost, budget, **kw):
+        calls.append(day)
+        return _fetch_ok(operator, day, raw_dir, cost, budget)
+
+    days = sc.run_bulletin(["INGV"], [2018], 1, "39a", None, out_dir=tmp_path, raw_dir=tmp_path / "raw", fetch=fetch, sampler="v1")
+    assert [d.isoformat() for d in calls] == ["2018-01-27", "2018-04-20", "2018-08-22", "2018-11-25"]
+    assert days["sampler"].eq("v1").all()
+    assert pd.read_csv(tmp_path / "bulletin_INGV_2018.csv")["sampler"].eq("v1").all()
+    assert pd.read_csv(tmp_path / "bulletin_summary.csv")["sampler"].eq("v1").all()
+    with pytest.raises(ValueError):
+        sc.run_bulletin(["INGV"], [2018], 1, "39a", None, out_dir=tmp_path, raw_dir=tmp_path / "raw", fetch=fetch, sampler="v3")
+
+
+def test_day_files_without_a_sampler_column_are_read_as_v1():
+    """The committed day files predate the column; the summary rebuilt from them says v1."""
+    days = sc.load_day_files(sc.CENSUS_DIR)
+    assert len(days) == 16 and days["sampler"].eq("v1").all() and list(days.columns[4:6]) == ["seed_tag", "sampler"]
+    s = sc.summarise(days)
+    assert len(s) == 6 and s["sampler"].eq("v1").all()
+    committed = pd.read_csv(sc.CENSUS_DIR / "bulletin_summary.csv")
+    assert "sampler" not in committed.columns
+    assert s["p_manual_year_est"].tolist() == pytest.approx(committed["p_manual_year_est"].tolist())
 
 
 def test_summarise_with_all_days_failed_keeps_the_row_with_nan_estimates():

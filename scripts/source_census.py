@@ -33,7 +33,7 @@ A stratified census of usable supervision, in two parts.
 
 Usage (from the repository root):
     python scripts/source_census.py bulletin --operators INGV NOA --years 2018 2019 \
-        --days-per-quarter 2 --max-minutes 20 --seed-tag 39a
+        --days-per-quarter 2 --max-minutes 20 --seed-tag 39a            # --sampler v2 (default) or v1
     python scripts/source_census.py summary
     python scripts/source_census.py seisbench
     python scripts/source_census.py seisbench --cache-root $SEISBENCH_CACHE_ROOT
@@ -124,20 +124,39 @@ def quarter_days(year: int, quarter: int) -> list:
     return [start + timedelta(days=i) for i in range((end - start).days)]
 
 
-def sample_days(operator: str, year: int, days_per_quarter: int, seed_tag: str) -> list:
-    """[(quarter, date), ...]: days_per_quarter distinct days per quarter. A quarter with
-    at most days_per_quarter days is taken whole; otherwise its days are sorted by
-    sha256(operator|year|Qq|seed_tag|date) and the first days_per_quarter kept, so no
-    content enters, the same seed tag asks the same days, and a larger days_per_quarter
-    extends the smaller sample. No rejection loop: the cost is one hash per day.
-    (The 2026-09-12 demonstration in data/census/ was drawn at commit 7580636 by
-    sha256(operator|year|Qq|seed_tag|k) mod days-in-quarter with repeats rejected;
-    seed tag 39a maps to other days under this rule.)"""
+SAMPLERS = ("v1", "v2")
+DEFAULT_SAMPLER = "v2"
+
+
+def sample_days(operator: str, year: int, days_per_quarter: int, seed_tag: str, sampler: str = DEFAULT_SAMPLER) -> list:
+    """[(quarter, date), ...]: days_per_quarter distinct days per quarter, chosen by
+    operator, year, quarter and seed tag only (no content enters), the same inputs giving
+    the same days. A quarter with at most days_per_quarter days is taken whole under
+    either sampler; otherwise
+      v2 (default): the quarter's days sorted by sha256(operator|year|Qq|seed_tag|date),
+          the first days_per_quarter kept; one hash per day, and a larger
+          days_per_quarter extends the smaller sample.
+      v1: the rule of commit 7580636, kept so the committed 2026-09-12 demonstration
+          (data/census/bulletin_*.csv, seed tag 39a) stays reproducible: for k = 0, 1, ...
+          take days[sha256(operator|year|Qq|seed_tag|k)[:16] mod days-in-quarter],
+          skipping repeats, until days_per_quarter days are in hand. The whole-quarter
+          short-circuit bounds its worst case and returns the same days as the loop did.
+    The two rules map the same seed tag to different days."""
+    if sampler not in SAMPLERS:
+        raise ValueError(f"unknown sampler {sampler!r}; known: {SAMPLERS}")
     out = []
     for q in (1, 2, 3, 4):
         days = quarter_days(year, q)
         if days_per_quarter >= len(days):
             chosen = days
+        elif sampler == "v1":
+            chosen, k = [], 0
+            while len(chosen) < days_per_quarter:
+                h = hashlib.sha256(f"{operator}|{year}|Q{q}|{seed_tag}|{k}".encode()).hexdigest()
+                k += 1
+                d = days[int(h[:16], 16) % len(days)]
+                if d not in chosen:
+                    chosen.append(d)
         else:
             chosen = sorted(days, key=lambda d: hashlib.sha256(
                 f"{operator}|{year}|Q{q}|{seed_tag}|{d.isoformat()}".encode()).hexdigest())[:days_per_quarter]
@@ -458,7 +477,7 @@ def count_day(catalog: pd.DataFrame, picks: pd.DataFrame, scale: float = 1.0) ->
     return out
 
 
-DAY_COLUMNS = (["operator", "year", "quarter", "day", "seed_tag", "status", "error", "note",
+DAY_COLUMNS = (["operator", "year", "quarter", "day", "seed_tag", "sampler", "status", "error", "note",
                 "n_queries", "n_retries", "n_failed_queries", "n_cached", "seconds", "bytes",
                 "events", "events_fetched", "scale", "events_with_arrivals",
                 "p_manual", "s_manual", "p_automatic", "s_automatic", "p_unknown", "s_unknown", "p_total", "s_total",
@@ -468,20 +487,21 @@ DAY_COLUMNS = (["operator", "year", "quarter", "day", "seed_tag", "status", "err
                 "events_est"] + [f"{k}_est" for k in SCALED] + ["stations_list"])
 
 
-def _empty_day_row(operator, year, quarter, day, seed_tag, status, error) -> dict:
+def _empty_day_row(operator, year, quarter, day, seed_tag, status, error, sampler=DEFAULT_SAMPLER) -> dict:
     row = {c: np.nan for c in DAY_COLUMNS}
-    row.update(operator=operator, year=year, quarter=quarter, day=day.isoformat(), seed_tag=seed_tag,
+    row.update(operator=operator, year=year, quarter=quarter, day=day.isoformat(), seed_tag=seed_tag, sampler=sampler,
                status=status, error=error, note="", n_queries=0, n_retries=0, n_failed_queries=0, n_cached=0,
                seconds=0.0, bytes=0, stations_list="", heldout_windows="")
     return row
 
 
 def census_day(operator, year, quarter, day, seed_tag, raw_dir, budget, fetch=None,
-               min_magnitude=None, max_events=None) -> dict:
-    """One row of bulletin_<operator>_<year>.csv. `fetch` defaults to fetch_day (tests inject one)."""
+               min_magnitude=None, max_events=None, sampler=DEFAULT_SAMPLER) -> dict:
+    """One row of bulletin_<operator>_<year>.csv. `fetch` defaults to fetch_day (tests inject one).
+    `sampler` is recorded in the row (the day itself was chosen by the caller)."""
     fetch = fetch or fetch_day
     cost = Cost()
-    row = _empty_day_row(operator, year, quarter, day, seed_tag, "ok", "")
+    row = _empty_day_row(operator, year, quarter, day, seed_tag, "ok", "", sampler=sampler)
     if budget.exhausted():
         row.update(status="not_attempted", error="budget exhausted before the query")
         return row
@@ -505,9 +525,12 @@ def census_day(operator, year, quarter, day, seed_tag, raw_dir, budget, fetch=No
 
 
 def run_bulletin(operators, years, days_per_quarter, seed_tag, max_minutes, out_dir: Path = CENSUS_DIR,
-                 raw_dir: Path = RAW_DIR, fetch=None, min_magnitude=None, max_events=None) -> pd.DataFrame:
+                 raw_dir: Path = RAW_DIR, fetch=None, min_magnitude=None, max_events=None,
+                 sampler: str = DEFAULT_SAMPLER) -> pd.DataFrame:
     """The bulletin census: writes bulletin_<operator>_<year>.csv per operator-year and
     bulletin_summary.csv over everything present in out_dir. Returns the day rows."""
+    if sampler not in SAMPLERS:
+        raise ValueError(f"unknown sampler {sampler!r}; known: {SAMPLERS}")
     out_dir.mkdir(parents=True, exist_ok=True)
     budget = Budget(max_minutes)
     frames = []
@@ -516,10 +539,10 @@ def run_bulletin(operators, years, days_per_quarter, seed_tag, max_minutes, out_
             raise ValueError(f"unknown operator {op!r}; known: {sorted(OPERATORS)}")
         for year in years:
             rows = []
-            for q, d in sample_days(op, year, days_per_quarter, seed_tag):
+            for q, d in sample_days(op, year, days_per_quarter, seed_tag, sampler):
                 log(f"{op} {year} Q{q} {d}")
                 r = census_day(op, year, q, d, seed_tag, raw_dir, budget, fetch=fetch,
-                               min_magnitude=min_magnitude, max_events=max_events)
+                               min_magnitude=min_magnitude, max_events=max_events, sampler=sampler)
                 log(f"    {r['status']}: events={r.get('events')} readings={r.get('readings')} "
                     f"P manual={r.get('p_manual')} S manual={r.get('s_manual')} "
                     f"queries={r['n_queries']} {r['seconds']:.1f} s {r['bytes']} B {r['error']}")
@@ -564,9 +587,10 @@ def summarise(days: pd.DataFrame) -> pd.DataFrame:
     for (op, year), g in days.groupby(["operator", "year"], sort=True):
         year = int(year)
         seed_tag = str(g["seed_tag"].iloc[0])
+        sampler = ";".join(sorted(set(g["sampler"].astype(str)))) if "sampler" in g.columns else "v1"
         ok = g[g["status"] == "ok"]
         diy = 366 if calendar.isleap(year) else 365
-        r = dict(operator=op, year=year, seed_tag=seed_tag, days_sampled=int(len(g)), days_ok=int(len(ok)),
+        r = dict(operator=op, year=year, seed_tag=seed_tag, sampler=sampler, days_sampled=int(len(g)), days_ok=int(len(ok)),
                  days_failed=int((g["status"] == "failed").sum()),
                  days_not_attempted=int((g["status"] == "not_attempted").sum()), days_in_year=diy,
                  service_url=event_query_url(op) if op in OPERATORS else "")
@@ -605,7 +629,9 @@ def summarise(days: pd.DataFrame) -> pd.DataFrame:
         rows.append(r)
     for op, items in boots_by_op.items():
         yrs = [r for r in rows if r["operator"] == op and r["year"] != "all"]
-        t = dict(operator=op, year="all", seed_tag=yrs[0]["seed_tag"], days_sampled=sum(r["days_sampled"] for r in yrs),
+        t = dict(operator=op, year="all", seed_tag=yrs[0]["seed_tag"],
+                 sampler=";".join(sorted({s for r in yrs for s in r["sampler"].split(";")})),
+                 days_sampled=sum(r["days_sampled"] for r in yrs),
                  days_ok=sum(r["days_ok"] for r in yrs), days_failed=sum(r["days_failed"] for r in yrs),
                  days_not_attempted=sum(r["days_not_attempted"] for r in yrs), days_in_year=sum(r["days_in_year"] for r in yrs),
                  service_url=yrs[0]["service_url"])
@@ -624,7 +650,8 @@ def summarise(days: pd.DataFrame) -> pd.DataFrame:
         t["bytes_per_query"] = (t["bytes_total"] / t["n_queries"]) if t["n_queries"] else np.nan
         t["errors"] = " | ".join(r["errors"] for r in yrs if r["errors"])
         rows.append(t)
-    cols = ["operator", "year", "seed_tag", "days_sampled", "days_ok", "days_failed", "days_not_attempted", "days_in_year"]
+    cols = ["operator", "year", "seed_tag", "sampler", "days_sampled", "days_ok", "days_failed", "days_not_attempted",
+            "days_in_year"]
     for m in DAY_METRICS:
         cols += [f"{m}_per_day_mean", f"{m}_year_est", f"{m}_year_lo", f"{m}_year_hi"]
     cols += ["stations_per_day_mean", "stations_distinct_sampled", "readings_per_event_mean",
@@ -645,8 +672,15 @@ def load_day_files(out_dir: Path = CENSUS_DIR) -> pd.DataFrame:
     files = sorted(p for p in out_dir.glob("bulletin_*_*.csv") if p.name != "bulletin_summary.csv")
     if not files:
         return pd.DataFrame(columns=DAY_COLUMNS)
-    return pd.concat([pd.read_csv(p, dtype={"stations_list": str, "heldout_windows": str, "error": str, "note": str})
-                      for p in files], ignore_index=True)
+    frames = []
+    for p in files:
+        df = pd.read_csv(p, dtype={"stations_list": str, "heldout_windows": str, "error": str, "note": str})
+        if "sampler" not in df.columns:
+            # day files written before the --sampler option (the committed 2026-09-12 run,
+            # commit 7580636) were drawn by the rule that is now sampler v1
+            df.insert(list(df.columns).index("seed_tag") + 1, "sampler", "v1")
+        frames.append(df)
+    return pd.concat(frames, ignore_index=True)
 
 
 def write_summary(out_dir: Path = CENSUS_DIR) -> pd.DataFrame:
@@ -860,6 +894,9 @@ def main(argv=None):
     b.add_argument("--years", nargs="+", type=int, required=True)
     b.add_argument("--days-per-quarter", type=int, default=2)
     b.add_argument("--seed-tag", default="39a")
+    b.add_argument("--sampler", choices=SAMPLERS, default=DEFAULT_SAMPLER,
+                   help="day-drawing rule; v1 is the rule of the committed 2026-09-12 run (commit 7580636), "
+                        "v2 (default) sorts the quarter's days by hash")
     b.add_argument("--max-minutes", type=float, default=20.0, help="wall-clock budget for all queries")
     b.add_argument("--max-events-per-day", type=int, default=80,
                    help="per-event paths (INGV, GeoNet, USGS): events fetched per day, deterministic subset; the rest is scaled")
@@ -876,7 +913,8 @@ def main(argv=None):
 
     if a.cmd == "bulletin":
         run_bulletin(a.operators, a.years, a.days_per_quarter, a.seed_tag, a.max_minutes, out_dir=a.out_dir,
-                     raw_dir=a.raw_dir, min_magnitude=a.min_magnitude, max_events=a.max_events_per_day)
+                     raw_dir=a.raw_dir, min_magnitude=a.min_magnitude, max_events=a.max_events_per_day,
+                     sampler=a.sampler)
     elif a.cmd == "summary":
         df = write_summary(a.out_dir)
         cols = ["operator", "year", "days_ok", "days_failed", "events_year_est", "p_manual_year_est", "p_manual_year_lo",

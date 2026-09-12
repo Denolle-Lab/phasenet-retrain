@@ -122,3 +122,9 @@ lightning_logs/
 data/heldout_testset/*/waveforms/
 data/heldout_testset/*/cache/
 data/heldout_testset/*/build.log
+
+# source census (2026-09-11, #39A): the census CSVs are committed, the cached
+# raw bulletin responses under data/census/raw/ are not
+!data/census/
+!data/census/*.csv
+data/census/raw/

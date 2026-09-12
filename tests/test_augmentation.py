@@ -598,3 +598,34 @@ def test_from_config_switches_groups_off_and_checks_providers():
         assert identity.transforms == [] and identity.always == []
         np.testing.assert_array_equal(out.waveform, s.waveform)
         assert out is not s and out.meta["untouched"] is False
+
+
+def test_resample_sample_clips_unknown_intervals_to_the_new_duration():
+    from augmentation import resample_sample
+    wf = np.zeros((3, 12000), np.float32)
+    s = WindowSample(wf, 100.0, [Arrival("P", 10.0)], valid_samples=6000,
+                     unknown_intervals=[(20.0, 30.0), (55.0, 70.0), (100.0, 110.0)])
+    out = resample_sample(s, 50.0)
+    assert out.n_samples == pytest.approx(3000, abs=1) and out.valid_samples is None
+    assert all(b <= out.duration_s for _, b in out.unknown_intervals)
+    assert out.unknown_intervals[0] == (20.0, 30.0)
+    # the interval crossing the new end is clipped to it, the one beyond it is dropped
+    a, b = out.unknown_intervals[1]
+    assert a == pytest.approx(55.0) and b == pytest.approx(out.duration_s)
+    assert len(out.unknown_intervals) == 2
+
+
+def test_random_crop_never_anchors_on_an_arrival_in_the_padding():
+    from augmentation import RandomCrop
+    rate = 100.0
+    wf = np.zeros((3, 12000), np.float32)
+    t = np.arange(12000) / rate
+    wf[0] = np.exp(-0.5 * ((t - 10.0) / 0.05) ** 2)      # real pulse at 10 s inside the valid support
+    s = WindowSample(wf, rate, [Arrival("P", 10.0), Arrival("S", 90.0)], valid_samples=6000)  # S lies in padding
+    crop = RandomCrop(3001, anchor_range=(0.3, 0.3))
+    for seed in range(20):
+        out = crop(s, np.random.default_rng(seed))
+        kept = {a.phase for a in out.arrivals}
+        assert "P" in kept, "the crop must be anchored on the supported P, never on the padded S"
+        p = [a for a in out.arrivals if a.phase == "P"][0]
+        assert abs(int(round(p.time_s * rate)) - int(out.waveform[0].argmax())) <= 1

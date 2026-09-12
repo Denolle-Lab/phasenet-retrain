@@ -186,8 +186,10 @@ def resample_sample(sample: WindowSample, target_rate: float) -> WindowSample:
     wave = resample_waveform(sample.waveform[:, :n_valid], sample.rate_hz, target_rate)
     meta = dict(sample.meta)
     meta["resampled_from_hz"] = float(sample.rate_hz)
+    duration = wave.shape[-1] / float(target_rate)
     return WindowSample(wave, float(target_rate), list(sample.arrivals), sample.component_mask,
-                        sample.negative_support, list(sample.unknown_intervals), None, meta)
+                        sample.negative_support, clip_intervals(sample.unknown_intervals, 0.0, duration),
+                        None, meta)
 
 
 # --------------------------------------------------------------------------- providers
@@ -292,7 +294,10 @@ class RandomCrop(Transform):
 
     def apply(self, sample, rng):
         n, width, rate = sample.n_samples, self.window_samples, sample.rate_hz
-        anchors = [a for a in (sample.supervised_arrivals() or sample.arrivals) if 0.0 <= a.time_s < sample.duration_s]
+        # anchors must lie in the valid support: an arrival in the padding has
+        # no waveform under it (same rule as anchor_time and snr_window)
+        valid_duration = sample.n_valid / rate
+        anchors = [a for a in (sample.supervised_arrivals() or sample.arrivals) if 0.0 <= a.time_s < valid_duration]
         if width >= n:
             start = 0
         elif anchors:

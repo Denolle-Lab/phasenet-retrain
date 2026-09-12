@@ -685,3 +685,21 @@ def test_cli_rehash_and_default_config_writing(tmp_path, capsys):
     assert reloaded.min_picks == 9 and reloaded.sha256 != cfg.sha256
     ea.main(["--write-default-configs", str(tmp_path / "cfgs")])
     assert {p.name for p in (tmp_path / "cfgs").glob("*.json")} == {f"{r}.json" for r in ea.REGIMES}
+
+
+def test_select_picks_refuses_mixed_sequences_and_runs():
+    base = pd.DataFrame({"pick_id": ["p1", "p2", "p3", "p4"], "model_id": ["m" * 64] * 4, "threshold": [0.3] * 4,
+                         "station": ["XX.A"] * 4, "phase": ["P"] * 4, "time": pd.to_datetime(["2020-01-01"] * 4, utc=True),
+                         "score": [0.5] * 4, "key": ["samos_2020", "samos_2020", "adriatic_2022", "adriatic_2022"],
+                         "access_id": ["r1", "r1", "r2", "r2"]})
+    with pytest.raises(ValueError, match="several sequences"):
+        ea.select_picks(base)
+    one = ea.select_picks(base, key="samos_2020")
+    assert set(one["key"]) == {"samos_2020"} and len(one) == 2
+    with pytest.raises(ValueError, match="not in the pick store"):
+        ea.select_picks(base, key="etna_2022_2024")
+    mixed = base.assign(key="samos_2020")
+    with pytest.raises(ValueError, match="mixes 2 scoring runs"):
+        ea.select_picks(mixed)
+    clean = base[base["key"] == "samos_2020"]
+    assert len(ea.select_picks(clean)) == 2

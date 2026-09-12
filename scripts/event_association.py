@@ -975,9 +975,30 @@ def paired_block_bootstrap(matches_a, matches_b, reference, block="event", n_boo
 
 # ── run and CLI ──────────────────────────────────────────────────────────────
 
-def select_picks(picks, model_id=None, threshold=None) -> pd.DataFrame:
-    """One model and one threshold from the 35A pick store; unambiguous or an error."""
+def select_picks(picks, model_id=None, threshold=None, key=None) -> pd.DataFrame:
+    """One sequence, one access id, one model and one threshold from the 35A
+    pick store; unambiguous or an error.
+
+    A store holding more than one `key` must be narrowed with `key`; a store
+    holding more than one `access_id` for the selected key is refused (two
+    scoring runs were mixed; re-run the scorer or pre-filter). Nothing is
+    ever merged across sequences or runs.
+    """
     sub = picks
+    if "key" in sub:
+        keys = sorted(sub["key"].dropna().astype(str).unique())
+        if key is None:
+            if len(keys) > 1:
+                raise ValueError(f"the pick store holds several sequences {keys}; pass key= to select one")
+        else:
+            sub = sub[sub["key"].astype(str) == str(key)]
+            if len(sub) == 0:
+                raise ValueError(f"key {key} not in the pick store ({keys})")
+    if "access_id" in sub:
+        access_ids = sorted(sub["access_id"].dropna().astype(str).unique())
+        if len(access_ids) > 1:
+            raise ValueError(f"the pick store mixes {len(access_ids)} scoring runs (access_id {access_ids}); "
+                             "pre-filter to one run before associating")
     if "model_id" in sub:
         ids = sorted(sub["model_id"].astype(str).unique())
         if model_id is None:
@@ -1022,7 +1043,7 @@ def run(picks, stations, catalog, config: AssociatorConfig, *, model_id=None, th
         mainshock_time=None, key=None, backend="synthetic", tol_time_s=MATCH_TOL_TIME_S, tol_km=MATCH_TOL_KM,
         tol_depth_km=MATCH_TOL_DEPTH_KM, restrict_stations=True, out_dir=None, sources=None) -> dict:
     """Associate, match, diagnose and tabulate one (model, threshold) of a pick store; write if out_dir."""
-    picks_sel = select_picks(picks, model_id, threshold)
+    picks_sel = select_picks(picks, model_id, threshold, key=key)
     if restrict_stations and len(picks_sel):
         stations = stations[stations["station"].astype(str).isin(set(picks_sel["station"].astype(str)))]
     events, assignments = associate(picks_sel, stations, config, backend=backend)
@@ -1036,7 +1057,7 @@ def run(picks, stations, catalog, config: AssociatorConfig, *, model_id=None, th
     model_ids = sorted(picks_sel["model_id"].astype(str).unique()) if "model_id" in picks_sel else []
     thresholds = sorted(picks_sel["threshold"].astype(float).unique()) if "threshold" in picks_sel else []
     meta = dict(
-        checkpoint="36A", key=key, access_id="+".join(access_ids) if access_ids else None,
+        checkpoint="36A", key=key, access_id=(access_ids[0] if access_ids else None),
         model_id=(model_ids[0] if len(model_ids) == 1 else model_ids or model_id),
         threshold=(thresholds[0] if len(thresholds) == 1 else thresholds or threshold),
         associator=backend, config=config.to_dict(), config_sha256=config.sha256,

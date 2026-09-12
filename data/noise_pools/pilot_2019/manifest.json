@@ -83,7 +83,7 @@
   ],
   "bundle": {
     "present": true,
-    "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/bundle_42a_laptop.json",
+    "path": "bundle_42a_laptop.json",
     "sha256": "e419160ef68730180bf8e8b0cdfb0141401c71c8973d4c34a0cf15cc8aec0694",
     "certified": false,
     "version": 1
@@ -285,7 +285,7 @@
     "station_secondary_p50"
   ],
   "log": [
-    "[13:23:58] exclusion bundle /private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/bundle_42a_laptop.json: sha256 e419160ef687 certified=False",
+    "[13:23:58] exclusion bundle bundle_42a_laptop.json: sha256 e419160ef687 certified=False",
     "[13:23:59] IU.KIP at 21.4200, -158.0112",
     "[13:23:59] IU.ANMO at 34.9459, -106.4572",
     "[13:24:00] 2019-03-12: 69 global events M>=2.5 in [2019-03-11T22:00:00.000000Z, 2019-03-13T00:00:00.000000Z]",

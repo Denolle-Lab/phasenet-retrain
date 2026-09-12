@@ -4,7 +4,9 @@ Synthetic streams, a fake FDSN client and a fake catalogue; the exclusion
 bundle is the fixture repo of tests/test_exclusion_bundle.py. Base interpreter
 (numpy, pandas, obspy, pytest).
 """
+import itertools
 import json
+import os
 import pathlib
 import shutil
 import sys
@@ -53,7 +55,7 @@ def test_event_free_rule_boundaries_are_inclusive():
     for t, expect in [(1000.0 - 120.0, False), (1000.0 - 120.0 - 0.01, True), (1000.0 + 120.0, False),
                       (1000.0 + 120.01, True)]:
         keep, _ = bnp.event_free_mask(starts, [dict(p_time=t, s_time=float("nan"))])
-        assert keep[0] is np.bool_(expect), (t, expect)
+        assert keep[0] == expect, (t, expect)
 
 
 def test_predicted_arrivals_taup_p_before_s():
@@ -201,6 +203,50 @@ def test_coda_and_source_flag_precedence(bundle):
     assert bnp.source_class_for(_spec(), STA_LAT, {}) is None
 
 
+def _support_column_reference(df, *, bundle_present):
+    """The per-row form support_column() had before it was vectorised; kept as the oracle."""
+    vals = []
+    for _, r in df.iterrows():
+        if not bundle_present:
+            vals.append("unknown")
+            continue
+        vals.append(no.negative_support_for(
+            r["ontology_category"], event_free=bool(r["event_free"]),
+            local_catalogue=bool(r.get("catalogue_local", False)),
+            completeness_mag=r.get("completeness_mag", float("nan"))))
+    return pd.Series(vals, index=df.index, dtype=object)
+
+
+def test_support_column_matches_per_row_reference():
+    # every category x event_free x local catalogue x completeness (NaN, 0.0, stated), non-default index
+    grid = list(itertools.product(no.CATEGORIES, (True, False), (True, False), (float("nan"), 0.0, 1.2)))
+    df = pd.DataFrame(grid, columns=["ontology_category", "event_free", "catalogue_local", "completeness_mag"],
+                      index=[f"r{i:02d}" for i in range(len(grid))][::-1])
+    for present in (True, False):
+        got = bnp.support_column(df, bundle_present=present)
+        pd.testing.assert_series_equal(got, _support_column_reference(df, bundle_present=present))
+    got = bnp.support_column(df, bundle_present=True)
+    cert = got == "certified"
+    assert cert.sum() == 2 * 2                                  # 2 certifiable categories x (0.0, 1.2)
+    assert set(df.loc[cert, "ontology_category"]) == set(no.CERTIFIABLE_CATEGORIES)
+    assert df.loc[cert, "event_free"].all() and df.loc[cert, "catalogue_local"].all()
+    assert set(got[df["ontology_category"] == "reviewed_negative"]) == {"reviewed"}
+    assert set(got[df["ontology_category"] == "unlabelled_interval"]) == {"unknown"}
+    # the optional columns absent: local catalogue False, completeness NaN -> never certified
+    bare = df[["ontology_category", "event_free"]]
+    pd.testing.assert_series_equal(bnp.support_column(bare, bundle_present=True),
+                                   _support_column_reference(bare, bundle_present=True))
+    assert set(bnp.support_column(bare, bundle_present=True)) == {"unknown", "reviewed"}
+    # None for completeness (object column) is 'not stated', as in the scalar rule
+    none = df.assign(completeness_mag=None)
+    pd.testing.assert_series_equal(bnp.support_column(none, bundle_present=True),
+                                   _support_column_reference(none, bundle_present=True))
+    # an empty frame and an unknown category behave as before
+    assert len(bnp.support_column(df.iloc[:0], bundle_present=True)) == 0
+    with pytest.raises(ValueError):
+        bnp.support_column(df.assign(ontology_category="not_a_category"), bundle_present=True)
+
+
 def test_rejected_windows_are_not_written():
     n = 10
     keep = np.ones(n, dtype=bool); keep[[2, 5]] = False
@@ -220,6 +266,24 @@ def test_parsers():
             bnp.parse_station(bad)
     with pytest.raises(ValueError):
         bnp.parse_local_catalogue("IU.KIP=USGS:3.0")
+    # --source-class keys are upper-cased like parse_station(), so the flag matches its station
+    assert bnp.parse_source_class("iu.kip=polar_ice") == ("IU.KIP", "polar_ice")
+    assert bnp.parse_source_class(" IU.kip = hydrological ") == ("IU.KIP", "hydrological")
+    for bad in ("IU.KIP", "IU.KIP=", "=polar_ice", "IU.KIP=not_a_class"):
+        with pytest.raises(ValueError):
+            bnp.parse_source_class(bad)
+
+
+def test_provenance_path_is_never_absolute(tmp_path):
+    inside = bnp.REPO_ROOT / "data" / "exclusions" / "bundle.json"
+    assert bnp._provenance_path(inside) == os.path.join("data", "exclusions", "bundle.json")
+    assert bnp._provenance_path(str(inside)) == os.path.join("data", "exclusions", "bundle.json")
+    outside = tmp_path / "scratch" / "bundle_laptop.json"
+    assert bnp._provenance_path(outside) == "bundle_laptop.json"
+    # an extra root (the --repo-root of the run) is tried first
+    assert bnp._provenance_path(outside, roots=(tmp_path, bnp.REPO_ROOT)) == os.path.join("scratch", "bundle_laptop.json")
+    for p in (inside, outside):
+        assert not os.path.isabs(bnp._provenance_path(p))
 
 
 # ── end to end with a fake FDSN client ────────────────────────────────────────
@@ -308,7 +372,9 @@ def test_main_no_bundle_end_to_end(fake_net):
     assert set(coda["ontology_category"]) == {"unlabelled_interval"} and set(coda["class_source"]) == {"catalogue_coda"}
     # --no-bundle: every row unknown and flagged, bundle absence recorded
     assert set(man["negative_support"]) == {"unknown"} and man["independence_unverified"].all()
-    assert meta["bundle"] == {"present": False, "reason": "--no-bundle", "path": str(eb.BUNDLE_PATH)}
+    assert meta["bundle"] == {"present": False, "reason": "--no-bundle",
+                              "path": os.path.join("data", "exclusions", "bundle.json")}
+    assert not os.path.isabs(meta["bundle"]["path"])
     assert meta["parameters"]["model_screening"] is False
     assert set(man["rate_hz"]) == {RATE} and set(man["duration_s"]) == {120.0}
     # the windows on disk address the manifest
@@ -333,6 +399,9 @@ def test_main_with_bundle_certifies_background_rows(fake_net, bundle):
     # the fixture bundle is uncertified (empty cache: all 20 sources unhashed); noise rows do not need
     # certification, which is about the SeisBench sequence list, but the fact is recorded
     assert meta["bundle"]["sha256"] == b["sha256"] and meta["bundle"]["certified"] is False
+    # the bundle path is recorded relative to --repo-root, never as the workstation's absolute path
+    assert meta["bundle"]["path"] == os.path.join("data", "exclusions", "bundle.json")
+    assert str(path) not in json.dumps(meta)
     assert set(man["exclusion_bundle_sha256"]) == {b["sha256"]}
     assert not man["independence_unverified"].any()
     coda = man["ontology_category"] == "unlabelled_interval"
@@ -340,6 +409,20 @@ def test_main_with_bundle_certifies_background_rows(fake_net, bundle):
     assert set(man.loc[~coda, "negative_support"]) == {"certified"}
     assert set(man.loc[~coda, "completeness_mag"]) == {1.2}
     assert meta["exclusion_report"]["n_removed"] == 0
+
+
+def test_main_lower_case_source_class_is_honoured(fake_net):
+    fails, out = fake_net
+    rc = _run(out, "--no-bundle", "--source-class", "xx.tst=volcanic_tremor_hydrothermal")
+    assert rc == 0
+    man = pd.read_parquet(out / "fx" / "manifest.parquet")
+    meta = json.loads((out / "fx" / "manifest.json").read_text())
+    assert meta["stations"][0]["source_flag"] == "volcanic_tremor_hydrothermal"
+    flagged = man[man["class_source"] != "catalogue_coda"]
+    assert len(flagged) > 0
+    assert set(flagged["noise_class"]) == {"volcanic_tremor_hydrothermal"}
+    assert set(flagged["class_source"]) == {"source_flag"}
+    assert "features" not in set(man["class_source"])
 
 
 def test_main_records_failures_without_fabricating(fake_net):

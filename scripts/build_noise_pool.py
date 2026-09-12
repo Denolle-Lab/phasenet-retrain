@@ -90,6 +90,20 @@ def _rel(path: Path) -> str:
         return str(Path(path).resolve())
 
 
+def _provenance_path(path, roots=(REPO_ROOT,)) -> str:
+    """The form of a path recorded in manifest.json: relative to the first of
+    `roots` that contains it, else the bare filename. Never absolute, so the
+    committed provenance carries no workstation directory; the sha256 recorded
+    beside it is the identity of the file."""
+    p = Path(path).resolve()
+    for root in roots:
+        try:
+            return str(p.relative_to(Path(root).resolve()))
+        except ValueError:
+            continue
+    return p.name
+
+
 def git_commit() -> str:
     try:
         return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True).strip()
@@ -148,6 +162,20 @@ def parse_local_catalogue(spec: str) -> dict:
         raise ValueError(f"--local-catalogue must be NET.STA=CLIENT:radius:minmag:completeness, got {spec!r}")
     return dict(key=key.upper(), client=parts[0], radius_deg=float(parts[1]),
                 min_mag=float(parts[2]), completeness_mag=float(parts[3]))
+
+
+def parse_source_class(spec: str) -> tuple:
+    """'NET.STA=<noise_class>' -> (key, class). The key is upper-cased exactly as
+    parse_station() upper-cases the registry key, so a flag typed in lower case
+    matches its station instead of being silently ignored; the class must be
+    one of the ontology's noise classes."""
+    key, _, cls = spec.partition("=")
+    key, cls = key.strip().upper(), cls.strip()
+    if not key or not cls:
+        raise ValueError(f"--source-class must be NET.STA=<noise_class>, got {spec!r}")
+    if cls not in {c.value for c in no.NoiseClass}:
+        raise ValueError(f"--source-class {spec!r}: {cls!r} is not a noise class")
+    return key, cls
 
 
 # ── FDSN clients, bounded ─────────────────────────────────────────────────────
@@ -478,18 +506,27 @@ def label_windows(features: List[dict], *, coda: np.ndarray, source_class: Optio
 
 
 def support_column(df: pd.DataFrame, *, bundle_present: bool) -> pd.Series:
-    """negative_support per row from category, event-free result and catalogue completeness.
-    Without a bundle every row is unknown: nothing about its independence is known."""
-    vals = []
-    for _, r in df.iterrows():
-        if not bundle_present:
-            vals.append("unknown")
-            continue
-        vals.append(no.negative_support_for(
-            r["ontology_category"], event_free=bool(r["event_free"]),
-            local_catalogue=bool(r.get("catalogue_local", False)),
-            completeness_mag=r.get("completeness_mag", float("nan"))))
-    return pd.Series(vals, index=df.index, dtype=object)
+    """negative_support per row from category, event-free result and catalogue
+    completeness: the column form of `noise_ontology.negative_support_for`,
+    computed with boolean masks (no per-row Python). Without a bundle every row
+    is unknown: nothing about its independence is known. A missing
+    `catalogue_local` column reads as False, a missing `completeness_mag` as NaN."""
+    if not bundle_present:
+        return pd.Series("unknown", index=df.index, dtype=object)
+    cat = df["ontology_category"].to_numpy(dtype=object)
+    bad = set(cat) - set(no.CATEGORIES)
+    if bad:
+        raise ValueError(f"unknown ontology category {sorted(map(str, bad))}; expected one of {no.CATEGORIES}")
+    n = len(df)
+    event_free = df["event_free"].astype(bool).to_numpy()
+    local = (df["catalogue_local"].astype(bool).to_numpy() if "catalogue_local" in df.columns
+             else np.zeros(n, dtype=bool))
+    stated = (df["completeness_mag"].notna().to_numpy() if "completeness_mag" in df.columns
+              else np.zeros(n, dtype=bool))
+    certifiable = np.isin(cat, list(no.CERTIFIABLE_CATEGORIES))
+    out = np.where(cat == "reviewed_negative", "reviewed", "unknown").astype(object)
+    out[certifiable & event_free & local & stated] = "certified"
+    return pd.Series(out, index=df.index, dtype=object)
 
 
 def apply_bundle(df: pd.DataFrame, bundle: Optional[dict]):
@@ -526,7 +563,9 @@ def build_rows(*, pool: str, st_spec: dict, sta_lat: float, sta_lon: float, data
     for i in range(n_win):
         hour = UTCDateTime(float(starts[i])).hour
         feats.append(no.spectral_features(data[i], rate, hour_of_day=hour, vertical_index=0))
-    # station references from this station's own windows (all windows of the harvest, kept or not)
+    # station references (rms p10, secondary-band median) from this station-day only: every
+    # window of the day passed in, rejected ones included. A reference over all the days a
+    # station contributes to the harvest is the 42B census, not this checkpoint.
     rms10 = np.array([f["rms_log10"] for f in feats], dtype=float)
     finite = rms10[np.isfinite(rms10)]
     p10 = float(np.percentile(finite, no.THRESH["quiet_rms_percentile"])) if finite.size else float("nan")
@@ -626,19 +665,21 @@ def main(argv=None) -> int:
 
     stations = [parse_station(s) for s in args.station]
     local = {c["key"]: c for c in (parse_local_catalogue(s) for s in args.local_catalogue)}
-    source_flags = dict(s.split("=", 1) for s in args.source_class)
+    source_flags = dict(parse_source_class(s) for s in args.source_class)
 
     # bundle
     bundle = None
     bundle_rec: dict
+    # recorded repo-relative (to --repo-root, else this repository), else by filename: never absolute
+    bundle_path_rec = _provenance_path(args.bundle, roots=(args.repo_root, REPO_ROOT))
     if args.no_bundle:
-        bundle_rec = dict(present=False, reason="--no-bundle", path=args.bundle)
+        bundle_rec = dict(present=False, reason="--no-bundle", path=bundle_path_rec)
         log("no exclusion bundle: every row will carry negative_support=unknown and independence_unverified=True")
     else:
         bundle = eb.load_bundle(args.bundle, require_certified=False, verify_sources=False, repo_root=args.repo_root)
-        bundle_rec = dict(present=True, path=args.bundle, sha256=bundle.get("sha256"),
+        bundle_rec = dict(present=True, path=bundle_path_rec, sha256=bundle.get("sha256"),
                           certified=bool(bundle.get("certified")), version=bundle.get("version"))
-        log(f"exclusion bundle {args.bundle}: sha256 {bundle['sha256'][:12]} certified={bundle.get('certified')}")
+        log(f"exclusion bundle {bundle_path_rec}: sha256 {bundle['sha256'][:12]} certified={bundle.get('certified')}")
 
     from obspy import UTCDateTime
 

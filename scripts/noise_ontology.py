@@ -80,7 +80,7 @@ CATEGORY_DEFINITION = {
 # background and task_excluded are the only categories whose support can be
 # upgraded by the event-free rule; the upgrade additionally needs a local
 # catalogue with a stated completeness magnitude.
-_CERTIFIABLE = frozenset({"background", "task_excluded"})
+CERTIFIABLE_CATEGORIES = frozenset({"background", "task_excluded"})
 
 
 def negative_support_for(category: str, *, event_free: bool = False,
@@ -101,7 +101,7 @@ def negative_support_for(category: str, *, event_free: bool = False,
         return "reviewed"
     if category == "unlabelled_interval":
         return "unknown"
-    if category in _CERTIFIABLE:
+    if category in CERTIFIABLE_CATEGORIES:
         if event_free and local_catalogue and completeness_mag is not None \
                 and not (isinstance(completeness_mag, float) and math.isnan(completeness_mag)):
             return "certified"
@@ -515,7 +515,7 @@ SPLIT_VALUES = ("train", "holdout")
 
 
 def station_split(station: str, fraction: float = 0.2, seed_tag: str = "42A") -> str:
-    """"holdout" or "train" for a station, by hash.
+    """'holdout' or 'train' for a station, by hash.
 
     The split is by STATION, never by window (§5.2), so the false-pick rate is
     measured on stations the model never saw. Deterministic given
@@ -626,7 +626,7 @@ def check_manifest(df) -> None:
             raise ValueError("unlabelled_interval rows must all carry negative_support=unknown")
         if cat == "reviewed_negative" and set(grp["negative_support"]) - {"reviewed"}:
             raise ValueError("reviewed_negative rows must all carry negative_support=reviewed")
-        if cat in _CERTIFIABLE:
+        if cat in CERTIFIABLE_CATEGORIES:
             bad = set(grp["negative_support"]) - {"certified", "unknown"}
             if bad:
                 raise ValueError(f"{cat} rows carry negative_support {sorted(bad)}")

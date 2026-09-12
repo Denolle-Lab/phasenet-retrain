@@ -120,7 +120,7 @@ demeaned vertical, band powers as fractions of the total above DC:
 | `kurtosis` | Fisher kurtosis of the vertical |
 | `n_zero_frac`, `clip_frac` | samples zero on every channel; samples at the trace extremum |
 | `hour_of_day` | UTC hour of the window start |
-| `station_rms_log10_p10`, `station_secondary_p50` | station references: 10th percentile of `rms_log10` and median of `secondary_band_power_log10` over all windows of the station in the harvest |
+| `station_rms_log10_p10`, `station_secondary_p50` | station references: 10th percentile of `rms_log10` and median of `secondary_band_power_log10` over the windows of the station-day being labelled (rejected windows included); a reference over every day a station contributes is 42B |
 
 `classify_features` fires the first rule in this order, thresholds in
 `noise_ontology.THRESH`: instrument (`n_zero_frac ≥ 0.05` or

@@ -131,3 +131,12 @@ data/heldout_testset/*/build.log
 !data/census/
 !data/census/*.csv
 data/census/raw/
+
+# noise pools (42A): the pool manifest and its provenance are committed, the
+# waveforms (.npz per station-day) and the raw FDSN cache are not
+!data/noise_pools/
+!data/noise_pools/*/
+!data/noise_pools/*/manifest.parquet
+!data/noise_pools/*/manifest.json
+data/noise_pools/raw/
+data/noise_pools/*/windows/

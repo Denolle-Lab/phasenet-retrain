@@ -282,6 +282,11 @@ class Replay:
             self.new.manifest["chunk"] = ""
         self.new.manifest["chunk"] = self.new.manifest.chunk.fillna("")
         self.new.augment, self.new.window_len = False, window_len
+        # #41A attributes that __init__ would set: the corrected route replays
+        # the legacy target formula (every sample supervised) so that only the
+        # loader coordinates differ between the two routes; masks are 46A work.
+        self.new.policy = sources.md.LabelPolicy.from_config("legacy")
+        self.new.return_mask = False
         self.new._fetch = sources.fetch_corrected
         self.new._reject = lambda *args: None  # per-row errors go to the audit output, never beside inputs
         original_window, original_labels, original_resample = namespace["_window"], namespace["make_labels"], namespace["_resample_if_needed"]
@@ -328,6 +333,12 @@ class Replay:
         try:
             with replay_rng(seed):
                 x, y, info = self.new.get_sample_with_metadata(idx)
+            # the #41A loader also returns the per-sample loss mask; the audit
+            # keeps its scalar summaries (n_supervised, supervised_fraction) and
+            # hashes the array rather than storing it per row
+            mask = info.pop("mask", None)
+            if mask is not None:
+                info["mask_sha256"] = array_digest(np.asarray(mask))
             result.update(corrected_status="ok", corrected=info, corrected_output_sha256=array_digest(x.numpy()))
         except Exception as exc:
             result.update(corrected_status="rejected", corrected_error=f"{type(exc).__name__}: {exc}")

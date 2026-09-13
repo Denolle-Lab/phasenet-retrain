@@ -1,0 +1,26 @@
+{
+  "association_cutoff_km": 100.0,
+  "depth_range_km": [
+    0.0,
+    30.0
+  ],
+  "layers": [],
+  "location_tolerance_km": 1.0,
+  "margin_km": 30.0,
+  "min_p_picks": 3,
+  "min_picks": 5,
+  "min_s_picks": 0,
+  "n_p_and_s_picks": 1,
+  "n_picks_p_and_s_policy": "require",
+  "notes": "Proposal for volcano-tectonic sequences: slow shallow edifice velocities, dense local networks.",
+  "p_velocity": 5.0,
+  "region": "vt",
+  "s_velocity": 2.9,
+  "sha256": "703aa7c593a18591563de46b80d57b4fb69a9f85cd61488726737990e7736560",
+  "spatial_tolerance_km": 5.0,
+  "time_before_s": 120.0,
+  "time_tolerance_s": 1.0,
+  "velocity_model": "homogeneous",
+  "version": "1",
+  "versioned": "Frozen associator parameters. sha256 is computed over the canonical JSON of every field except notes and versioned; it is recorded as config_sha256 in every events, assignments and matches row and in run.json of each run. To change a value: edit, bump version, and rewrite the file with AssociatorConfig.save (or `event_association.py --rehash <file>`) so the stored hash matches; AssociatorConfig.load refuses a file whose stored hash disagrees with its content."
+}

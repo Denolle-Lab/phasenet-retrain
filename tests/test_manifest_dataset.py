@@ -31,6 +31,31 @@ class LoaderContractTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.datasets = []
 
+    def fixture_bundle(self):
+        """A minimal exclusion bundle (#33A) so process_dataset runs on fixtures:
+        an empty sequence list, no benchmark or label-error inputs, no cache."""
+        import exclusion_bundle as eb
+        root = self.root / "bundle_repo"
+        for d in ("data/exclusions", "data/labelerrors", "configs", "notebooks", "cache"):
+            (root / d).mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.copy(Path(__file__).resolve().parents[1] / "configs" / "evaluation_suites.json",
+                    root / "configs" / "evaluation_suites.json")
+        pd.DataFrame(columns=["dataset", "trace_name", "chunk", "window", "source"]).to_csv(
+            root / "data/exclusions/heldout_sequences.csv", index=False)
+        pd.DataFrame({"dataset": [], "trace_name": []}).to_csv(root / "notebooks/benchmark_manifest.csv", index=False)
+        kw = dict(repo_root=root, label_error_dirs=[root / "data" / "labelerrors"], cache_root=root / "cache")
+        bundle = eb.build_bundle(**kw)
+        path = eb.write_bundle(bundle, root / "data/exclusions/bundle.json")
+        # apply_exclusions resolves the listed inputs against the module's
+        # repository root; point it at the fixture repo for this test
+        for name, value in (("REPO_ROOT", root), ("BUNDLE_PATH", path), ("USER_LABEL_ERROR_CACHE", root / "nowhere")):
+            patcher = patch.object(eb, name, value)
+            patcher.start(); self.addCleanup(patcher.stop)
+        eb._cached_trace_exclusions.cache_clear()
+        self.addCleanup(eb._cached_trace_exclusions.cache_clear)
+        return eb.load_bundle(path, **kw)
+
     def source(self, rate=100, components="ENZ", dimensions="CW", suffix="", bucket=False,
                trace_npts=None, p_time=3.26, s_time=5.24):
         # Generate pulses at UTC-relative times, never using transported indices.
@@ -299,21 +324,23 @@ class LoaderContractTests(unittest.TestCase):
             trace_S_arrival_sample=[np.nan, 200, 200, np.nan],
             trace_sampling_rate_hz=[40] * 4, trace_component_order=["ENZ"] * 4,
             trace_chunk=["01"] * 4, trace_npts=[1000] * 4,
-            source_origin_time=["2010-01-01"] * 4))
+            # a testable origin (time and location) so the #33A quarantine keeps the rows
+            source_origin_time=["2010-01-01"] * 4, source_latitude_deg=[10.0] * 4, source_longitude_deg=[20.0] * 4))
         cfg = dict(name="fixture", meta_fn=lambda: frame.copy(), use_s=True,
                    dist_col=None, default_bin="local", cap=100)
-        out = process_dataset(cfg, np.random.default_rng(0))
+        out = process_dataset(cfg, np.random.default_rng(0), bundle=self.fixture_bundle())
         self.assertEqual(set(out.trace_name), {"p", "s", "both"})
         self.assertEqual(out.chunk.tolist(), ["01"] * 3)
         self.assertEqual(out.trace_sampling_rate_hz.tolist(), [40] * 3)
         self.assertEqual(out.trace_component_order.tolist(), ["ENZ"] * 3)
+        bundle = self.fixture_bundle()
         frame.drop(columns="trace_P_arrival_sample", inplace=True)
-        out = process_dataset(cfg, np.random.default_rng(0))
+        out = process_dataset(cfg, np.random.default_rng(0), bundle=bundle)
         self.assertEqual(set(out.trace_name), {"s", "both"})
         cfg["default_bin"] = "teleseismic"
-        self.assertTrue(process_dataset(cfg, np.random.default_rng(0)).empty)
+        self.assertTrue(process_dataset(cfg, np.random.default_rng(0), bundle=bundle).empty)
         cfg["use_s"] = False
-        self.assertIsNone(process_dataset(cfg, np.random.default_rng(0)))
+        self.assertIsNone(process_dataset(cfg, np.random.default_rng(0), bundle=bundle))
 
 
 
@@ -352,8 +379,9 @@ class LoaderContractTests(unittest.TestCase):
         ds = self.dataset(label_policy="masked", return_mask=True, fields=fields)
         with self.assertRaises(RuntimeError):
             ds[0]
-        records = [json.loads(line) for line in ds.rejection_log.read_text().splitlines()]
-        self.assertIn("no supervised sample", records[-1]["reason"])
+        records = [json.loads(line) for file in self.root.glob("*.rejected.*.jsonl")
+                   for line in file.read_text().splitlines()]
+        self.assertTrue(any("no supervised sample" in r["reason"] for r in records))
         # certified negative support makes the same row a valid (all-N) target
         fields["negative_support"] = "certified"
         ds = self.dataset(label_policy="masked", return_mask=True, fields=fields)

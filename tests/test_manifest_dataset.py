@@ -316,5 +316,55 @@ class LoaderContractTests(unittest.TestCase):
         self.assertIsNone(process_dataset(cfg, np.random.default_rng(0)))
 
 
+
+    def test_masked_label_policy_mask_and_targets(self):
+        # Fixture: 10 s trace at 100 Hz, P at 3.26 s, S at 5.24 s; the crop
+        # starts at sample 0, so 1001 samples are real support and the rest
+        # of the 3001-sample window is padding.
+        self.source()
+        ds = self.dataset(label_policy="masked", return_mask=True)
+        wave, labels, mask = ds[0]
+        self.assertEqual(tuple(mask.shape), (3001,))
+        torch.testing.assert_close(labels.sum(dim=0), torch.ones(3001))
+        hw = 50  # 0.5 s supervised half-width around a manual arrival
+        self.assertEqual(float(mask[326 - hw:326 + hw + 1].min()), 1.0)
+        self.assertEqual(float(mask[524 - hw:524 + hw + 1].min()), 1.0)
+        self.assertEqual(float(mask[0:326 - hw - 1].max()), 0.0)
+        self.assertEqual(float(mask[1001:].max()), 0.0)
+        _, _, info = ds.get_sample_with_metadata(0)
+        self.assertEqual(info["label_policy"], "masked")
+        self.assertEqual(info["negative_support"], "unknown")
+        self.assertEqual(info["n_supervised"], 2 * (2 * hw + 1))
+        # legacy policy: identical targets to the historical API, mask all ones
+        legacy = self.dataset(label_policy="legacy", return_mask=True)
+        wave_l, labels_l, mask_l = legacy[0]
+        torch.testing.assert_close(labels_l, torch.from_numpy(md.make_labels(326.0, 524.0, 3001)))
+        self.assertEqual(float(mask_l.min()), 1.0)
+        plain = self.dataset()
+        self.assertEqual(len(plain[0]), 2)
+        torch.testing.assert_close(plain[0][1], labels_l)
+
+    def test_masked_policy_rejects_signal_rows_without_supervision(self):
+        # An automatic-tier arrival supervises nothing; with unknown negative
+        # support the row contributes nothing and must be rejected, not served.
+        self.source()
+        fields = {"arrivals_json": '[{"phase":"P","time_s":3.26,"tier":"automatic"}]'}
+        ds = self.dataset(label_policy="masked", return_mask=True, fields=fields)
+        with self.assertRaises(RuntimeError):
+            ds[0]
+        records = [json.loads(line) for line in ds.rejection_log.read_text().splitlines()]
+        self.assertIn("no supervised sample", records[-1]["reason"])
+        # certified negative support makes the same row a valid (all-N) target
+        fields["negative_support"] = "certified"
+        ds = self.dataset(label_policy="masked", return_mask=True, fields=fields)
+        wave, labels, mask = ds[0]
+        self.assertEqual(float(labels[0].max()), 0.0)
+        # the automatic arrival still masks its ±1 s halo; the rest of the
+        # real support is supervised as N, the padding is not
+        self.assertEqual(float(mask[0:220].min()), 1.0)
+        self.assertEqual(float(mask[230:420].max()), 0.0)
+        self.assertEqual(float(mask[430:1001].min()), 1.0)
+        self.assertEqual(float(mask[1001:].max()), 0.0)
+
 if __name__ == "__main__":
     unittest.main()

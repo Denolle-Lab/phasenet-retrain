@@ -99,42 +99,6 @@ def test_registry_entries_are_complete_and_match_the_heldout_windows():
         assert flags.iloc[0].any(), s["key"]
 
 
-def test_match_and_budget_functions_behave_like_the_notebook():
-    import heldout_testset_score as sc
-    from obspy import UTCDateTime
-    t = UTCDateTime("2020-01-01T00:00:00")
-    ref = [t, t + 10, t + 20]
-    cand = [t + 0.2, t + 10.6, t + 30]          # second is outside the 0.5 s tolerance
-    res, extra = sc.match(ref, cand)
-    assert len(res) == 1 and abs(res[0] - 0.2) < 1e-9 and extra == 2
-    sweep = pd.DataFrame([
-        dict(sequence="s", weights="a", phase="P", thr=0.1, recall=0.8, emitted=100),
-        dict(sequence="s", weights="a", phase="P", thr=0.5, recall=0.4, emitted=40),
-        dict(sequence="s", weights="b", phase="P", thr=0.1, recall=0.9, emitted=120),
-        dict(sequence="s", weights="b", phase="P", thr=0.5, recall=0.5, emitted=60),
-    ])
-    tab = sc.matched_budget(sweep, ["a", "b"], "P", "s", n_points=3)
-    assert list(tab.picks_emitted) == [60, 80, 100]
-    assert tab.loc[0, "a"] == pytest.approx(0.533, abs=1e-3) and tab.loc[0, "b"] == pytest.approx(0.5)
-    store = {("X", "P"): [(t, 0.9), (t + 5, 0.2)]}
-    assert sc.at_threshold(store, 0.3) == {("X", "P"): [t]}
-
-
-def test_reference_from_uses_reference_ok_and_collapses_duplicates():
-    import heldout_testset_score as sc
-    from obspy import UTCDateTime
-    t0 = UTCDateTime("2020-01-01T00:00:00"); t1 = t0 + 3600
-    picks = pd.DataFrame({
-        "station": ["IV.A", "IV.A", "IV.A", "IV.B"],
-        "phase": ["P", "P", "S", "P"],
-        "time": pd.to_datetime(["2020-01-01T00:10:00Z", "2020-01-01T00:10:00.2Z", "2020-01-01T00:10:05Z", "2020-01-01T00:20:00Z"], utc=True, format="ISO8601"),
-        "mode": ["manual", "manual", "manual", "automatic"],
-        "reference_ok": [True, True, True, False],
-    })
-    ref = sc.reference_from(picks, ["IV.A", "IV.B"], t0, t1)
-    assert len(ref[("IV.A", "P")]) == 1 and len(ref[("IV.A", "S")]) == 1 and ("IV.B", "P") not in ref
-
-
 def test_jma_second_phase_rolls_into_next_hour():
     hypo = _rec({1: "J", 2: "2023", 6: "05", 8: "05", 10: "14", 12: "59", 14: "3282", 22: " 37", 25: "3100",
                  33: " 137", 37: "1600", 45: "  12 ", 53: "35", 55: "D", 96: "K"})

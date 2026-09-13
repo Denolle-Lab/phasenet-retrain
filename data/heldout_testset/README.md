@@ -4,6 +4,11 @@
 `scripts/heldout_testset_registry.py`, 2026-09-08 onward. One directory per
 sequence of `docs/2026-09-08_heldout_test_cases.md`.*
 
+Current suite roles and scoring permissions come from
+[`configs/evaluation_suites.json`](../../configs/evaluation_suites.json),
+not historical manifests. See the [suite policy](../../docs/2026-09-10_suite_policy.md)
+for regression cases, protected acceptance candidates and QA access logging.
+
 ## What is here and what is pinned
 
 | File | Committed | Content |

@@ -30,6 +30,7 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import heldout_testset_registry as reg  # noqa: E402
+import evaluation_policy as policy  # noqa: E402
 
 OUT_ROOT = REPO_ROOT / "data" / "heldout_testset"
 DETECT_FLOOR = 0.02
@@ -100,6 +101,12 @@ def matched_budget(sweep: pd.DataFrame, names, phase, sequence, n_points=4):
 # ── loading a built sequence ─────────────────────────────────────────────────
 
 def load_sequence(key: str):
+    """Load for reference QA, logged separately from model scoring."""
+    policy.record_access(key, "reference_qa", data_root=OUT_ROOT)
+    return _load_sequence(key)
+
+
+def _load_sequence(key: str):
     """streams {station: Stream}, reference {(station, phase): [UTCDateTime]},
     windows [(t0, t1)], picks DataFrame, for one built sequence."""
     from obspy import UTCDateTime, read
@@ -121,7 +128,14 @@ def load_sequence(key: str):
 
 def score(key: str, models: dict):
     """Pick every window with every model; return (bench rows at 0.3, sweep rows)."""
-    windows, _ = load_sequence(key)
+    policy.authorize_scoring([key])
+    access_id = policy.record_access(
+        key, "model_scoring", data_root=OUT_ROOT,
+        models={name: policy.model_fingerprint(model) for name, model in models.items()},
+        settings=dict(detect_floor=DETECT_FLOOR, report_threshold=REPORT_THRESHOLD,
+                      threshold_sweep=THRESHOLD_SWEEP, match_tol_s=MATCH_TOL),
+    )
+    windows, _ = _load_sequence(key)
     label = reg.BY_KEY[key]["label"]
     bench, sweep = [], []
     for w in windows:
@@ -144,7 +158,7 @@ def score(key: str, models: dict):
                     for sta in w["streams"]:
                         ref = w["reference"].get((sta, phase), []); got = view.get((sta, phase), [])
                         r, ex = match(ref, got); hit += len(r); tot += len(ref); emitted += len(got); extra += ex; residuals += r
-                    row = dict(sequence=label, key=key, window=str(w["t0"]), weights=name, phase=phase, thr=thr,
+                    row = dict(sequence=label, key=key, access_id=access_id, window=str(w["t0"]), weights=name, phase=phase, thr=thr,
                                analyst=tot, matched=hit, recall=(hit / tot if tot else np.nan), emitted=emitted, extra=extra,
                                MAE=(float(np.mean(np.abs(residuals))) if residuals else np.nan),
                                bias=(float(np.median(residuals)) if residuals else np.nan))
@@ -154,18 +168,27 @@ def score(key: str, models: dict):
     return pd.DataFrame(bench), pd.DataFrame(sweep)
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--sequence", action="append", default=[])
-    ap.add_argument("--all", action="store_true")
+    selection = ap.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--sequence", action="append", default=[])
+    selection.add_argument("--all", action="store_true", help="Score built regression/dev sequences only")
     ap.add_argument("--weights", nargs="+", default=["jma_wc"], help="SeisBench PhaseNet weight names, or paths to converted .pt/.json pairs")
     ap.add_argument("--out", default=None)
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
+    keys = [key for key in policy.routine_keys(reg.BY_KEY)
+            if (OUT_ROOT / key / "manifest.json").exists()] if a.all else a.sequence
+    try:
+        policy.authorize_scoring(keys)
+        if not keys:
+            raise ValueError("No built regression/dev sequences available")
+    except (PermissionError, ValueError) as exc:
+        ap.error(str(exc))
+    # Authorize the entire selection before loading any weights or waveform data.
     import seisbench.models as sbm
     models = {}
     for w in a.weights:
         models[w] = sbm.PhaseNet.from_pretrained(w) if not Path(w).exists() else sbm.PhaseNet.load(Path(w))
-    keys = [s["key"] for s in reg.SEQUENCES if (OUT_ROOT / s["key"] / "manifest.json").exists()] if a.all else a.sequence
     benches, sweeps = [], []
     for k in keys:
         print(f"== {k}")

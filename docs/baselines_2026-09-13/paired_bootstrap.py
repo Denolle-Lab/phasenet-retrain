@@ -1,17 +1,23 @@
 """Paired station-block bootstrap of matched-budget recall differences from the 35A artifacts.
 
-References per station are reconstructed from the scorer's inputs (picks.parquet of the
-case, the window, reference_picks of continuous_scoring) so that the denominator matches
-the rows.parquet counts; matched references come from matches.parquet at the model's
-matched-budget threshold. Blocks are stations; P and S of one station move together.
+The reference frame of every window comes from the scorer's own loader
+(heldout_testset_score._load_sequence), so the denominators match rows.parquet
+up to references on uncovered samples; matched references come from
+matches.parquet at each model's matched-budget threshold. Blocks are stations;
+P and S of one station move together. Usage: paired_bootstrap.py <root> with
+runs under <root>/scores and <root>/scores_dense.
 """
-import glob, sys
+import glob
+import sys
 from pathlib import Path
-import numpy as np, pandas as pd
-sys.path.insert(0, "scripts")
-import continuous_scoring as cs
 
-B = Path(sys.argv[1]); root = Path("data/heldout_testset")
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, "scripts")
+import heldout_testset_score as hts  # noqa: E402  (the scorer's own reference loader)
+
+B = Path(sys.argv[1])
 rng = np.random.default_rng(0); N = 2000
 rows = []
 for run in sorted(p + "/" for p in glob.glob(str(B / "scores_dense/*/*")) + glob.glob(str(B / "scores/*/*"))):
@@ -19,8 +25,6 @@ for run in sorted(p + "/" for p in glob.glob(str(B / "scores_dense/*/*")) + glob
     budget = pd.read_parquet(run + "budget.parquet"); matches = pd.read_parquet(run + "matches.parquet")
     models = pd.read_csv(run + "models.csv")
     names = dict(zip(models.model_id, models.model)) if "model" in models else {m: m for m in budget.model_id}
-    picks = pd.read_parquet(root / key / "picks.parquet"); win = pd.read_csv(root / key / "windows.csv").iloc[0]
-    import heldout_testset_score as hts
     windows, _ = hts._load_sequence(key)          # the scorer's own streams and reference frames, every window
     ref = pd.concat([w["reference"].assign(window_id=w["window_id"]) for w in windows], ignore_index=True)
     ref["ref_key"] = ref["window_id"].astype(str) + "|" + ref["ref_id"].astype(str)
@@ -32,7 +36,6 @@ for run in sorted(p + "/" for p in glob.glob(str(B / "scores_dense/*/*")) + glob
         hit = set(m.window_id.astype(str) + "|" + m.ref_id.astype(str))
         r = ref[ref.phase == b.phase]
         per_sta[(names.get(b.model_id, b.model_id), b.phase)] = r.assign(hit=r.ref_key.isin(hit)).groupby("station")["hit"].agg(["sum", "count"])
-    sta = sorted(ref.station.unique())
     for phase in ("P", "S"):
         base = per_sta.get(("jma_wc", phase))
         if base is None: continue

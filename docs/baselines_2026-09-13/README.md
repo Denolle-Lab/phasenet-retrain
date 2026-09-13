@@ -127,7 +127,7 @@ for k in kaikoura_2016 norcia_2016 thessaly_2021 samos_2020 adriatic_2022 etna_2
 python scripts/heldout_testset_score.py --all --weights jma_wc instance quakescope2026 \
     --budget-reference jma_wc --thresholds $(python -c "print(' '.join(f'{x/100:.2f}' for x in range(2, 92, 2)))") \
     --out-dir data/evaluation/scores --annotations-root data/evaluation/annotations --out docs/baselines_2026-09-13/score_rows.csv
-python docs/baselines_2026-09-13/paired_bootstrap.py data/evaluation   # expects scores under <root>/scores_dense
+python docs/baselines_2026-09-13/paired_bootstrap.py data/evaluation   # reads every run under <root>/scores and <root>/scores_dense
 ```
 
 Runtime on the laptop CPU: 219 s for the three weights and seven cases

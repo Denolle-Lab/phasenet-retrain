@@ -54,3 +54,17 @@ python -m unittest discover -s tests -p test_manifest_dataset.py -v
 
 See [the loader contract](../docs/2026-09-10_34a_loader_contract.md) for migration
 requirements and the remaining historical/deployment gates.
+
+## Historical v7 row replay (#34B)
+
+`test_v7_row_audit.py` exercises the pinned legacy loader and repaired loader
+against synthetic source files, checks timing/identity/failure distinctions,
+and verifies input/output hashes, duplicate-row accounting, and exposure
+provenance. It does not read server data or download datasets.
+
+```bash
+python -m unittest discover -s tests -p test_v7_row_audit.py -v
+```
+
+See [the #34B runbook](../docs/2026-09-11_34b_row_forensics.md) for server inputs,
+artifact interpretation, and the remaining historical acceptance criteria.

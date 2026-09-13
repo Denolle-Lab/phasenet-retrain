@@ -123,3 +123,11 @@ lightning_logs/
 data/heldout_testset/*/waveforms/
 data/heldout_testset/*/cache/
 data/heldout_testset/*/build.log
+# noise pools (42A): the pool manifest and its provenance are committed, the
+# waveforms (.npz per station-day) and the raw FDSN cache are not
+!data/noise_pools/
+!data/noise_pools/*/
+!data/noise_pools/*/manifest.parquet
+!data/noise_pools/*/manifest.json
+data/noise_pools/raw/
+data/noise_pools/*/windows/

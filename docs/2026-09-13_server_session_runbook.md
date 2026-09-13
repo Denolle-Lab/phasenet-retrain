@@ -12,15 +12,15 @@ each path exists before the step that needs it. Nothing here trains a model.*
 ## 0. Environment (10 min)
 
 ```bash
-cd <server clone>; git fetch; git checkout audit/2026-09-07-generalization; git pull
+cd <server clone>; git fetch; git checkout audit/2026-09-07-generalization; git pull --ff-only
 conda activate <env with torch, seisbench, h5py, scipy, pandas, obspy, pytest>
 export SEISBENCH_CACHE_ROOT=/data/wsd04/ak287/.seisbench
 export MPLCONFIGDIR=$PWD/.mpl
 python -m pytest tests -q            # laptop: 361 passed in the torch venv; must pass here first
-python -c "import torch, seisbench, h5py, scipy, numpy; print(torch.__version__, seisbench.__version__, numpy.__version__)"
+python -c "import sys, torch, seisbench, scipy, numpy; print(sys.version.split()[0], torch.__version__, seisbench.__version__, scipy.__version__)"
 ```
 
-Record the four versions; they go in every run card. If the suite fails
+Record the four versions (Python, PyTorch, SeisBench, SciPy); the run card records them too. If the suite fails
 here, stop and report the failure before anything else: the checkpoints
 were validated on the laptop with SeisBench 0.12.5 and PyTorch 2.2.2, and
 the server's pinned runtime is the one that matters.
@@ -76,8 +76,11 @@ time python scripts/audit_v7_rows.py --manifest-dir $PWD/data/manifests_v2 \
     --max-rows 100 --output $PWD/results/34b/diagnostic
 ```
 
-Scale the time by 527,477 / 300 and schedule the full replay (new output
-directory, no `--max-rows`) with `nohup`; it reads every waveform twice.
+`--max-rows` is a prefix per split, so the diagnostic replays 300 rows
+(100 from each of train, val and test). Scale its time by the total rows of
+the three manifests divided by 300 (the training manifest alone is 527,477
+rows) and schedule the full replay (new output directory, no `--max-rows`)
+with `nohup`; it reads every waveform twice.
 When it finishes, `phase_summary.csv` gives `legacy_zero_noise_rows` per
 source and split, `legacy_label_displacement_s` for the rate defect, and
 the effective P and S supervision after cropping (the H2 table). Commit
@@ -166,7 +169,12 @@ pd.read_csv("data/manifests_v2/train.csv").sample(2000, random_state=0).to_csv("
 ds = CachedManifestDataset("/tmp/smoke_train.csv", label_policy="masked", return_mask=True, load_workers=8)
 print(len(ds), ds.n_supervised_samples)
 PY
-ls /tmp/smoke_train.rejected.*.jsonl 2>/dev/null && python scripts/run_card.py check /dev/null; head -3 /tmp/smoke_train.rejected.*.jsonl 2>/dev/null
+if ls /tmp/smoke_train.rejected.*.jsonl >/dev/null 2>&1; then
+  echo "rejections written:"; head -3 /tmp/smoke_train.rejected.*.jsonl
+  python scripts/run_card.py check /dev/null || true     # exit 2 shows the gate would refuse this manifest
+else
+  echo "no rejection: every sampled row was read under the 34A contract"
+fi
 ```
 
 The 34A loader raises on the first row it cannot read; the ledger names

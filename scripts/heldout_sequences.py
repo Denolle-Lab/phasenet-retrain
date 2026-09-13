@@ -224,11 +224,14 @@ def holdout_year_mask(origin_time) -> pd.Series:
 
 def load_sequence_exclusions(path: Path = EXCLUSION_CSV, required: bool = True,
                              chunk_aware: bool = False) -> dict:
-    """{dataset: frozenset(trace_name)} from the committed exclusion list, or,
-    with `chunk_aware`, {dataset: {trace_name: frozenset(chunk)}} where chunk
-    "" means every chunk of that trace name (issue #33: mlaapde, cwa and
-    aq2009gm reuse trace_name as a slot index across chunks, so a name-only
-    key over-excludes unrelated slots).
+    """Exclusions from the committed list.
+
+    Default: {dataset: frozenset(trace_name)}.
+    chunk_aware=True: {dataset: {trace_name: frozenset(chunk)}}, the set of
+    chunks listed for that trace name; the chunk value "" is a wildcard that
+    matches every chunk of the name (issue #33: mlaapde, cwa and aq2009gm
+    reuse trace_name as a slot index across chunks, so a name-only key
+    over-excludes unrelated slots).
 
     Fails closed: if the list is missing and `required`, raise so that no
     manifest can be built without it. The list is produced on the lab

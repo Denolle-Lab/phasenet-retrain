@@ -36,6 +36,8 @@ Run from repo root on the lab server (needs SEISBENCH_CACHE_ROOT):
     python scripts/audit_heldout_sequences.py
     python scripts/audit_heldout_sequences.py --check-manifest data/manifests_v4/train.csv
     python scripts/audit_heldout_sequences.py --selftest      # no cache needed
+After committing the list, build the versioned bundle that every builder
+verifies (#33A): python scripts/exclusion_bundle.py build
 
 2026-09-07: this script could not be run from the laptop where it was
 written (lab servers unreachable); the --selftest path and
@@ -231,7 +233,7 @@ def main() -> None:
     hs.windows_frame().to_csv(hs.WINDOWS_CSV, index=False)
 
     if args.check_manifest:
-        excl = hs.load_sequence_exclusions()
+        excl = hs.load_sequence_exclusions(chunk_aware=True)   # (dataset, chunk, trace_name), #33A
         man = pd.read_csv(args.check_manifest, low_memory=False)
         if hs.TIME_COL not in man.columns:
             # older manifest: join to metadata for the year check
@@ -283,7 +285,8 @@ def main() -> None:
     print("=" * 90)
     piv = counts.pivot_table(index=["source", "dataset"], columns="window", values="n_in_window", fill_value=0)
     print(piv.to_string())
-    print(f"\nExclusion list: {len(excl):,} (dataset, trace_name) rows -> {hs.EXCLUSION_CSV}")
+    print(f"\nExclusion list: {len(excl):,} (dataset, trace_name, chunk) rows -> {hs.EXCLUSION_CSV}")
+    print("Next: python scripts/exclusion_bundle.py build   (hash the list, rules, policy and source snapshots; #33A)")
     print(f"Counts -> {hs.COUNTS_CSV}")
 
 

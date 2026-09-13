@@ -85,6 +85,7 @@ data/*
 # what makes Kaikoura/Norcia/Thessaly/Ridgecrest/Monroe test assets, so it is committed
 !data/exclusions/
 !data/exclusions/*.csv
+!data/exclusions/bundle.json
 
 # Large seisbench metadata files (too large for GitHub)
 notebooks/seisbench_metadata/

@@ -86,16 +86,25 @@ def test_c2_recovers_p_and_s_onsets_within_0p1_s(rate):
 
 
 @pytest.mark.parametrize("rate", (20.0, 100.0))
-def test_c2_flags_a_one_second_shift_but_not_0p3_s(rate):
+def test_c2_flags_a_late_label_reports_an_early_one_and_ignores_0p3_s(rate):
     r = row(rate=rate)
-    late = asl.check_p_onset(r.waveform, rate, r.p_s + 1.0, ts=r.s_s)
+    late = asl.check_p_onset(r.waveform, rate, r.p_s + 1.0, ts=r.s_s)          # energy 1 s before the label
+    early = asl.check_p_onset(r.waveform, rate, r.p_s - 1.0, ts=r.s_s)         # analyst 1 s before the energy
     near = asl.check_p_onset(r.waveform, rate, r.p_s + 0.3, ts=r.s_s)
-    assert late["testable"] and late["flag"] and late["residual_s"] < -0.5
-    assert near["testable"] and not near["flag"] and abs(near["residual_s"] + 0.3) <= 0.1
-    late_s = asl.check_s_onset(r.waveform, rate, r.s_s - 1.0, tp=r.p_s)
+    assert late["testable"] and late["late"] and late["flag"] and not late["emergent"] and late["residual_s"] < -0.5
+    assert early["testable"] and early["emergent"] and not early["flag"] and not early["late"] and early["residual_s"] > 0.5
+    assert near["testable"] and not near["flag"] and not near["late"] and not near["emergent"]
+    assert abs(near["residual_s"] + 0.3) <= 0.1
+    sym = asl.check_p_onset(r.waveform, rate, r.p_s - 1.0, ts=r.s_s, rule="symmetric")
+    assert sym["flag"] and sym["emergent"]
+    late_s = asl.check_s_onset(r.waveform, rate, r.s_s + 1.0, tp=r.p_s)
+    early_s = asl.check_s_onset(r.waveform, rate, r.s_s - 1.0, tp=r.p_s)
     near_s = asl.check_s_onset(r.waveform, rate, r.s_s - 0.3, tp=r.p_s)
-    assert late_s["flag"] and late_s["residual_s"] > 0.5
-    assert not near_s["flag"]
+    assert late_s["flag"] and late_s["late"] and late_s["residual_s"] < -0.5
+    assert early_s["emergent"] and not early_s["flag"] and early_s["residual_s"] > 0.5
+    assert not near_s["flag"] and not near_s["emergent"]
+    with pytest.raises(ValueError):
+        asl.check_p_onset(r.waveform, rate, r.p_s, rule="lenient")
 
 
 def test_c2_noise_window_is_not_testable_and_never_flagged():
@@ -153,13 +162,16 @@ def test_c3_fraction_and_summary_schema_on_synthetic_set():
     assert s["c3_p_gt_s_frac"] >= 0.8 and s["c3_n"] >= 5
     assert s["c1_n_fit"] == 12 and s["c1_flag_frac"] == 0.0
     for key in ("c1_flag", "c2_flag", "c2s_flag", "c3_p_gt_s", "c4_edge", "c6_unlabelled", "c6_unlabelled_before_p",
-                "c6_unlabelled_flagged", "c6_unlabelled_unflagged", "c2_testable", "c2_early", "c2_flag_1s",
+                "c6_unlabelled_flagged", "c6_unlabelled_unflagged", "c2_testable", "c2_late", "c2_late_1s",
+                "c2_emergent", "c2_suspect", "c2_unlabelled_earlier", "c2s_late", "c2s_emergent",
                 "c6_second_event", "c6_wrong_first_pick", "c6_no_detection"):
         frac, lo, hi = s[f"{key}_frac"], s[f"{key}_lo"], s[f"{key}_hi"]
         if np.isfinite(frac) and np.isfinite(lo):
             assert lo <= frac <= hi
     assert s["c6_unlabelled_frac"] == 0.0 and s["n_extra_arrival_rows"] == 0
+    assert s["c2_rule"] == "asymmetric" and s["c2_late_frac"] == 0.0 and s["c2_emergent_frac"] == 0.0
     assert set(df["suggested_tier"]) == {"manual"} and set(df["suggested_tier_s"]) == {"manual"}
+    assert set(df["c2_late_kind"]) == {""}
     assert json.loads(df["rates_hz"].iloc[0]) == [100.0] if "rates_hz" in df else json.loads(s["rates_hz"]) == [100.0]
     sheet = asl.review_sheet(df)
     assert sheet.empty
@@ -191,6 +203,24 @@ def test_c6_two_events_one_label_gives_extra_triggers_and_single_event_none():
     # a second event before the labelled one counts as "before P"
     before = asl.audit_row(row(rate=100.0, tp=60.0, ts=68.0, events=((30.0, 38.0),), trace="before"))
     assert before["c6_n_extra_before_p"] >= 1
+
+
+def test_late_label_kind_from_the_c6_screen():
+    """A label 1 s after the true onset: with an unexplained earlier event it is an
+    unlabelled earlier event (keep manual, add the arrival); alone it is a suspect pick."""
+    multi = row(rate=100.0, tp=60.0, ts=68.0, label_p=61.0, events=((30.0, 38.0),), dist=60.0, trace="multi")
+    alone = row(rate=100.0, tp=60.0, ts=68.0, label_p=61.0, dist=60.0, trace="alone")
+    df = asl.finish_source([asl.audit_row(multi), asl.audit_row(alone)] + [asl.audit_row(r) for r in synthetic_source(6)],
+                           "syn").set_index("trace_id")
+    assert df.loc["multi", "c2_late"] and df.loc["multi", "c2_flag"] and df.loc["multi", "c6_n_extra_before_p"] >= 1
+    assert df.loc["multi", "c2_late_kind"] == "unlabelled_earlier_event" and df.loc["multi", "suggested_tier"] == "manual"
+    assert any(abs(t - 30.0) < 0.5 for t in json.loads(df.loc["multi", "suggested_extra_arrival_s"]))
+    assert df.loc["alone", "c2_late"] and df.loc["alone", "c6_n_extra_before_p"] == 0
+    assert df.loc["alone", "c2_late_kind"] == "suspect_pick" and df.loc["alone", "suggested_tier"] == "unknown"
+    s = asl.summarise(df.reset_index(), "syn")
+    assert s["c2_suspect_n"] == 1 and s["c2_unlabelled_earlier_n"] == 1 and s["c2_n_late"] == 2
+    assert abs(s["c2_suspect_frac"] - 1 / 8) < 1e-9 and s["c2_suspect_lo"] <= s["c2_suspect_frac"] <= s["c2_suspect_hi"]
+    assert asl.late_kind(False, 3) == "" and asl.late_kind(True, 0) == "suspect_pick"
 
 
 def test_c6_classification_wrong_first_pick_and_no_detection():
@@ -237,9 +267,10 @@ def test_c6_summary_split_by_multiplet_flag():
 def base_record(**kw):
     rec = dict(source="s", trace_id="t", station="a", event_id="e", rate_hz=100.0, n_samples=12000, duration_s=120.0,
                p_s=30.0, s_s=38.0, distance_km=40.0, p_status="unknown", s_status="unknown", flagged_multiplet=False,
-               component_mask="ZNE", p_sample=3000.0, c2_onset_s=30.0, c2_residual_s=0.0, c2_rms_ratio=5.0,
-               c2_testable=True, c2_flag=False, c2_early=False, c2s_onset_s=38.0, c2s_residual_s=0.0, c2s_rms_ratio=5.0,
-               c2s_testable=True, c2s_flag=False, c2s_early=False, c3_ratio_p=2.0, c3_ratio_s=0.1, c3_testable=True,
+               component_mask="ZNE", p_sample=3000.0, c2_rule="asymmetric", c2_onset_s=30.0, c2_residual_s=0.0,
+               c2_rms_ratio=5.0, c2_testable=True, c2_late=False, c2_emergent=False, c2_flag=False, c2_late_kind="",
+               c2s_onset_s=38.0, c2s_residual_s=0.0, c2s_rms_ratio=5.0, c2s_testable=True, c2s_late=False,
+               c2s_emergent=False, c2s_flag=False, c3_ratio_p=2.0, c3_ratio_s=0.1, c3_testable=True,
                c3_p_gt_s=True, c4_p_fraction=0.25, c4_edge=False, c6_testable=True, c6_triggers_json="[]",
                c6_n_triggers=0, c6_n_extra_triggers=0, c6_has_unlabelled_arrival=False, c6_n_extra_before_p=0,
                c6_class="no_detection", c6_p_in_blind=False, suggested_extra_arrival_s="[]")
@@ -248,12 +279,20 @@ def base_record(**kw):
 
 
 def test_suggested_tier_mapping():
-    recs = [base_record(trace_id="clean"), base_record(trace_id="c2", c2_flag=True),
-            base_record(trace_id="edge", c4_edge=True), base_record(trace_id="c2s", c2s_flag=True),
+    recs = [base_record(trace_id="clean"),
+            base_record(trace_id="suspect", c2_late=True, c2_flag=True, c2_late_kind="suspect_pick"),
+            base_record(trace_id="multi", c2_late=True, c2_flag=True, c2_late_kind="unlabelled_earlier_event",
+                        c6_n_extra_before_p=1, c6_n_extra_triggers=1, c6_has_unlabelled_arrival=True),
+            base_record(trace_id="emergent", c2_emergent=True),
+            base_record(trace_id="sym", c2_rule="symmetric", c2_emergent=True, c2_flag=True),
+            base_record(trace_id="edge", c4_edge=True), base_record(trace_id="c2s", c2s_flag=True, c2s_late=True),
             base_record(trace_id="swap", p_s=38.0, s_s=30.0), base_record(trace_id="nos", s_s=None)]
     df = asl.finish_source(recs, "s").set_index("trace_id")
     assert df.loc["clean", "suggested_tier"] == "manual" and df.loc["clean", "suggested_tier_s"] == "manual"
-    assert df.loc["c2", "suggested_tier"] == "unknown"
+    assert df.loc["suspect", "suggested_tier"] == "unknown"
+    assert df.loc["multi", "suggested_tier"] == "manual"          # keeps the label, gets the extra arrival
+    assert df.loc["emergent", "suggested_tier"] == "manual"       # reported, never a flag by default
+    assert df.loc["sym", "suggested_tier"] == "unknown"           # the symmetric rule flags emergent onsets
     assert df.loc["edge", "suggested_tier"] == "unknown"
     assert df.loc["c2s", "suggested_tier"] == "manual" and df.loc["c2s", "suggested_tier_s"] == "unknown"
     assert df.loc["swap", "c1_flag"] and df.loc["swap", "suggested_tier"] == "unknown"
@@ -391,7 +430,8 @@ def test_heldout_cli_writes_summary_provenance_report_and_sheet(case_dir, tmp_pa
     assert summary["source"].tolist() == [KEY] and summary["n_rows"].item() == 4
     prov = json.loads((out / "provenance.json").read_text())
     assert prov["mode"] == "heldout" and prov["keys"] == [KEY] and KEY in prov["cases"]
-    assert prov["constants"]["C2_TOL_S"] == 0.5 and "sha256" not in prov["cases"][KEY]["files"]["picks.parquet"]
+    assert prov["constants"]["C2_TOL_S"] == 0.5 and prov["c2_rule"] == "asymmetric"
+    assert "sha256" not in prov["cases"][KEY]["files"]["picks.parquet"]
     assert (out / KEY / "rows.parquet").exists() and (out / KEY / "review_sheet.csv").exists()
     assert (out / "report.md").read_text().startswith("# Label audit (41B)")
     text = asl.main(["report", "--out-dir", str(out)])

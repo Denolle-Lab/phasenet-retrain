@@ -14,18 +14,25 @@ Checks (rules and tolerances in the docstrings; docs/2026-09-15_41b_label_audit.
 
   C1  S-P consistency        Theil-Sen fit of ts - tp against distance per source
   C2  P/S onset vs energy    Maeda AIC onset around the labelled time; testable
-                             only when the post/pre RMS ratio exceeds 2
+                             only when the post/pre RMS ratio exceeds 2; late
+                             labels flag, emergent onsets are reported
   C3  component sanity       Z/H energy after P versus after S (source-level)
   C4  pick placement         P position along the trace; edge picks; the modal sample
   C5  cross-source duplicates metadata only: origin coincidence + station code
   C6  unlabelled arrivals    STA/LTA screen on every row: triggers away from every
                              labelled arrival; Aguilar-flagged rows also classified
 
-Per-row outputs carry `suggested_tier` (manual, or unknown when C1/C2/C4
-flag the P: the 41A tier that masks rather than supervises) and
-`suggested_extra_arrival_s` (JSON list of trigger times) so the 40A builder
-can add them as `automatic`-tier arrivals, which mask their neighbourhood
-under label_targets.MASKED, instead of dropping the row.
+C2 is asymmetric by default: a label is flagged when the energy onset
+arrives more than 0.5 s before it (a late label); an analyst pick earlier
+than the energy rise (an emergent onset) is reported as `c2_emergent` and
+never flagged. A late P is cross-tabulated with the C6 screen:
+`c2_late_kind` is `unlabelled_earlier_event` when an unexplained trigger
+precedes the label (keep the row, add the arrival) and `suspect_pick`
+otherwise. Per-row outputs carry `suggested_tier` (manual, or unknown when
+C1, C4 or a suspect late P flag it: the 41A tier that masks rather than
+supervises) and `suggested_extra_arrival_s` (JSON list of trigger times) so
+the 40A builder can add them as `automatic`-tier arrivals, which mask their
+neighbourhood under label_targets.MASKED, instead of dropping the row.
 
 Torch-free and SeisBench-free at import; the SeisBench reader imports
 seisbench, h5py and manifest_dataset (torch) only when constructed.
@@ -80,6 +87,9 @@ VP_KM_S = 6.0
 C2_HALFWIDTH_P_S = 3.0
 C2_HALFWIDTH_S_S = 4.0
 C2_TOL_S = 0.5
+C2_RULES = ("asymmetric", "symmetric")
+C2_RULE = "asymmetric"      # flag only late labels (energy more than C2_TOL_S before the label)
+C2_LATE_KINDS = ("unlabelled_earlier_event", "suspect_pick")
 C2_RMS_WINDOW_S = 1.0
 C2_MIN_RMS_RATIO = 2.0
 C2_MIN_SIDE_S = 0.25
@@ -246,9 +256,14 @@ def aic_onset(x, guard: float = 0.02) -> int:
     return int(lo + np.argmin(window)) + 1
 
 
+def _c2_empty() -> dict:
+    return dict(onset_s=np.nan, residual_s=np.nan, rms_ratio=np.nan, testable=False, flag=False, late=False,
+                emergent=False)
+
+
 def energy_onset(series, amplitude, rate_hz: float, t_label: float, halfwidth_s: float, *,
                  t_min=None, t_max=None, rms_window_s: float = C2_RMS_WINDOW_S,
-                 min_ratio: float = C2_MIN_RMS_RATIO, tol_s: float = C2_TOL_S) -> dict:
+                 min_ratio: float = C2_MIN_RMS_RATIO, tol_s: float = C2_TOL_S, rule: str = C2_RULE) -> dict:
     """C2 rule. AIC onset of `series` inside [t_label - halfwidth_s, t_label + halfwidth_s],
     clipped to the trace and to [t_min, t_max] when given (the callers pass
     the midpoint between the labelled P and S so the P window never reaches
@@ -256,8 +271,15 @@ def energy_onset(series, amplitude, rate_hz: float, t_label: float, halfwidth_s:
     The row is testable when the RMS of `amplitude` over rms_window_s after
     the onset exceeds min_ratio times the RMS over rms_window_s before it and
     both sides of the window hold at least C2_MIN_SIDE_S of samples; a row
-    that is not testable is never flagged. flag = testable and |residual_s| > tol_s."""
-    out = dict(onset_s=np.nan, residual_s=np.nan, rms_ratio=np.nan, testable=False, flag=False)
+    that is not testable is never flagged.
+    late = testable and residual_s < -tol_s (energy arrives more than tol_s
+    before the label: the label misses an onset); emergent = testable and
+    residual_s > tol_s (the analyst picked earlier than the energy rise, the
+    usual emergent onset; reported, never a flag by default).
+    flag = late under rule "asymmetric" (default), late or emergent under "symmetric"."""
+    if rule not in C2_RULES:
+        raise ValueError(f"Unknown C2 rule {rule!r}; expected one of {C2_RULES}")
+    out = _c2_empty()
     series = np.asarray(series, dtype=np.float64)
     amplitude = np.asarray(amplitude, dtype=np.float64)
     n = len(series)
@@ -285,7 +307,9 @@ def energy_onset(series, amplitude, rate_hz: float, t_label: float, halfwidth_s:
     out["residual_s"] = j / rate_hz - t_label
     out["rms_ratio"] = ratio
     out["testable"] = bool(np.isfinite(ratio) or ratio == np.inf) and bool(ratio > min_ratio)
-    out["flag"] = bool(out["testable"] and abs(out["residual_s"]) > tol_s)
+    out["late"] = bool(out["testable"] and out["residual_s"] < -tol_s)
+    out["emergent"] = bool(out["testable"] and out["residual_s"] > tol_s)
+    out["flag"] = bool(out["late"] or (rule == "symmetric" and out["emergent"]))
     return out
 
 
@@ -293,28 +317,41 @@ def _midpoint(tp, ts):
     return None if tp is None or ts is None else 0.5 * (float(tp) + float(ts))
 
 
-def check_p_onset(waveform, rate_hz: float, tp, component_mask=(True, True, True), ts=None) -> dict:
+def check_p_onset(waveform, rate_hz: float, tp, component_mask=(True, True, True), ts=None,
+                  rule: str = C2_RULE) -> dict:
     """C2 for P: AIC on the band-passed vertical channel, W = C2_HALFWIDTH_P_S,
     the window cut at the P-S midpoint when S is labelled."""
     if tp is None or not component_mask[0]:
-        return dict(onset_s=np.nan, residual_s=np.nan, rms_ratio=np.nan, testable=False, flag=False)
+        return _c2_empty()
     z = bandpass(waveform[0], rate_hz)
-    return energy_onset(z, z, rate_hz, float(tp), C2_HALFWIDTH_P_S, t_max=_midpoint(tp, ts))
+    return energy_onset(z, z, rate_hz, float(tp), C2_HALFWIDTH_P_S, t_max=_midpoint(tp, ts), rule=rule)
 
 
-def check_s_onset(waveform, rate_hz: float, ts, component_mask=(True, True, True), tp=None) -> dict:
+def check_s_onset(waveform, rate_hz: float, ts, component_mask=(True, True, True), tp=None,
+                  rule: str = C2_RULE) -> dict:
     """C2 for S: AIC on the horizontal energy N^2 + E^2 of the band-passed
     channels (the available ones), W = C2_HALFWIDTH_S_S, the window starting
     no earlier than the P-S midpoint when P is labelled (at stations a few
     km away the P lies inside +-4 s of the S and would capture the minimum);
     the RMS ratio is that of the horizontal amplitude sqrt(N^2 + E^2)."""
     if ts is None or not (component_mask[1] or component_mask[2]):
-        return dict(onset_s=np.nan, residual_s=np.nan, rms_ratio=np.nan, testable=False, flag=False)
+        return _c2_empty()
     energy = np.zeros(waveform.shape[1], dtype=np.float64)
     for i in (1, 2):
         if component_mask[i]:
             energy += bandpass(waveform[i], rate_hz) ** 2
-    return energy_onset(energy, np.sqrt(energy), rate_hz, float(ts), C2_HALFWIDTH_S_S, t_min=_midpoint(tp, ts))
+    return energy_onset(energy, np.sqrt(energy), rate_hz, float(ts), C2_HALFWIDTH_S_S, t_min=_midpoint(tp, ts),
+                        rule=rule)
+
+
+def late_kind(late: bool, n_extra_before: int) -> str:
+    """Cross-tabulation of a late label with the C6 screen: a late label with an
+    unexplained trigger before it is an unlabelled earlier event (the
+    multi-event case: keep the row, add the extra arrival); a late label with
+    no earlier trigger is a suspect pick. Empty when the label is not late."""
+    if not late:
+        return ""
+    return "unlabelled_earlier_event" if n_extra_before >= 1 else "suspect_pick"
 
 
 def zh_ratio(waveform, rate_hz: float, t, window_s: float = C3_WINDOW_S, component_mask=(True, True, True)) -> float:
@@ -410,7 +447,8 @@ def sp_consistency(tp, ts, dist_km, *, mad_factor: float = C1_MAD_FACTOR, min_re
                    min_rows: int = C1_MIN_ROWS, vp_km_s: float = VP_KM_S) -> dict:
     """C1 rule. Theil-Sen fit (scipy.stats.theilslopes) of ts - tp against
     distance over the rows with both picks, a distance and ts > tp, when at
-    least min_rows such rows exist; residual_s = (ts - tp) - (a + b * D);
+    least min_rows such rows exist and the distances are not all equal;
+    residual_s = (ts - tp) - (a + b * D);
     flag when |residual_s| > max(mad_factor * MAD, min_residual_s), with
     MAD = median |r - median r| over the fitted rows, or when ts <= tp. Rows
     without a distance or without both picks get residual NaN and are flagged
@@ -426,7 +464,7 @@ def sp_consistency(tp, ts, dist_km, *, mad_factor: float = C1_MAD_FACTOR, min_re
     flag = ts_le_tp.copy()
     out = dict(n_fit=int(fit_rows.sum()), slope_s_per_km=np.nan, intercept_s=np.nan, mad_s=np.nan,
                threshold_s=np.nan, implied_vp_vs=np.nan)
-    if fit_rows.sum() >= min_rows:
+    if fit_rows.sum() >= min_rows and np.ptp(dist[fit_rows]) > 0:
         y, x = (ts - tp)[fit_rows], dist[fit_rows]
         slope, intercept, _, _ = theilslopes(y, x)
         r = y - (intercept + slope * x)
@@ -442,7 +480,7 @@ def sp_consistency(tp, ts, dist_km, *, mad_factor: float = C1_MAD_FACTOR, min_re
 
 # ── per-row audit ────────────────────────────────────────────────────────────
 
-def audit_row(row: LabelRow) -> dict:
+def audit_row(row: LabelRow, c2_rule: str = C2_RULE) -> dict:
     """Every per-row check except C1 (which needs the source). Waveforms are not kept."""
     w, rate, mask = row.waveform, row.rate_hz, row.component_mask
     out = dict(source=row.source, trace_id=row.trace_id, station=row.station, event_id=row.event_id,
@@ -453,14 +491,12 @@ def audit_row(row: LabelRow) -> dict:
                p_sample=float(row.p_sample) if row.p_sample is not None else (
                    float(np.round(row.p_s * rate)) if row.p_s is not None else np.nan))
     out.update({k: v for k, v in row.meta.items() if k not in out})
-    p = check_p_onset(w, rate, row.p_s, mask, ts=row.s_s)
-    s = check_s_onset(w, rate, row.s_s, mask, tp=row.p_s)
-    out.update(c2_onset_s=p["onset_s"], c2_residual_s=p["residual_s"], c2_rms_ratio=p["rms_ratio"],
-               c2_testable=p["testable"], c2_flag=p["flag"],
-               c2_early=bool(p["testable"] and p["residual_s"] < -C2_TOL_S),
+    p = check_p_onset(w, rate, row.p_s, mask, ts=row.s_s, rule=c2_rule)
+    s = check_s_onset(w, rate, row.s_s, mask, tp=row.p_s, rule=c2_rule)
+    out.update(c2_rule=c2_rule, c2_onset_s=p["onset_s"], c2_residual_s=p["residual_s"], c2_rms_ratio=p["rms_ratio"],
+               c2_testable=p["testable"], c2_late=p["late"], c2_emergent=p["emergent"], c2_flag=p["flag"],
                c2s_onset_s=s["onset_s"], c2s_residual_s=s["residual_s"], c2s_rms_ratio=s["rms_ratio"],
-               c2s_testable=s["testable"], c2s_flag=s["flag"],
-               c2s_early=bool(s["testable"] and s["residual_s"] < -C2_TOL_S))
+               c2s_testable=s["testable"], c2s_late=s["late"], c2s_emergent=s["emergent"], c2s_flag=s["flag"])
     ratio_p = zh_ratio(w, rate, row.p_s, component_mask=mask)
     ratio_s = zh_ratio(w, rate, row.s_s, component_mask=mask)
     c3_ok = p["testable"] and s["testable"] and np.isfinite(ratio_p) and np.isfinite(ratio_s)
@@ -479,6 +515,7 @@ def audit_row(row: LabelRow) -> dict:
                c6_class=classify_triggers(on_times, ref, extra) if testable else "not_testable",
                c6_p_in_blind=bool(row.p_s is not None and row.p_s < C6_LTA_S),
                suggested_extra_arrival_s=json.dumps([round(float(t), 3) for t in extra]))
+    out["c2_late_kind"] = late_kind(bool(out["c2_late"]), int(out["c6_n_extra_before_p"]))
     return out
 
 
@@ -492,7 +529,12 @@ def finish_source(records: list, source: str) -> pd.DataFrame:
     df["c1_flag"] = c1["flag"]
     df["c1_ts_le_tp"] = c1["ts_le_tp"]
     df.attrs["c1"] = {k: v for k, v in c1.items() if k not in ("residual_s", "flag", "ts_le_tp")}
-    df["suggested_tier"] = np.where(df["c1_flag"] | df["c2_flag"] | df["c4_edge"], "unknown", "manual")
+    # P to `unknown` on a S-P outlier, an edge pick or a suspect late pick; a late
+    # label with an unlabelled earlier event keeps `manual` and gets the extra
+    # arrival; an emergent onset flags only under the symmetric rule.
+    suspect = df["c2_late_kind"].astype(str) == "suspect_pick"
+    emergent_flag = df["c2_flag"].astype(bool) & ~df["c2_late"].astype(bool)
+    df["suggested_tier"] = np.where(df["c1_flag"] | df["c4_edge"] | suspect | emergent_flag, "unknown", "manual")
     has_s = df["s_s"].notna()
     df["suggested_tier_s"] = np.where(~has_s, "", np.where(df["c1_flag"] | df["c2s_flag"], "unknown", "manual"))
     return df
@@ -544,8 +586,9 @@ def summarise(df: pd.DataFrame, source: str, n_read_errors: int = 0) -> dict:
         t_frac, t_lo, t_hi = _frac_ci(testable[has])
         f_frac, f_lo, f_hi = _frac_ci(df.loc[testable, f"{tag}_flag"])
         res = df.loc[testable, f"{tag}_residual_s"].astype(float)
-        e_frac, e_lo, e_hi = _frac_ci(df.loc[testable, f"{tag}_early"])
-        w_frac, w_lo, w_hi = _frac_ci((res.abs() > 2 * C2_TOL_S).astype(float)) if len(res) else (np.nan, np.nan, np.nan)
+        l_frac, l_lo, l_hi = _frac_ci(df.loc[testable, f"{tag}_late"])
+        e_frac, e_lo, e_hi = _frac_ci(df.loc[testable, f"{tag}_emergent"])
+        w_frac, w_lo, w_hi = _frac_ci((res < -2 * C2_TOL_S).astype(float)) if len(res) else (np.nan, np.nan, np.nan)
         s.update({f"{tag}_n_testable": int(testable.sum()), f"{tag}_testable_frac": t_frac,
                   f"{tag}_testable_lo": t_lo, f"{tag}_testable_hi": t_hi,
                   f"{tag}_residual_median_s": _nanmedian(res), f"{tag}_residual_mad_s": _nanmad(res),
@@ -553,8 +596,17 @@ def summarise(df: pd.DataFrame, source: str, n_read_errors: int = 0) -> dict:
                   f"{tag}_residual_p95_s": float(np.percentile(res, 95)) if len(res) else np.nan,
                   f"{tag}_n_flag": int(df[f"{tag}_flag"].sum()), f"{tag}_flag_frac": f_frac,
                   f"{tag}_flag_lo": f_lo, f"{tag}_flag_hi": f_hi,
-                  f"{tag}_flag_1s_frac": w_frac, f"{tag}_flag_1s_lo": w_lo, f"{tag}_flag_1s_hi": w_hi,
-                  f"{tag}_early_frac": e_frac, f"{tag}_early_lo": e_lo, f"{tag}_early_hi": e_hi})
+                  f"{tag}_n_late": int(df[f"{tag}_late"].sum()), f"{tag}_late_frac": l_frac,
+                  f"{tag}_late_lo": l_lo, f"{tag}_late_hi": l_hi,
+                  f"{tag}_late_1s_frac": w_frac, f"{tag}_late_1s_lo": w_lo, f"{tag}_late_1s_hi": w_hi,
+                  f"{tag}_n_emergent": int(df[f"{tag}_emergent"].sum()), f"{tag}_emergent_frac": e_frac,
+                  f"{tag}_emergent_lo": e_lo, f"{tag}_emergent_hi": e_hi})
+    testable = df["c2_testable"].astype(bool)
+    kind = df["c2_late_kind"].astype(str)
+    s["c2_rule"] = str(df["c2_rule"].iloc[0]) if "c2_rule" in df else C2_RULE
+    for k, name in (("suspect_pick", "suspect"), ("unlabelled_earlier_event", "unlabelled_earlier")):
+        frac, lo, hi = _frac_ci((kind[testable] == k).astype(float))
+        s.update({f"c2_{name}_n": int((kind == k).sum()), f"c2_{name}_frac": frac, f"c2_{name}_lo": lo, f"c2_{name}_hi": hi})
     # C3
     c3 = df.loc[df["c3_testable"].astype(bool), "c3_p_gt_s"]
     frac, lo, hi = _frac_ci(c3)
@@ -601,6 +653,7 @@ def review_sheet(df: pd.DataFrame, seed: int = BOOT_SEED, n: int = REVIEW_SHEET_
     reasons = {"multiplet_report": df["flagged_multiplet"].astype(bool),
                "unlabelled_arrival": df["c6_has_unlabelled_arrival"].astype(bool),
                "c1": df["c1_flag"].astype(bool), "c2_p": df["c2_flag"].astype(bool),
+               "c2_p_emergent": df["c2_emergent"].astype(bool),
                "c2_s": df["c2s_flag"].astype(bool), "c4_edge": df["c4_edge"].astype(bool)}
     any_reason = np.zeros(len(df), dtype=bool)
     for v in reasons.values():
@@ -613,8 +666,8 @@ def review_sheet(df: pd.DataFrame, seed: int = BOOT_SEED, n: int = REVIEW_SHEET_
     if len(cand) > n:
         cand = cand.iloc[np.sort(rng.choice(len(cand), size=n, replace=False))]
     cols = ["source", "trace_id", "station", "event_id", "rate_hz", "p_s", "s_s", "distance_km", "p_status", "s_status",
-            "flagged_multiplet", "reasons", "c1_residual_s", "c2_residual_s", "c2s_residual_s", "c6_triggers_json",
-            "c6_n_extra_triggers", "c6_class", "suggested_tier", "suggested_extra_arrival_s"]
+            "flagged_multiplet", "reasons", "c1_residual_s", "c2_residual_s", "c2_late_kind", "c2s_residual_s",
+            "c6_triggers_json", "c6_n_extra_triggers", "c6_class", "suggested_tier", "suggested_extra_arrival_s"]
     cols += [c for c in ("window_start_time",) if c in cand]
     return cand[cols].reset_index(drop=True)
 
@@ -1055,11 +1108,11 @@ def check_constants() -> dict:
             and k != "C6_CLASSES"} | dict(VP_KM_S=VP_KM_S, N_BOOT=N_BOOT, BOOT_SEED=BOOT_SEED, STRATUM_FLOOR=STRATUM_FLOOR)
 
 
-def run_source(name: str, rows_iter, out_dir: Path, n_read_errors_fn=None) -> tuple:
+def run_source(name: str, rows_iter, out_dir: Path, n_read_errors_fn=None, c2_rule: str = C2_RULE) -> tuple:
     """Audit every row of one source, write rows.parquet and review_sheet.csv under out_dir/name."""
     records = []
     for i, row in enumerate(rows_iter):
-        records.append(audit_row(row))
+        records.append(audit_row(row, c2_rule=c2_rule))
         if (i + 1) % 500 == 0:
             log(f"    {name}: {i + 1} rows")
     df = finish_source(records, name)
@@ -1069,7 +1122,8 @@ def run_source(name: str, rows_iter, out_dir: Path, n_read_errors_fn=None) -> tu
     review_sheet(df).to_csv(d / "review_sheet.csv", index=False)
     n_err = n_read_errors_fn() if n_read_errors_fn else 0
     summary = summarise(df, name, n_read_errors=n_err)
-    log(f"    {name}: {len(df)} rows, C1 flags {summary.get('c1_n_flag', 0)}, C2 P flags {summary.get('c2_n_flag', 0)}, "
+    log(f"    {name}: {len(df)} rows, C1 flags {summary.get('c1_n_flag', 0)}, C2 P flags {summary.get('c2_n_flag', 0)} "
+        f"(suspect {summary.get('c2_suspect_n', 0)}, emergent {summary.get('c2_n_emergent', 0)}), "
         f"C4 edge {summary.get('c4_n_edge', 0)}, unlabelled arrivals {summary.get('c6_n_unlabelled', 0)}")
     return df, summary
 
@@ -1102,12 +1156,13 @@ def render_report(summary: pd.DataFrame, provenance: dict = None) -> str:
     lines = ["# Label audit (41B): per-source summary", ""]
     if provenance:
         lines += [f"*mode `{provenance.get('mode')}`, commit `{provenance.get('git_commit', '')[:8]}`, "
-                  f"created {provenance.get('created_utc', '')}, bootstrap n={N_BOOT} seed={BOOT_SEED}.*", ""]
+                  f"created {provenance.get('created_utc', '')}, C2 rule `{provenance.get('c2_rule', C2_RULE)}`, "
+                  f"bootstrap n={N_BOOT} seed={BOOT_SEED}.*", ""]
     if summary.empty:
         return "\n".join(lines + ["(no sources)", ""])
     head = ["source", "rows", "rate Hz", "C1 n fit", "C1 slope s/km", "Vp/Vs", "C1 flag %", "C2 P testable %",
-            "C2 P flag %", "C2 P early %", "C2 P median res s", "C2 S flag %", "C2 S early %", "C3 P>S %",
-            "C4 edge %", "C4 mode share", "C6 unlabelled %", "C6 before P %",
+            "C2 P late % (flag)", "of which suspect %", "C2 P emergent %", "C2 P median res s", "C2 S late % (flag)",
+            "C2 S emergent %", "C3 P>S %", "C4 edge %", "C4 mode share", "C6 unlabelled %", "C6 before P %",
             "C6 unlabelled flagged/unflagged %", "C6 second/wrong/none % (flagged n)", "suggested unknown %"]
     lines += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     g = lambda r, k: r.get(k, np.nan)  # noqa: E731
@@ -1116,11 +1171,12 @@ def render_report(summary: pd.DataFrame, provenance: dict = None) -> str:
                  _num(g(r, "c1_slope_s_per_km"), "{:.4f}"), _num(g(r, "c1_implied_vp_vs")),
                  _pct(g(r, "c1_flag_frac"), g(r, "c1_flag_lo"), g(r, "c1_flag_hi")),
                  _pct(g(r, "c2_testable_frac"), g(r, "c2_testable_lo"), g(r, "c2_testable_hi")),
-                 _pct(g(r, "c2_flag_frac"), g(r, "c2_flag_lo"), g(r, "c2_flag_hi")),
-                 _pct(g(r, "c2_early_frac"), g(r, "c2_early_lo"), g(r, "c2_early_hi")),
+                 _pct(g(r, "c2_late_frac"), g(r, "c2_late_lo"), g(r, "c2_late_hi")),
+                 _pct(g(r, "c2_suspect_frac"), g(r, "c2_suspect_lo"), g(r, "c2_suspect_hi")),
+                 _pct(g(r, "c2_emergent_frac"), g(r, "c2_emergent_lo"), g(r, "c2_emergent_hi")),
                  _num(g(r, "c2_residual_median_s")),
-                 _pct(g(r, "c2s_flag_frac"), g(r, "c2s_flag_lo"), g(r, "c2s_flag_hi")),
-                 _pct(g(r, "c2s_early_frac"), g(r, "c2s_early_lo"), g(r, "c2s_early_hi")),
+                 _pct(g(r, "c2s_late_frac"), g(r, "c2s_late_lo"), g(r, "c2s_late_hi")),
+                 _pct(g(r, "c2s_emergent_frac"), g(r, "c2s_emergent_lo"), g(r, "c2s_emergent_hi")),
                  _pct(g(r, "c3_p_gt_s_frac"), g(r, "c3_p_gt_s_lo"), g(r, "c3_p_gt_s_hi")),
                  _pct(g(r, "c4_edge_frac"), g(r, "c4_edge_lo"), g(r, "c4_edge_hi")),
                  _pct(g(r, "c4_mode_share")),
@@ -1149,12 +1205,12 @@ def cmd_heldout(a, argv) -> pd.DataFrame:
     out_dir = Path(a.out_dir)
     prov = base_provenance("heldout", argv)
     prov.update(keys=list(a.keys), data_root=str(a.data_root) if a.data_root else None, pre_s=a.pre_s,
-                length_s=a.length_s, tiers=list(a.tiers), cases={})
+                length_s=a.length_s, tiers=list(a.tiers), c2_rule=a.c2_rule, cases={})
     summaries = []
     for key in a.keys:
         log(f"  {key}")
         reader = HeldoutReader(key, data_root=a.data_root, pre_s=a.pre_s, length_s=a.length_s, tiers=a.tiers)
-        df, summary = run_source(key, reader.rows(), out_dir)
+        df, summary = run_source(key, reader.rows(), out_dir, c2_rule=a.c2_rule)
         summaries.append(summary)
         prov["cases"][key] = dict(n_windows=len(reader.windows), n_rows=int(len(df)), files=reader.file_hashes())
     return write_summary(out_dir, summaries, prov, a.report)
@@ -1171,13 +1227,15 @@ def cmd_seisbench(a, argv) -> pd.DataFrame:
             if stem is not None:
                 lef.download_multiplet_report(stem, cache_dir=str(report_dirs[0]))
     prov = base_provenance("seisbench", argv)
-    prov.update(cache_root=str(a.cache_root), sample=a.sample, seed=a.seed, sources={}, label_error_reports={})
+    prov.update(cache_root=str(a.cache_root), sample=a.sample, seed=a.seed, c2_rule=a.c2_rule, sources={},
+                label_error_reports={})
     summaries = []
     for source in a.sources:
         log(f"  {source}")
         reader = SeisBenchReader(source, a.cache_root, sample=a.sample, seed=a.seed, route=a.route, report_dirs=report_dirs)
         try:
-            df, summary = run_source(source, reader.rows(), out_dir, n_read_errors_fn=lambda r=reader: len(r.read_errors))
+            df, summary = run_source(source, reader.rows(), out_dir, n_read_errors_fn=lambda r=reader: len(r.read_errors),
+                                     c2_rule=a.c2_rule)
         finally:
             reader.close()
         summaries.append(summary)
@@ -1251,6 +1309,8 @@ def main(argv=None):
     h.add_argument("--pre-s", type=float, default=HELDOUT_PRE_S)
     h.add_argument("--length-s", type=float, default=HELDOUT_LENGTH_S)
     h.add_argument("--tiers", nargs="+", default=["manual"])
+    h.add_argument("--c2-rule", default=C2_RULE, choices=list(C2_RULES),
+                   help="asymmetric (default): flag late labels only; symmetric: also flag emergent onsets")
     h.add_argument("--report", action="store_true")
     s = sub.add_parser("seisbench", help="audit a stratified sample of SeisBench sources (needs the cache)")
     s.add_argument("--sources", nargs="+", required=True)
@@ -1260,6 +1320,8 @@ def main(argv=None):
     s.add_argument("--route", default="auto", choices=["auto", "seisbench", "single", "chunked"])
     s.add_argument("--report-dirs", nargs="*", default=None, help="Aguilar report caches; default data/labelerrors, ~/.cache/phasenet_retrain/label_errors")
     s.add_argument("--download-reports", action="store_true", help="fetch missing Aguilar reports into the first report dir")
+    s.add_argument("--c2-rule", default=C2_RULE, choices=list(C2_RULES),
+                   help="asymmetric (default): flag late labels only; symmetric: also flag emergent onsets")
     s.add_argument("--out-dir", required=True)
     s.add_argument("--report", action="store_true")
     d = sub.add_parser("duplicates", help="C5: cross-source duplicate (event, station) rows from metadata only")

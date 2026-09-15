@@ -154,9 +154,9 @@ energy onset, the edge and modal-sample shares, and the fraction of windows
 with an unlabelled arrival split by Aguilar flag, with bootstrap intervals.
 The laptop calibration on the seven regression/dev held-out cases
 (`docs/2026-09-15_41b_label_audit.md`) says what to expect from analyst
-picks: C1 flags 0–8.5 %, C2 P flags 6–45 % at 0.5 s with positive residuals
-(emergent onsets), C6 unlabelled arrivals in 59–100 % of aftershock-sequence
-windows. Time scales with rows × trace length; `meier2019jgr`, `ross2018gpd`
+picks: C1 flags 0–8.5 %, C2 late P labels 2.8–13.1 % (suspect picks 0–6.8 %,
+the rest unlabelled earlier events), emergent onsets 2–41 % reported and not
+flagged, C6 unlabelled arrivals in 59–100 % of aftershock-sequence windows. Time scales with rows × trace length; `meier2019jgr`, `ross2018gpd`
 and `mlaapde` read 5000 traces each through h5py and are the slow ones.
 `rows.parquet` stays out of git.
 

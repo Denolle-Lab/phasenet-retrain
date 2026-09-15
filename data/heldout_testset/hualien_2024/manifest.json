@@ -1,0 +1,507 @@
+{
+ "key": "hualien_2024",
+ "label": "Hualien 2024",
+ "built": "2026-09-08T17:53:02+00:00",
+ "git_commit": "efd4b68a7c215f6d3054aa91e8076b9e68148f58",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "hualien_2024",
+  "label": "Hualien 2024",
+  "regime": "msas",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": 23.82,
+  "lon": 121.56,
+  "radius": 1.0,
+  "mainshock": "2024-04-02T23:58:11Z",
+  "mag": 7.4,
+  "picks": [
+   {
+    "kind": "fdsn_region",
+    "client": "ISC",
+    "min_mag": null
+   },
+   {
+    "kind": "usgs_phase_data",
+    "min_mag": 4.5
+   }
+  ],
+  "windows": {
+   "kind": "mainshock",
+   "start_s": 600,
+   "minutes": 180
+  },
+  "waveform_routes": [
+   "IRIS"
+  ],
+  "extra_stations": [
+   "IU.TATO"
+  ],
+  "notes": "ISC carries CWB picks with station codes; CWASN waveforms need a GDMS account, TW (BATS) is on EarthScope",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:47+00:00",
+   "params": {
+    "latitude": "39.75",
+    "longitude": "22.2",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2021-03-03T10:26:08.000000Z",
+    "endtime": "2021-03-03T13:26:08.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:48+00:00",
+   "params": {
+    "latitude": "37.9",
+    "longitude": "26.79",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "KOERI",
+   "base_url": "http://eida.koeri.boun.edu.tr",
+   "when": "2026-09-08T17:52:50+00:00",
+   "params": {
+    "latitude": "37.9",
+    "longitude": "26.79",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:52+00:00",
+   "params": {
+    "network": "HL",
+    "station": "SMG",
+    "channel": "HH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:53+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:53+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "KOERI",
+   "base_url": "http://eida.koeri.boun.edu.tr",
+   "when": "2026-09-08T17:52:54+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:55+00:00",
+   "params": {
+    "latitude": "36.6",
+    "longitude": "25.6",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2025-02-02T23:45:00.000000Z",
+    "endtime": "2025-02-03T11:00:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:55+00:00",
+   "params": {
+    "latitude": "38.2",
+    "longitude": "23.1",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2021-01-21T14:30:00.000000Z",
+    "endtime": "2021-03-23T20:15:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:56+00:00",
+   "params": {
+    "network": "HL",
+    "station": "MET3",
+    "channel": "EH?",
+    "starttime": "2021-01-21T14:30:00.000000Z",
+    "endtime": "2021-01-21T17:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:56+00:00",
+   "params": {
+    "network": "HL",
+    "station": "MET2",
+    "channel": "HH?",
+    "starttime": "2021-01-21T14:30:00.000000Z",
+    "endtime": "2021-01-21T17:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:57+00:00",
+   "params": {
+    "network": "HL",
+    "station": "MET3",
+    "channel": "EH?",
+    "starttime": "2021-03-23T17:15:00.000000Z",
+    "endtime": "2021-03-23T20:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:57+00:00",
+   "params": {
+    "network": "HL",
+    "station": "MET2",
+    "channel": "HH?",
+    "starttime": "2021-03-23T17:15:00.000000Z",
+    "endtime": "2021-03-23T20:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:58+00:00",
+   "params": {
+    "latitude": "37.5",
+    "longitude": "137.27",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2024-01-01T07:20:09.000000Z",
+    "endtime": "2024-01-01T10:20:09.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:58+00:00",
+   "params": {
+    "network": "IM",
+    "station": "MJAR",
+    "channel": "HH?",
+    "starttime": "2024-01-01T07:20:09.000000Z",
+    "endtime": "2024-01-01T10:20:09.000000Z"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:58+00:00",
+   "params": {
+    "latitude": "37.5",
+    "longitude": "137.27",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2023-05-05T05:52:04.000000Z",
+    "endtime": "2023-05-05T08:52:04.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:58+00:00",
+   "params": {
+    "network": "IM",
+    "station": "MJAR",
+    "channel": "HH?",
+    "starttime": "2023-05-05T05:52:04.000000Z",
+    "endtime": "2023-05-05T08:52:04.000000Z"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:59+00:00",
+   "params": {
+    "latitude": "23.82",
+    "longitude": "121.56",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:59+00:00",
+   "params": {
+    "network": "TW",
+    "station": "YHNB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:59+00:00",
+   "params": {
+    "network": "TW",
+    "station": "SSLB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:59+00:00",
+   "params": {
+    "network": "TW",
+    "station": "YULB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:59+00:00",
+   "params": {
+    "network": "TW",
+    "station": "TPUB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:00+00:00",
+   "params": {
+    "network": "TW",
+    "station": "TDCB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:00+00:00",
+   "params": {
+    "network": "IU",
+    "station": "TATO",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:00+00:00",
+   "params": {
+    "network": "TW",
+    "station": "HGSD",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:01+00:00",
+   "params": {
+    "network": "TW",
+    "station": "RLNB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:01+00:00",
+   "params": {
+    "network": "TW",
+    "station": "TWGB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:01+00:00",
+   "params": {
+    "network": "TW",
+    "station": "WFSB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:02+00:00",
+   "params": {
+    "network": "TW",
+    "station": "NACB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:02+00:00",
+   "params": {
+    "network": "TW",
+    "station": "CHGB",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:53:02+00:00",
+   "params": {
+    "network": "TW",
+    "station": "TATO",
+    "channel": "HH?",
+    "starttime": "2024-04-03T00:08:11.000000Z",
+    "endtime": "2024-04-03T03:08:11.000000Z"
+   }
+  }
+ ],
+ "n_queries": 31,
+ "counts": {
+  "catalog_events": 202,
+  "picks": 32461,
+  "picks_reference_ok": 30876,
+  "picks_manual": 3179,
+  "stations_fetched": 1,
+  "windows": 1
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "40d9ae1f9e46c45e9b9ff613eeac5dec4e1ffacd01d1947a6ee6e0e8b0c3567c",
+   "bytes": 13032
+  },
+  "picks.parquet": {
+   "sha256": "679855d4808702ebae20e730d01f829a646d793d0a2470f5b6ab9e6264de6a0e",
+   "bytes": 608829
+  },
+  "station_map.csv": {
+   "sha256": "18fb31ef0f6544ec8bdc0183783218f27810fbaa9da6052baf300c0aafe13959",
+   "bytes": 5698
+  },
+  "stations.csv": {
+   "sha256": "c534d372183bb9ee7e9aa53e860ddc8e8ed0aedd7add8f250eac0dfd441988cb",
+   "bytes": 1325
+  },
+  "waveforms/JP.YOJ__BH__20240403T000811__20240403T030811.mseed": {
+   "sha256": "ee93d42f06b81374c2d3fa8c5bb54e990614773e435e91d351776fc05dd52bce",
+   "bytes": 1616384
+  },
+  "windows.csv": {
+   "sha256": "5c9d101b9deab201927d35d8dec6398d1ce057cf347e44c39ef1fef0708da74d",
+   "bytes": 93
+  }
+ }
+}

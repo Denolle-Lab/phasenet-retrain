@@ -81,6 +81,11 @@ data/*
 !data/.gitkeep
 !data/README.md
 !data/manifest_checksums.csv
+# held-out external test sequences (2026-09-07 audit): the exclusion list is
+# what makes Kaikoura/Norcia/Thessaly/Ridgecrest/Monroe test assets, so it is committed
+!data/exclusions/
+!data/exclusions/*.csv
+!data/exclusions/bundle.json
 
 # Large seisbench metadata files (too large for GitHub)
 notebooks/seisbench_metadata/
@@ -101,3 +106,37 @@ lightning_logs/
 *.swp
 *.swo
 
+
+/.quarto/
+**/*.quarto_ipynb
+# held-out test set (2026-09-08): the pinned references are committed, waveforms are not
+!data/heldout_testset/
+!data/heldout_testset/index.csv
+!data/heldout_testset/README.md
+!data/heldout_testset/*/
+!data/heldout_testset/*/catalog.parquet
+!data/heldout_testset/*/picks.parquet
+!data/heldout_testset/*/windows.csv
+!data/heldout_testset/*/stations.csv
+!data/heldout_testset/*/station_map.csv
+!data/heldout_testset/*/manifest.json
+!data/heldout_testset/evaluability.csv
+!data/heldout_testset/*/evaluability_stations.csv
+data/heldout_testset/*/waveforms/
+data/heldout_testset/*/cache/
+data/heldout_testset/*/build.log
+
+# source census (2026-09-11, #39A): the census CSVs are committed, the cached
+# raw bulletin responses under data/census/raw/ are not
+!data/census/
+!data/census/*.csv
+data/census/raw/
+
+# noise pools (42A): the pool manifest and its provenance are committed, the
+# waveforms (.npz per station-day) and the raw FDSN cache are not
+!data/noise_pools/
+!data/noise_pools/*/
+!data/noise_pools/*/manifest.parquet
+!data/noise_pools/*/manifest.json
+data/noise_pools/raw/
+data/noise_pools/*/windows/

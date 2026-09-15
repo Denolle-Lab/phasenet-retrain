@@ -1,0 +1,299 @@
+{
+ "key": "noto_2024",
+ "label": "Noto 2024",
+ "built": "2026-09-08T17:52:58+00:00",
+ "git_commit": "efd4b68a7c215f6d3054aa91e8076b9e68148f58",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "noto_2024",
+  "label": "Noto 2024",
+  "regime": "msas",
+  "tier": 1,
+  "suite": "acceptance",
+  "lat": 37.5,
+  "lon": 137.27,
+  "radius": 1.0,
+  "mainshock": "2024-01-01T07:10:09Z",
+  "mag": 7.5,
+  "picks": [
+   {
+    "kind": "fdsn_region",
+    "client": "ISC",
+    "min_mag": null
+   },
+   {
+    "kind": "usgs_phase_data",
+    "min_mag": 4.5
+   }
+  ],
+  "windows": {
+   "kind": "mainshock",
+   "start_s": 600,
+   "minutes": 180
+  },
+  "waveform_routes": [
+   "IRIS"
+  ],
+  "extra_stations": [
+   "IU.MAJO"
+  ],
+  "notes": "JMA deck files end 2023-12; the JMA unified picks need a Hi-net account (HinetPy get_arrivaltime). Hi-net waveforms likewise.",
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:47+00:00",
+   "params": {
+    "latitude": "39.75",
+    "longitude": "22.2",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2021-03-03T10:26:08.000000Z",
+    "endtime": "2021-03-03T13:26:08.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:48+00:00",
+   "params": {
+    "latitude": "37.9",
+    "longitude": "26.79",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "KOERI",
+   "base_url": "http://eida.koeri.boun.edu.tr",
+   "when": "2026-09-08T17:52:50+00:00",
+   "params": {
+    "latitude": "37.9",
+    "longitude": "26.79",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:52+00:00",
+   "params": {
+    "network": "HL",
+    "station": "SMG",
+    "channel": "HH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:53+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:53+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "KOERI",
+   "base_url": "http://eida.koeri.boun.edu.tr",
+   "when": "2026-09-08T17:52:54+00:00",
+   "params": {
+    "network": "IU",
+    "station": "ANTO",
+    "channel": "BH?",
+    "starttime": "2020-10-30T12:01:27.000000Z",
+    "endtime": "2020-10-30T15:01:27.000000Z"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:55+00:00",
+   "params": {
+    "latitude": "36.6",
+    "longitude": "25.6",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2025-02-02T23:45:00.000000Z",
+    "endtime": "2025-02-03T11:00:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:55+00:00",
+   "params": {
+    "latitude": "38.2",
+    "longitude": "23.1",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2021-01-21T14:30:00.000000Z",
+    "endtime": "2021-03-23T20:15:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:56+00:00",
+   "params": {
+    "network": "HL",
+    "station": "MET3",
+    "channel": "EH?",
+    "starttime": "2021-01-21T14:30:00.000000Z",
+    "endtime": "2021-01-21T17:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:56+00:00",
+   "params": {
+    "network": "HL",
+    "station": "MET2",
+    "channel": "HH?",
+    "starttime": "2021-01-21T14:30:00.000000Z",
+    "endtime": "2021-01-21T17:30:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:57+00:00",
+   "params": {
+    "network": "HL",
+    "station": "MET3",
+    "channel": "EH?",
+    "starttime": "2021-03-23T17:15:00.000000Z",
+    "endtime": "2021-03-23T20:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "NOA",
+   "base_url": "http://eida.gein.noa.gr",
+   "when": "2026-09-08T17:52:57+00:00",
+   "params": {
+    "network": "HL",
+    "station": "MET2",
+    "channel": "HH?",
+    "starttime": "2021-03-23T17:15:00.000000Z",
+    "endtime": "2021-03-23T20:15:00.000000Z"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:58+00:00",
+   "params": {
+    "latitude": "37.5",
+    "longitude": "137.27",
+    "maxradius": "1.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2024-01-01T07:20:09.000000Z",
+    "endtime": "2024-01-01T10:20:09.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_waveforms",
+   "client": "IRIS",
+   "base_url": "http://service.iris.edu",
+   "when": "2026-09-08T17:52:58+00:00",
+   "params": {
+    "network": "IM",
+    "station": "MJAR",
+    "channel": "HH?",
+    "starttime": "2024-01-01T07:20:09.000000Z",
+    "endtime": "2024-01-01T10:20:09.000000Z"
+   }
+  }
+ ],
+ "n_queries": 15,
+ "counts": {
+  "catalog_events": 256,
+  "picks": 16012,
+  "picks_reference_ok": 13719,
+  "picks_manual": 2701,
+  "stations_fetched": 2,
+  "windows": 1
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "60dd54607a6ade5df1f4c0664e0b4d2cbfd6969e82a3bae54a1032e9585393d3",
+   "bytes": 14722
+  },
+  "picks.parquet": {
+   "sha256": "b0045cd6d8271aca2b4259c84bd0d9225b771e10267ea6b22baac2fb1fd4a657",
+   "bytes": 326521
+  },
+  "station_map.csv": {
+   "sha256": "677da2e79561c49a17aa36ca59beaf5c2918ab545590b15163247537f3c0083e",
+   "bytes": 5106
+  },
+  "stations.csv": {
+   "sha256": "d6da2c337900c8a208b254ea9d9ddc2dc85423bf8690e911e637aff7c9b1408c",
+   "bytes": 337
+  },
+  "waveforms/IU.MAJO__HH__20240101T072009__20240101T102009.mseed": {
+   "sha256": "0b44fcb5e12ce0a4118218d7c1bf76a27362e19cfa0e0dc5ad636b62d83af1af",
+   "bytes": 9565184
+  },
+  "waveforms/JP.JSD__BH__20240101T072009__20240101T102009.mseed": {
+   "sha256": "dce159b27c9678f420a3c450d217df4b2aa7fbadfc5f23b9bec3b79ed429413b",
+   "bytes": 1671168
+  },
+  "windows.csv": {
+   "sha256": "14319d09709bf38cf1a3ff0f5ebadcf5e74c2e08f8127139167ff200cc474c4b",
+   "bytes": 93
+  }
+ }
+}

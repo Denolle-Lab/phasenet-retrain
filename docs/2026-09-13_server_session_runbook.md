@@ -1,0 +1,201 @@
+# First server session: what to run, in what order, and what each step decides
+
+*2026-09-13, branch `docs/server-session-runbook` from
+`integrate/2026-09-13-checkpoints` (PR #76). Every command below was
+exercised on the laptop against fixtures; none has run against the cache.
+Server paths follow `3bf98c4:scripts/manifest_dataset.py`
+(`SEISBENCH_CACHE = /data/wsd04/ak287/.seisbench`) and the historical
+configs (`data/manifests_v2/{train,val,test}.csv`,
+`results/finetune_*_metrics.csv`, `checkpoints/finetune_*/best.pt`); verify
+each path exists before the step that needs it. Nothing here trains a model.*
+
+## 0. Environment (10 min)
+
+```bash
+cd <server clone>; git fetch; git checkout audit/2026-09-07-generalization; git pull --ff-only
+conda activate <env with torch, seisbench, h5py, scipy, pandas, obspy, pytest>
+export SEISBENCH_CACHE_ROOT=/data/wsd04/ak287/.seisbench
+export MPLCONFIGDIR=$PWD/.mpl
+python -m pytest tests -q            # laptop: 361 passed in the torch venv; must pass here first
+python -c "import sys, torch, seisbench, scipy, numpy; print(sys.version.split()[0], torch.__version__, seisbench.__version__, scipy.__version__)"
+```
+
+Record the four versions (Python, PyTorch, SeisBench, SciPy); the run card records them too. If the suite fails
+here, stop and report the failure before anything else: the checkpoints
+were validated on the laptop with SeisBench 0.12.5 and PyTorch 2.2.2, and
+the server's pinned runtime is the one that matters.
+
+## 1. Immutability of the historical inputs (5 min)
+
+```bash
+python scripts/hash_manifests.py --check            # every listed manifest against data/manifest_checksums.csv
+ls -la data/manifests_v2/ checkpoints/finetune_jma_wc_global_v7/ results/ | head -40
+sha256sum checkpoints/finetune_jma_wc_global_v7/best.pt models/jma_wc_ft_global_v7.pt
+```
+
+A checksum mismatch on `manifests_v2` means the 34B attribution to v7
+stays unresolved; run 34B anyway and let its `provenance.json` record the
+mismatch. Do not regenerate manifests.
+
+## 2. The cheap number first: post-July fetch-failure counters (5 min)
+
+Runs trained after 2026-07-12 (`71d7e2d`) logged fetch failures. Read
+them before the replay:
+
+```bash
+grep -l -i "fetch" results/*_metrics.csv results/*/*.log 2>/dev/null | head
+grep -h -i -E "fetch.*fail|zero.*sample|substitut" results/*/*.log 2>/dev/null | sort | uniq -c | sort -rn | head -20
+```
+
+Note per run: run name, manifest, count of failed fetches, datasets named
+in the messages. This is the first estimate of the zero-window count
+(`docs/2026-09-11_silent_zero_windows_report.md` §6).
+
+## 3. 34B: replay the v7 rows (inventory 15 min; full replay hours, benchmark first)
+
+```bash
+python scripts/audit_v7_rows.py --manifest-dir $PWD/data/manifests_v2 \
+    --cache-root $SEISBENCH_CACHE_ROOT --inventory-only \
+    --output $PWD/results/34b/inventory
+cat results/34b/inventory/provenance.json | head -60     # manifest hashes vs checksums, per-source formats and rates
+```
+
+The inventory answers, per source: stored rate, HDF5 layout (bucketed or
+not), which reader route the legacy loader took. That alone says whether
+`meier2019jgr`, `ross2018gpd`, `pisdl`, `mlaapde`, `cwa`, `aq2009gm` were
+bucketed and therefore zeros (report §5). Then write the reader-options
+JSON for the SeisBench-route sources exactly as the runbook
+`docs/2026-09-11_34b_row_forensics.md` shows (one entry per SeisBench
+source in the manifests, absolute paths, the legacy options
+`sampling_rate: null, component_order: ZNE, dimension_order: NCW,
+missing_components: pad`), and run a timed diagnostic prefix:
+
+```bash
+time python scripts/audit_v7_rows.py --manifest-dir $PWD/data/manifests_v2 \
+    --cache-root $SEISBENCH_CACHE_ROOT --sources $PWD/results/34b/reader_options.json \
+    --max-rows 100 --output $PWD/results/34b/diagnostic
+```
+
+`--max-rows` is a prefix per split, so the diagnostic replays 300 rows
+(100 from each of train, val and test). Scale its time by the total rows of
+the three manifests divided by 300 (the training manifest alone is 527,477
+rows) and schedule the full replay (new output directory, no `--max-rows`)
+with `nohup`; it reads every waveform twice.
+When it finishes, `phase_summary.csv` gives `legacy_zero_noise_rows` per
+source and split, `legacy_label_displacement_s` for the rate defect, and
+the effective P and S supervision after cropping (the H2 table). Commit
+`results/34b/*/provenance.json`, `phase_summary.csv` and `CHECKSUMS`, not
+the per-row parquet.
+
+**Decision this step makes.** If the zero rows are a large fraction of the
+direct-route sources, v7's result says nothing about the recipe and E0's
+legacy arm is expected to reproduce the damage; if they are few, the rate
+displacement is the dominant defect. Either way E0 runs; the number
+decides what the report to the group says.
+
+## 4. Task 1: the held-out exclusion list and its cost (30 min)
+
+```bash
+python scripts/audit_heldout_sequences.py            # joins manifests_v2 and the full corpora to the 23 windows
+cat data/exclusions/heldout_sequence_counts.csv
+git add data/exclusions/heldout_sequences.csv data/exclusions/heldout_sequence_counts.csv
+```
+
+The counts say what the place hold-outs (Etna, Campi Flegrei, Reykjanes,
+La Palma, Santorini, West Bohemia, Maurienne, Corinth–Thiva) cost INSTANCE,
+CREW and VCSEIS. A place that removes most of a source's volcanic traces
+is a decision for the plan, not a reason to shrink the radius silently.
+
+## 5. 33A: build and certify the exclusion bundle (10 min)
+
+```bash
+python scripts/exclusion_bundle.py build --cache-root $SEISBENCH_CACHE_ROOT     # hashes the sequence list, benchmark and label-error inputs, the suite policy and every source snapshot
+python scripts/exclusion_bundle.py show
+python scripts/exclusion_bundle.py check data/manifests_v2/train.csv --kind signal   # read-only: how many v7 rows the bundle would have excluded
+git add data/exclusions/bundle.json
+```
+
+`check` on the historical manifests is the per-source removal count the
+issue asks for. The bundle must report `certified: true`; if a source is
+listed under `uncertified_sources`, its snapshot path is wrong.
+
+## 6. 39A on the cache: pick status and held-out overlap per SeisBench source (20 min)
+
+```bash
+python scripts/source_census.py seisbench --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/census
+git add data/census/seisbench_sources.csv
+```
+
+Fills the `server_required` columns: manual versus automatic pick status
+where the source exposes it, rows inside held-out windows, native rates.
+With step 4 this fixes which sources enter the T0 pilot
+(`docs/2026-09-11_training_strategy_v3.md` §4.1).
+
+## 7. Legacy noise pools: what 42A needs from them (10 min)
+
+```bash
+python - <<'PY'
+import pandas as pd
+for p in ("data/noise_global/metadata.csv", "data/noise_prephase/metadata.csv"):
+    m = pd.read_csv(p, low_memory=False); print(p, len(m)); print(m[["starttime", "latitude", "longitude"]].isna().mean().round(3).to_dict())
+PY
+```
+
+`data/noise_global` was written with an empty `starttime` on every row
+(PR #71 finding); the pools are quarantined by the new exclusion policy
+until re-extracted with the patched `build_noise_dataset.py`. Re-extraction
+is a separate job; this step only confirms the state and its size.
+
+## 8. Rebuild a manifest with the new builder, without training (30 min)
+
+```bash
+python scripts/build_training_dataset.py --output-dir data/manifests_v4_dryrun --seed 42
+python scripts/exclusion_bundle.py check data/manifests_v4_dryrun/train.csv --kind signal
+cat data/manifests_v4_dryrun/provenance.json data/manifests_v4_dryrun/heldout_removal_report.csv
+```
+
+This exercises the whole 33A path on real metadata (fail-closed bundle,
+year hold-out, quarantine counts, event-grouped splits, provenance). It
+writes no waveform. Keep the directory out of git.
+
+## 9. Loader smoke test on real rows, with the ledger gate (30 min)
+
+```bash
+python - <<'PY'
+import sys; sys.path.insert(0, "scripts")
+from fast_manifest_dataset import CachedManifestDataset
+import pandas as pd
+pd.read_csv("data/manifests_v2/train.csv").sample(2000, random_state=0).to_csv("/tmp/smoke_train.csv", index=False)
+ds = CachedManifestDataset("/tmp/smoke_train.csv", label_policy="masked", return_mask=True, load_workers=8)
+print(len(ds), ds.n_supervised_samples)
+PY
+if ls /tmp/smoke_train.rejected.*.jsonl >/dev/null 2>&1; then
+  echo "rejections written:"; head -3 /tmp/smoke_train.rejected.*.jsonl
+  python scripts/run_card.py check /dev/null || true     # exit 2 shows the gate would refuse this manifest
+else
+  echo "no rejection: every sampled row was read under the 34A contract"
+fi
+```
+
+The 34A loader raises on the first row it cannot read; the ledger names
+it. On the historical manifests some rejections are expected (missing rate
+metadata, S-only rows the old builder dropped, bucketed names on direct
+routes): each is a row to repair in a corrected manifest, never a row to
+skip. This is the migration list of
+`docs/2026-09-10_34a_loader_contract.md`.
+
+## 10. What is then unblocked
+
+| Released by this session | Unblocks |
+|---|---|
+| 34B `phase_summary.csv` | the group report's missing number; 46A/E0 design |
+| task 1 counts and the certified bundle (33A) | 40A pilot corpus build; every future manifest |
+| 39A SeisBench table | T0 source list |
+| loader smoke test | 46A configs `configs/e0_46a_*_targets.yaml` become runnable |
+
+Still needed before E0 starts: 34C (benchmark timebase and deployment
+parity; a laptop task with the torch venv and the local weights), 35C
+(calibrated baselines; needs 38A's availability table from the continuous
+archives, which is a server download), and 44B (panel freeze after 37B).
+E0 itself is three arms × three seeds on the v7 rows; per-epoch time from
+`results/finetune_jma_wc_global_v7_metrics.csv` sets the schedule.

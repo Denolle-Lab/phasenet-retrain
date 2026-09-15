@@ -1,8 +1,8 @@
 {
   "audit_version": "41b-v1",
   "mode": "heldout",
-  "created_utc": "2026-09-15T14:03:07.268657+00:00",
-  "git_commit": "5fdea20e5eeec14b1a9c088784c205789c3a0c6c",
+  "created_utc": "2026-09-15T14:12:47.023001+00:00",
+  "git_commit": "80971d37e5d0b033d6ac698a9ea08ec49617dd88",
   "command": "heldout --keys kaikoura_2016 norcia_2016 thessaly_2021 samos_2020 adriatic_2022 etna_2022_2024 corinth_thiva_2020 --out-dir data/label_audit/heldout --report",
   "versions": {
     "python": "3.9.20",
@@ -22,6 +22,15 @@
     "C2_HALFWIDTH_P_S": 3.0,
     "C2_HALFWIDTH_S_S": 4.0,
     "C2_TOL_S": 0.5,
+    "C2_RULES": [
+      "asymmetric",
+      "symmetric"
+    ],
+    "C2_RULE": "asymmetric",
+    "C2_LATE_KINDS": [
+      "unlabelled_earlier_event",
+      "suspect_pick"
+    ],
     "C2_RMS_WINDOW_S": 1.0,
     "C2_MIN_RMS_RATIO": 2.0,
     "C2_MIN_SIDE_S": 0.25,
@@ -59,6 +68,7 @@
   "tiers": [
     "manual"
   ],
+  "c2_rule": "asymmetric",
   "cases": {
     "kaikoura_2016": {
       "n_windows": 1,

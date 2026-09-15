@@ -1,5 +1,27 @@
 # PhaseNet Retraining Framework
 
+> **Draft status (2026-09-15).** `main` is frozen at the 2026-08-17 state and
+> is **not** the current code. Two independent audits in September 2026 found
+> defects in the training path on this branch: the loader replaced failed
+> waveform reads with zero windows labelled noise, resampled waveforms while
+> leaving pick indices in native-rate coordinates, and trained absent labels
+> as confident negatives; the evaluation extracted picks once and filtered
+> them instead of re-triggering at each threshold. **Do not train or score
+> from `main`.** The repaired pipeline, the held-out test set, the exclusion
+> machinery and the retraining strategy live on
+> [`audit/2026-09-07-generalization`](../../tree/audit/2026-09-07-generalization);
+> start there, with
+> [`docs/2026-09-11_training_strategy_v3.md`](../../blob/audit/2026-09-07-generalization/docs/2026-09-11_training_strategy_v3.md),
+> [`docs/2026-09-11_silent_zero_windows_report.md`](../../blob/audit/2026-09-07-generalization/docs/2026-09-11_silent_zero_windows_report.md)
+> and the checkpoint plan in
+> [`docs/2026-09-09_issue_plan.md`](../../blob/audit/2026-09-07-generalization/docs/2026-09-09_issue_plan.md)
+> (issues #33–#50). `main` is updated after the first server session
+> validates that branch against the SeisBench cache
+> ([`docs/2026-09-13_server_session_runbook.md`](../../blob/audit/2026-09-07-generalization/docs/2026-09-13_server_session_runbook.md)).
+> Every fine-tune result reported on this branch was retracted in the paper
+> draft there: at matched pick budget none of the fine-tunes is
+> distinguishable from the parent `jma_wc`.
+
 Code and configuration for retraining **PhaseNet** seismic phase pickers
 (P- and S-wave arrival-time detection) on a cleaned, hybrid, rebalanced
 multi-dataset corpus, toward a **globally deployable** picker for onshore
@@ -94,8 +116,8 @@ python scripts/build_training_dataset.py            # add --s-balanced for manif
 # 2. (optional) Build the noise corpus
 python scripts/build_noise_dataset.py
 
-# 3. Fine-tune (champion recipe = v7)
-python scripts/finetune.py --config configs/finetune_jma_wc_global_v7.yaml
+# 3. Fine-tune (historical; this loader is defective, see the notice at the top)
+python scripts/finetune.py --config configs/<experiment>.yaml
 #    resume / stage from a checkpoint:
 python scripts/finetune.py --config <cfg.yaml> --init-from checkpoints/.../best.pt
 
@@ -109,9 +131,15 @@ narrative (summarized in the paper, §Trajectory).
 
 ## Status and known issues
 
-This is **active research code**, not a production release. Before any model is
-promoted, see the **audit section of the paper** (`paper_draft.html`, §Critical
-audit). The headline open items:
+This is **active research code**, not a production release, and this branch
+is a frozen draft (see the notice at the top). Before any model is promoted,
+see the **audit section of the paper** (`paper_draft.html`, §Critical audit)
+and its 2026-09 retractions in
+[`paper_draft.qmd` on `audit/2026-09-07-generalization`](../../blob/audit/2026-09-07-generalization/paper_draft.qmd).
+The headline open items as of the freeze, every one superseded by the
+checkpoint plan in
+[`docs/2026-09-09_issue_plan.md` on that branch](../../blob/audit/2026-09-07-generalization/docs/2026-09-09_issue_plan.md)
+(issues #33–#50):
 
 - The benchmark **"cross-domain" split is currently a no-op** for the fine-tuned
   models, and the training manifests are not committed, so **train/test
@@ -121,8 +149,9 @@ audit). The headline open items:
   detected-only definition.
 - The benchmark uses an **oracle ±5 s window**, so **precision / false-positive
   rate is not measured** — the reliability metric the project most needs.
-- **No fine-tuned model yet beats the `jma_wc` baseline on all metrics**: v7
-  improves timing (P-MAE 0.340 vs 0.374 s) but loses recall and MCC.
+- **No fine-tuned model beats the `jma_wc` baseline**: the 2026-09 re-scoring
+  at matched pick budget found every fine-tune indistinguishable from its
+  parent.
 
 ## Citation
 

@@ -116,7 +116,8 @@ python scripts/build_training_dataset.py            # add --s-balanced for manif
 # 2. (optional) Build the noise corpus
 python scripts/build_noise_dataset.py
 
-# 3. Fine-tune (champion recipe = v7)
+# 3. Fine-tune (historical: v7 was the selected recipe of the frozen branch; its
+#    result is retracted, see the notice at the top, and this loader is defective)
 python scripts/finetune.py --config configs/finetune_jma_wc_global_v7.yaml
 #    resume / stage from a checkpoint:
 python scripts/finetune.py --config <cfg.yaml> --init-from checkpoints/.../best.pt
@@ -134,8 +135,12 @@ narrative (summarized in the paper, §Trajectory).
 This is **active research code**, not a production release, and this branch
 is a frozen draft (see the notice at the top). Before any model is promoted,
 see the **audit section of the paper** (`paper_draft.html`, §Critical audit)
-and its 2026-09 retractions on the integration branch. The headline open
-items as of the freeze, all superseded by the checkpoint plan there:
+and its 2026-09 retractions in
+[`paper_draft.qmd` on `audit/2026-09-07-generalization`](../../blob/audit/2026-09-07-generalization/paper_draft.qmd).
+The headline open items as of the freeze, every one superseded by the
+checkpoint plan in
+[`docs/2026-09-09_issue_plan.md` on that branch](../../blob/audit/2026-09-07-generalization/docs/2026-09-09_issue_plan.md)
+(issues #33–#50):
 
 - The benchmark **"cross-domain" split is currently a no-op** for the fine-tuned
   models, and the training manifests are not committed, so **train/test
@@ -145,7 +150,7 @@ items as of the freeze, all superseded by the checkpoint plan there:
   detected-only definition.
 - The benchmark uses an **oracle ±5 s window**, so **precision / false-positive
   rate is not measured** — the reliability metric the project most needs.
-- **No fine-tuned model yet beats the `jma_wc` baseline on all metrics**: v7
+- **No fine-tuned model yet beats the `jma_wc` baseline on all metrics** (historical wording; the 2026-09 re-scoring found v7 indistinguishable from its parent): v7
   improves timing (P-MAE 0.340 vs 0.374 s) but loses recall and MCC.
 
 ## Citation

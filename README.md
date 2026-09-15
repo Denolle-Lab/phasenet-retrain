@@ -1,128 +1,134 @@
 # PhaseNet Retraining Framework
 
-Code and configuration for retraining **PhaseNet** seismic phase pickers
-(P- and S-wave arrival-time detection) on a cleaned, hybrid, rebalanced
-multi-dataset corpus, toward a **globally deployable** picker for onshore
-(Phase 1) and offshore / ocean-bottom (Phase 2) networks.
+Code, contracts and test assets for retraining **PhaseNet** (P and S onset
+picking) into a general picker for a global campaign with local resolution:
+mainshock–aftershock sequences, volcano-tectonic sequences and fluid-driven
+swarms, on land stations at their native sampling rates. Developed by the
+**Denolle Lab**, University of Washington, Department of Earth and Space
+Sciences.
 
-Developed by the **Denolle Lab**, University of Washington, Department of Earth
-and Space Sciences.
+> **Status (2026-09-15).** No model has been trained with this code yet.
+> Twenty fine-tunes of the SeisBench `jma_wc` weights made in 2026 were
+> re-scored in September and found indistinguishable from their parent at
+> matched pick budget; two audits then traced the training path's defects
+> (`docs/2026-09-11_silent_zero_windows_report.md`,
+> `docs/2026-09-10_picker_and_issue_roadmap_audit.md`). What is in this
+> repository now is the repaired pipeline and the measurement apparatus,
+> released checkpoint by checkpoint against issues #33–#50, validated on
+> fixtures and on the built held-out cases, and awaiting its first session
+> against the SeisBench cache on the lab server
+> (`docs/2026-09-13_server_session_runbook.md`). The strategy for the next
+> model is `docs/2026-09-11_training_strategy_v3.md`; the plan of record is
+> `docs/2026-09-09_issue_plan.md`. The data are not hosted here: the
+> SeisBench corpora live on the lab servers (`data/README.md`).
 
-> **This repository is the *code*, not the data or the science.**
-> Like most research-software READMEs, it documents how to run the pipeline.
-> The motivation, datasets, methods, results, leaderboard, and a full internal
-> audit are written up in the **project paper**:
-> [`paper_draft.html`](paper_draft.html) (source: [`paper_draft.qmd`](paper_draft.qmd),
-> render with `quarto render paper_draft.qmd`).
->
-> The **data is not hosted here** — the SeisBench waveform datasets are hundreds
-> of GB to multiple TB and live on the lab back-end Linux servers. See
-> [`data/README.md`](data/README.md) for the dataset inventory, volumes, and
-> server location.
+## What the pipeline enforces
 
-## What this pipeline actually does
-
-We **fine-tune the SeisBench `jma_wc` PhaseNet** on a hybrid corpus assembled
-from ~20 SeisBench datasets, using **knowledge distillation** from a frozen copy
-of `jma_wc` as a regularizer against catastrophic forgetting. Models are
-benchmarked with **Münchmeyer et al. (2022)-style** metrics (recall, MAE,
-outlier rate, MCC) across local / regional / teleseismic distance bins.
-
-The end-to-end flow:
+Every stage fails closed. A manifest cannot be built without a certified
+exclusion bundle; a waveform that cannot be read is rejected into a ledger
+and stops the run; a training run writes a run card before its first
+optimiser step and is not a result without one; a routine scoring call is
+refused on a protected acceptance case.
 
 ```
-SeisBench datasets ──build_training_dataset.py──▶ manifest CSVs (data/manifests_*)
-                                                      │
-                          build_noise_dataset.py──▶ noise corpus
-                                                      │
-                                   finetune.py ──────▶ fine-tuned checkpoints
-                                  (config v1..v19)     │
-                              eval_finetuned.py ──────▶ step3_metrics.csv + figures
+SeisBench cache + bulletins
+   │  exclusion_bundle.py   (33A) versioned (dataset, chunk, trace_name) identity, held-out windows/places/years, quarantine
+   ▼
+build_training_dataset.py  → manifests with rate, component, support and arrival metadata + provenance.json
+   │  manifest_dataset.py   (34A) stored-rate contract, bucketed HDF5, polyphase resampling, rejection ledger
+   │  label_targets.py      (41A) arrival provenance tiers → PSN targets + supervision mask
+   │  augmentation.py       (43A) label-consistent transforms; noise_ontology.py / build_noise_pool.py (42A)
+   ▼
+finetune.py                → checkpoints + run_card.json (rows read, rejections, hashes, versions)
+   │
+   ▼  evaluation on continuous data, guarded by configs/evaluation_suites.json (44A)
+heldout_testset_score.py   (35A) stored annotations, per-threshold trigger extraction, optimal matching, pick store
+event_association.py       (36A) frozen associator config, one-to-one event matching, recovery vs magnitude/hour/day
+certify_evaluability.py    (37A) what each built case can support;  calibration_protocol.py (38A) operating points
+source_census.py           (39A) manual P/S supply per operator-year with intervals
 ```
-
-> **Note on the older docs.** Earlier docs in `docs/` (and prior versions of
-> this README) described a 5-dataset, pytorch_lightning-based scaffold
-> (`scripts/model.py` + `scripts/data_module.py` + `scripts/train.py` +
-> `scripts/evaluate.py`) that was never how the v1–v19 models were trained.
-> Those files were unused dead code and have been deleted (GitHub #12); the
-> real pipeline is the manifest-based one above (`build_training_dataset.py` →
-> `manifest_dataset.py` → `finetune.py`). `scripts/label_error_filter.py`
-> started life in that same scaffold but is *not* dead — it's now wired into
-> `build_training_dataset.py` (GitHub #10) and does apply to the real
-> training pool.
 
 ## Repository layout
 
 ```
-configs/      finetune_jma_wc_global_v1..v19.yaml  — versioned experiments (with post-mortems)
-scripts/      build_training_dataset.py            — assemble hybrid manifests
-              build_noise_dataset.py               — assemble noise corpus
-              fine_tune_model.py                    — model + loss (CE + KD + optional terms)
-              finetune.py                           — training driver
-              manifest_dataset.py                   — manifest-backed Dataset
-              eval_finetuned.py                     — benchmark evaluation → step3_metrics.csv
-              scratch_model.py / train_scratch.py  — train-from-scratch path (soft-CE)
-notebooks/    benchmark construction + step-3 evaluation figures (step3_*.png)
-data/         manifest CSVs only (git-ignored); see data/README.md — no waveforms
-checkpoints/  trained weights (git-ignored)
-results/      metrics + figures (git-ignored)
-paper_draft.qmd / .html   — the project paper (why / what / how + audit)
+configs/      evaluation_suites.json            — suite roles: regression / dev / calibration / acceptance
+              e0_46a_{legacy,masked}_targets.yaml — the first experiment's two arms (not yet run)
+              association/{msas,vt,swarm}.json  — frozen, hashed associator parameters per regime
+              finetune_jma_wc_global_v*.yaml    — the 2026 fine-tune history, kept as evidence
+scripts/      the modules named in the diagram above, plus the historical builders and evaluators
+tests/        361 tests (pytest); loader, loss and forensics tests need torch, SeisBench and h5py
+data/         heldout_testset/ (19 sequences: picks, catalogues, windows, stations; waveforms not committed)
+              census/, noise_pools/pilot_2019/ (committed manifests only), exclusions/ (bundle, built on the server)
+docs/         audits, strategy, checkpoint contracts, baselines_2026-09-13/, the held-out atlas (GitHub Pages)
+paper_draft.qmd / .html   — the project paper; §Critical audit carries the 2026-09 retractions in place
 ```
 
 ## Installation
 
 ```bash
-git clone https://github.com/Denolle-Lab/phasenet-retrain.git
-cd phasenet-retrain
-python -m venv venv && source venv/bin/activate   # or conda
+git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
+python3.11 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+export SEISBENCH_CACHE_ROOT=/path/to/seisbench/cache
+python -m pytest tests -q
 ```
 
-Core stack: PyTorch ≥ 2.0, SeisBench ≥ 0.4, ObsPy ≥ 1.4 (see
-[`requirements.txt`](requirements.txt)).
+If pip resolves a PyTorch older than 2.3 (macOS x86_64 stops at 2.2.2),
+`import torch` fails under NumPy 2; add `"numpy<2"` to the install line in
+that case only. `requirements.txt` carries no NumPy upper bound because
+current PyTorch wheels support NumPy 2.
 
-> **Portability caveat.** The SeisBench cache path is currently **hard-coded**
-> in the build/train/eval scripts (update it to your local path before running).
-> Making it configurable via `SEISBENCH_CACHE_ROOT` is on the TODO list.
+The pure-pandas parts (exclusions, scoring, association, census, protocol)
+run without torch; the loader, loss and forensics tests skip when torch,
+SeisBench or h5py are missing, so a full pass needs all three.
 
 ## Usage
 
 ```bash
-# 1. Build the hybrid training manifests from the SeisBench cache
-python scripts/build_training_dataset.py            # add --s-balanced for manifests_v3
+# Exclusions: the held-out sequence list is produced on the server, then the bundle certifies every input
+python scripts/audit_heldout_sequences.py
+python scripts/exclusion_bundle.py build --cache-root $SEISBENCH_CACHE_ROOT && python scripts/exclusion_bundle.py show
 
-# 2. (optional) Build the noise corpus
-python scripts/build_noise_dataset.py
+# Manifests (refuses to run without a certified bundle; writes provenance.json and a removal report)
+python scripts/build_training_dataset.py --output-dir data/manifests_v4
 
-# 3. Fine-tune (champion recipe = v7)
-python scripts/finetune.py --config configs/finetune_jma_wc_global_v7.yaml
-#    resume / stage from a checkpoint:
-python scripts/finetune.py --config <cfg.yaml> --init-from checkpoints/.../best.pt
+# Training (ledger gate, run card; the E0 arms are the only configs meant for the corrected pipeline)
+python scripts/finetune.py --config configs/e0_46a_masked_targets.yaml
+python scripts/run_card.py check results/<run_name>/run_card.json
 
-# 4. Evaluate on the benchmark → notebooks/step3_metrics.csv + figures
-python scripts/eval_finetuned.py
+# Scoring on continuous data (regression and development cases only; acceptance cases are refused)
+python scripts/heldout_testset_score.py --all --weights jma_wc instance \
+    --thresholds $(python -c "print(' '.join(f'{x/100:.2f}' for x in range(2, 92, 2)))")
+python scripts/event_association.py --sequence samos_2020 --config configs/association/msas.json ...
+
+# Historical forensics of the 2026 fine-tunes (read-only, server)
+python scripts/audit_v7_rows.py --manifest-dir data/manifests_v2 --cache-root $SEISBENCH_CACHE_ROOT --inventory-only --output results/34b/inventory
 ```
 
-Each `configs/finetune_jma_wc_global_v*.yaml` header documents the change it
-tests and its measured outcome — read them top-to-bottom for the experimental
-narrative (summarized in the paper, §Trajectory).
+Each checkpoint has a contract document under `docs/` (`2026-09-10_34a_loader_contract.md`,
+`2026-09-11_35a_scoring_engine.md`, `2026-09-11_36a_event_association.md`,
+`2026-09-11_41a_label_policy.md`, `2026-09-11_43a_augmentation_contract.md`,
+`2026-09-11_33a_exclusion_contract.md`, `2026-09-11_38a_calibration_protocol.md`,
+`2026-09-11_run_card.md`) stating what it guarantees and what it leaves open.
 
-## Status and known issues
+## Status and open items
 
-This is **active research code**, not a production release. Before any model is
-promoted, see the **audit section of the paper** (`paper_draft.html`, §Critical
-audit). The headline open items:
-
-- The benchmark **"cross-domain" split is currently a no-op** for the fine-tuned
-  models, and the training manifests are not committed, so **train/test
-  independence is unverified**.
-- Headline **P-MAE is unconditional** (averaged over undetected traces, residuals
-  saturated at the ±5 s search window) — not yet matched to the Münchmeyer
-  detected-only definition.
-- The benchmark uses an **oracle ±5 s window**, so **precision / false-positive
-  rate is not measured** — the reliability metric the project most needs.
-- **No fine-tuned model yet beats the `jma_wc` baseline on all metrics**: v7
-  improves timing (P-MAE 0.340 vs 0.374 s) but loses recall and MCC.
+- **Nothing trained.** The first experiment (E0, checkpoint 46A: same rows,
+  legacy versus corrected loader, three seeds) waits for 33A, 34B, 34C, 35C
+  and 44B, in that order (`docs/2026-09-10_issue_execution.md`).
+- **Server-side checkpoints not run**: the 34B replay that counts how many
+  historical rows were zero windows, the held-out exclusion counts, the
+  bundle build, the SeisBench half of the source census.
+- **Baselines** on the seven regression and development cases
+  (`docs/baselines_2026-09-13/`): `instance` leads `jma_wc` on every case and
+  phase at the parent's budget; the deployed fine-tune export does not.
+  Provisional until 34C verifies the deployment path.
+- **Held-out acceptance cases** are protected: their picks and waveforms are
+  built, their evaluability is certified (`data/heldout_testset/evaluability.csv`),
+  and no model output on them has been read.
+- **Out of scope this round**: ocean-bottom data and the surface-event
+  picker, which has its own roadmap (`docs/SU_PICKER_IMPLEMENTATION_PLAN.md`,
+  issues #53–#61).
 
 ## Citation
 

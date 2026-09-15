@@ -18,9 +18,9 @@
 > (issues #33–#50). `main` is updated after the first server session
 > validates that branch against the SeisBench cache
 > ([`docs/2026-09-13_server_session_runbook.md`](../../blob/audit/2026-09-07-generalization/docs/2026-09-13_server_session_runbook.md)).
-> The v7 result described below was retracted in the paper draft on that
-> branch: at matched pick budget the fine-tune is indistinguishable from its
-> parent `jma_wc`.
+> Every fine-tune result reported on this branch was retracted in the paper
+> draft there: at matched pick budget none of the fine-tunes is
+> distinguishable from the parent `jma_wc`.
 
 Code and configuration for retraining **PhaseNet** seismic phase pickers
 (P- and S-wave arrival-time detection) on a cleaned, hybrid, rebalanced
@@ -116,9 +116,8 @@ python scripts/build_training_dataset.py            # add --s-balanced for manif
 # 2. (optional) Build the noise corpus
 python scripts/build_noise_dataset.py
 
-# 3. Fine-tune (historical: v7 was the selected recipe of the frozen branch; its
-#    result is retracted, see the notice at the top, and this loader is defective)
-python scripts/finetune.py --config configs/finetune_jma_wc_global_v7.yaml
+# 3. Fine-tune (historical; this loader is defective, see the notice at the top)
+python scripts/finetune.py --config configs/<experiment>.yaml
 #    resume / stage from a checkpoint:
 python scripts/finetune.py --config <cfg.yaml> --init-from checkpoints/.../best.pt
 
@@ -150,8 +149,9 @@ checkpoint plan in
   detected-only definition.
 - The benchmark uses an **oracle ±5 s window**, so **precision / false-positive
   rate is not measured** — the reliability metric the project most needs.
-- **No fine-tuned model yet beats the `jma_wc` baseline on all metrics** (historical wording; the 2026-09 re-scoring found v7 indistinguishable from its parent): v7
-  improves timing (P-MAE 0.340 vs 0.374 s) but loses recall and MCC.
+- **No fine-tuned model beats the `jma_wc` baseline**: the 2026-09 re-scoring
+  at matched pick budget found every fine-tune indistinguishable from its
+  parent.
 
 ## Citation
 

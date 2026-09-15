@@ -368,7 +368,7 @@ def case_dir(tmp_path, monkeypatch):
     for sta in STATIONS:
         net, code = sta.split(".")
         events = ((60.0, 68.0), (5.0, None)) if sta == "HT.CHOS" else ((60.0, 68.0), (200.0, 206.0))
-        w = record(RATE, events[0][0], events[0][1], length_s=300.0, seed=hash(sta) % 1000, events=events[1:])
+        w = record(RATE, events[0][0], events[0][1], length_s=300.0, seed=int.from_bytes(sta.encode(), 'little') % 1000, events=events[1:])
         traces = [Trace(w[i], header=dict(network=net, station=code, channel=ch, sampling_rate=RATE, starttime=W_T0))
                   for i, ch in enumerate(("HHZ", "HHN", "HHE"))]
         Stream(traces).write(str(d / "waveforms" / f"{sta}__HH__{W_T0.strftime('%Y%m%dT%H%M%S')}__{W_T1.strftime('%Y%m%dT%H%M%S')}.mseed"),

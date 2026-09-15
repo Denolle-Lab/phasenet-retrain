@@ -68,10 +68,15 @@ paper_draft.qmd / .html   — the project paper; §Critical audit carries the 20
 ```bash
 git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
 python3.11 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt "numpy<2"        # torch 2.2 wheels are built against numpy 1.x
+pip install -r requirements.txt
 export SEISBENCH_CACHE_ROOT=/path/to/seisbench/cache
 python -m pytest tests -q
 ```
+
+If pip resolves a PyTorch older than 2.3 (macOS x86_64 stops at 2.2.2),
+`import torch` fails under NumPy 2; add `"numpy<2"` to the install line in
+that case only. `requirements.txt` carries no NumPy upper bound because
+current PyTorch wheels support NumPy 2.
 
 The pure-pandas parts (exclusions, scoring, association, census, protocol)
 run without torch; the loader, loss and forensics tests skip when torch,

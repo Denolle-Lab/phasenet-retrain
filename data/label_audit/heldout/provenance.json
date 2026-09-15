@@ -1,0 +1,209 @@
+{
+  "audit_version": "41b-v1",
+  "mode": "heldout",
+  "created_utc": "2026-09-15T14:03:07.268657+00:00",
+  "git_commit": "5fdea20e5eeec14b1a9c088784c205789c3a0c6c",
+  "command": "heldout --keys kaikoura_2016 norcia_2016 thessaly_2021 samos_2020 adriatic_2022 etna_2022_2024 corinth_thiva_2020 --out-dir data/label_audit/heldout --report",
+  "versions": {
+    "python": "3.9.20",
+    "numpy": "2.0.2",
+    "scipy": "1.13.1",
+    "pandas": "2.3.2",
+    "obspy": "1.4.2",
+    "seisbench": null
+  },
+  "constants": {
+    "BAND_LOW_HZ": 1.0,
+    "BAND_HIGH_HZ": 20.0,
+    "BAND_NYQUIST_FRACTION": 0.4,
+    "C1_MAD_FACTOR": 4.0,
+    "C1_MIN_RESIDUAL_S": 1.0,
+    "C1_MIN_ROWS": 5,
+    "C2_HALFWIDTH_P_S": 3.0,
+    "C2_HALFWIDTH_S_S": 4.0,
+    "C2_TOL_S": 0.5,
+    "C2_RMS_WINDOW_S": 1.0,
+    "C2_MIN_RMS_RATIO": 2.0,
+    "C2_MIN_SIDE_S": 0.25,
+    "C3_WINDOW_S": 1.0,
+    "C3_WARN_FRACTION": 0.5,
+    "C4_EDGE_S": 1.0,
+    "C5_TOL_S": 0.2,
+    "C5_TIME_TOL_S": 2.0,
+    "C5_DIST_TOL_DEG": 0.1,
+    "C6_STA_S": 0.5,
+    "C6_LTA_S": 10.0,
+    "C6_ON": 4.0,
+    "C6_OFF": 1.5,
+    "C6_NEAR_S": 1.0,
+    "C6_S_CODA_S": 3.0,
+    "HELDOUT_PRE_S": 30.0,
+    "HELDOUT_LENGTH_S": 120.0,
+    "VP_KM_S": 6.0,
+    "N_BOOT": 1000,
+    "BOOT_SEED": 0,
+    "STRATUM_FLOOR": 50
+  },
+  "keys": [
+    "kaikoura_2016",
+    "norcia_2016",
+    "thessaly_2021",
+    "samos_2020",
+    "adriatic_2022",
+    "etna_2022_2024",
+    "corinth_thiva_2020"
+  ],
+  "data_root": null,
+  "pre_s": 30.0,
+  "length_s": 120.0,
+  "tiers": [
+    "manual"
+  ],
+  "cases": {
+    "kaikoura_2016": {
+      "n_windows": 1,
+      "n_rows": 357,
+      "files": {
+        "picks.parquet": "532271fd17222bf6d98efbbddddb7017fc8ec6db161d6c174157477d2f945b98",
+        "windows.csv": "59cde93af8babdca6f697a27cbbe4573bd9dcecc962559a19ee4ece45ae79415",
+        "stations.csv": "0fb9f529aa5b4354c5ce6de42b774c6819c25b5cf2c061895cc7642a7d6368f3",
+        "catalog.parquet": "39fec1173f4cfcc06cfd3b1bca48557bb83fb3bc05edd10885bf7d46dd36fb86",
+        "manifest.json": "f95a49e251f8bcc3d38ee6bae4c983551e85cb908b281f62ed37eb502728d35e",
+        "waveform_files": [
+          "NZ.BSWZ__EH__20161113T111256__20161113T141256.mseed",
+          "NZ.CMWZ__EH__20161113T111256__20161113T141256.mseed",
+          "NZ.KHZ__HH__20161113T111256__20161113T141256.mseed",
+          "NZ.TCW__EH__20161113T111256__20161113T141256.mseed",
+          "NZ.THZ__HH__20161113T111256__20161113T141256.mseed",
+          "NZ.TUWZ__EH__20161113T111256__20161113T141256.mseed"
+        ]
+      }
+    },
+    "norcia_2016": {
+      "n_windows": 1,
+      "n_rows": 701,
+      "files": {
+        "picks.parquet": "5606e2f44056152a829d0045e081732221c3a154f03b656c6b1335a164d7e401",
+        "windows.csv": "43326fcf8c5b1a5be5af4113350f5ca14956053d76c3c9d34ccd306ea6655bce",
+        "stations.csv": "422be562013d49afa9a5cb54f829234b249d0bb21f5055260a548b726681437c",
+        "catalog.parquet": "5333946c54d264811587663239bee75cbb62ac3b4c85cf3cd442b2cac2504de3",
+        "manifest.json": "ce308c0041338c110486fbbfe856d226029565ec42b84c3ed5b5904bf2f982e9",
+        "waveform_files": [
+          "IV.CAMP__HH__20161030T065018__20161030T085018.mseed",
+          "IV.GUMA__HH__20161030T065018__20161030T085018.mseed",
+          "IV.LNSS__HH__20161030T065018__20161030T085018.mseed",
+          "IV.MC2__EH__20161030T065018__20161030T085018.mseed",
+          "IV.RM33__EH__20161030T065018__20161030T085018.mseed",
+          "XO.AM05__EH__20161030T065018__20161030T085018.mseed"
+        ]
+      }
+    },
+    "thessaly_2021": {
+      "n_windows": 1,
+      "n_rows": 395,
+      "files": {
+        "picks.parquet": "6282d587d9e9092d09e3f4224b25cbf1b19ea41b1ba1d163a258154a4e003308",
+        "windows.csv": "bfedd62b3f26aee506eb62f911bb429a329e5d5624d1f86ef0871dd4fd026880",
+        "stations.csv": "37bf64923b40d5a4f6b6129b225a6e41ed5eef5ad0e8bd664fbc6921d26c33f8",
+        "catalog.parquet": "eb98619e4a5f90541cc1796f0f745e1849d2c98c90d0585ef3ca09949991fc38",
+        "manifest.json": "da8a087f8facddbab6454e2902cb69cd521f52b5875a4e09be8718b8ef2435e2",
+        "waveform_files": [
+          "HL.KZN__HH__20210303T102608__20210303T132608.mseed",
+          "HL.TETR__HH__20210303T102608__20210303T132608.mseed",
+          "HL.THL__HH__20210303T102608__20210303T132608.mseed",
+          "HT.AGG__HH__20210303T102608__20210303T132608.mseed",
+          "HT.LIT__HH__20210303T102608__20210303T132608.mseed",
+          "HT.TYRN__HH__20210303T102608__20210303T132608.mseed"
+        ]
+      }
+    },
+    "samos_2020": {
+      "n_windows": 1,
+      "n_rows": 34,
+      "files": {
+        "picks.parquet": "f608de3962bb3cb2f5439e4ab7e905d3b43867583c08a74a3e01ccc4018c24f9",
+        "windows.csv": "efdd9dcfafc297ccc25d452487598a9fb04cfe18f9c315f36bf16ab85c7e7ba6",
+        "stations.csv": "667cf9bcda4cde6c968df66967cb61409538201ae6b0b4cedb4ffb82f99d415c",
+        "catalog.parquet": "4e8d649e34050b115fc28a69a7a3b1807d260bdf4614d539fa765d72fde2ed63",
+        "manifest.json": "86f15ddd4b471f61063ae6204b4e989b9fb7ecf88f90c59cf793290d4210edb4",
+        "waveform_files": [
+          "HL.PRK__HH__20201030T120127__20201030T150127.mseed",
+          "HT.CHOS__HH__20201030T120127__20201030T150127.mseed",
+          "KO.AYDB__HH__20201030T120127__20201030T150127.mseed",
+          "KO.BLCB__BH__20201030T120127__20201030T150127.mseed",
+          "KO.BODT__BH__20201030T120127__20201030T150127.mseed",
+          "KO.DKL__BH__20201030T120127__20201030T150127.mseed"
+        ]
+      }
+    },
+    "adriatic_2022": {
+      "n_windows": 1,
+      "n_rows": 400,
+      "files": {
+        "picks.parquet": "b6a19e64d6703286c245f0942fafac07f698c53222aa4e363a52e53a9c3b9461",
+        "windows.csv": "1b671553d3b7cda8c6c5bffa618767155ff0cb1052ab1e552f938e0dd35076ca",
+        "stations.csv": "1bf4fa7ac399fd6cd9227acfc87fcf0274ca7aa1f64c1d809e1b28e4219db8f1",
+        "catalog.parquet": "1fe0c1972c8a3a62975ecfbb474f64853107c2c5551979df69946373fb7a5869",
+        "manifest.json": "e3f1b69a434897ac25f3cd0277296b61b5db274d60c4d65d3dc635b14ef29a6b",
+        "waveform_files": [
+          "IV.AOI__HH__20221109T061725__20221109T091725.mseed",
+          "IV.COR1__EH__20221109T061725__20221109T091725.mseed",
+          "IV.CRTC__HH__20221109T061725__20221109T091725.mseed",
+          "IV.MPAG__EH__20221109T061725__20221109T091725.mseed",
+          "IV.PESA__HH__20221109T061725__20221109T091725.mseed",
+          "IV.SENI__EH__20221109T061725__20221109T091725.mseed"
+        ]
+      }
+    },
+    "etna_2022_2024": {
+      "n_windows": 2,
+      "n_rows": 597,
+      "files": {
+        "picks.parquet": "24db294edea10ed403085a2d1e50a4a1a3d8c964f5b9af97f0da1cd48bb36cf1",
+        "windows.csv": "788073f23fb5a96cbc36060e69e0afaaebe893267c1d4c8fb2ae1ee3bb33e934",
+        "stations.csv": "d26a5ae763921553c40097f3b88b86c62cff3e43857253551e9debc13ce3ca22",
+        "catalog.parquet": "87d4ae4353ce4b5c9342f1ef32804f0057fcf4ea4f0ca1bb2890fc4fc20c0ab0",
+        "manifest.json": "b1065b2d06188fb12b3ba46e9e16ead4b8d9357de7f09d3b2f20ef0006ec475c",
+        "waveform_files": [
+          "IV.ECZM__HH__20220829T191500__20220829T221500.mseed",
+          "IV.ECZM__HH__20230604T161500__20230604T191500.mseed",
+          "IV.EMSG__HH__20220829T191500__20220829T221500.mseed",
+          "IV.EMSG__HH__20230604T161500__20230604T191500.mseed",
+          "IV.EPZF__HH__20220829T191500__20220829T221500.mseed",
+          "IV.EPZF__HH__20230604T161500__20230604T191500.mseed",
+          "IV.ESML__HH__20220829T191500__20220829T221500.mseed",
+          "IV.ESML__HH__20230604T161500__20230604T191500.mseed",
+          "IV.ESVO__HH__20220829T191500__20220829T221500.mseed",
+          "IV.ESVO__HH__20230604T161500__20230604T191500.mseed",
+          "IV.MUCR__HH__20220829T191500__20220829T221500.mseed",
+          "IV.MUCR__HH__20230604T161500__20230604T191500.mseed"
+        ]
+      }
+    },
+    "corinth_thiva_2020": {
+      "n_windows": 2,
+      "n_rows": 108,
+      "files": {
+        "picks.parquet": "d31ee8a5159d908853d06cbe5e2aa8cfcbc1e621d76d8f756c7b1258ad853755",
+        "windows.csv": "6ed74a4718da160beec8b76b50a7a1b04393d903322f3aaf1fb7cf01939aa2ab",
+        "stations.csv": "ec0b0688fa2a800372daf630eb896fa7ac860e2184702ca4687e7ab8f42ae1df",
+        "catalog.parquet": "4e4f8d03757d856ac7402d83501675a6f033838d8a48f62a47afb6dc8247cd62",
+        "manifest.json": "d60f5b042c23cef62d1905dfd94738996ef1cf2c2eb9bcf9053f10095600b15b",
+        "waveform_files": [
+          "HA.ACOR__HH__20210121T143000__20210121T173000.mseed",
+          "HA.ACOR__HH__20210323T171500__20210323T201500.mseed",
+          "HA.VILL__HH__20210121T143000__20210121T173000.mseed",
+          "HA.VILL__HH__20210323T171500__20210323T201500.mseed",
+          "HL.KLV__HH__20210121T143000__20210121T173000.mseed",
+          "HL.KLV__HH__20210323T171500__20210323T201500.mseed",
+          "HL.LKR__HH__20210121T143000__20210121T173000.mseed",
+          "HL.LKR__HH__20210323T171500__20210323T201500.mseed",
+          "HP.GUR__HH__20210121T143000__20210121T173000.mseed",
+          "HP.GUR__HH__20210323T171500__20210323T201500.mseed",
+          "HP.LTK__HH__20210121T143000__20210121T173000.mseed",
+          "HP.LTK__HH__20210323T171500__20210323T201500.mseed"
+        ]
+      }
+    }
+  }
+}

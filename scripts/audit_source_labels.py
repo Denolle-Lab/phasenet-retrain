@@ -42,7 +42,21 @@ seisbench, h5py and manifest_dataset (torch) only when constructed.
         --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/seisbench --report
     python scripts/audit_source_labels.py duplicates --sources stead instancecounts --cache-root $SEISBENCH_CACHE_ROOT \\
         --out-dir data/label_audit/seisbench
+    python scripts/audit_source_labels.py benchmark --benchmark notebooks/benchmark_manifest.csv --sample 3000 \\
+        --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/benchmark --report
+    python scripts/audit_source_labels.py manifest --manifest data/manifests_v2/test.csv --sample 3000 \\
+        --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/manifest_v2_test --report
     python scripts/audit_source_labels.py report --out-dir data/label_audit/heldout
+
+The `benchmark` and `manifest` modes audit the labels the 2026 fine-tunes
+were tested and trained on: rows of `notebooks/benchmark_manifest.csv`
+(the v7 test set; picks at the loader's stored rate, `rate_mismatch` when
+that rate differs from the 100 Hz / 40 Hz notebook 05 assumed) and rows of
+a historical `data/manifests*/{train,val,test}.csv`, both stratified by
+dataset and read through the same loader readers as the seisbench mode
+(bucket-style names through the SeisBench route; chunked sources need the
+chunk, taken from `chunk` / `source_month` or resolved from the chunk
+metadata when the name is unique).
 """
 from __future__ import annotations
 
@@ -981,25 +995,99 @@ def prepare_picks(meta: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     return out.loc[out["p_sample"].notna() | out["s_sample"].notna()]
 
 
+def _import_manifest_dataset():
+    try:
+        import manifest_dataset as md
+    except ImportError as exc:
+        raise ImportError(f"this mode needs seisbench, h5py and torch (manifest_dataset): {exc}") from exc
+    return md
+
+
+class SourceFetcher:
+    """Waveform records of one source through the loader's own readers:
+    `manifest_dataset._fetch_sbd` for the SeisBench route (via a namespace
+    shim so the code path is the loader's), `SingleHDF5Reader` /
+    `ChunkedHDF5Reader` (waveform_contract.read_hdf5_trace) for the direct
+    routes. `wanted` is a frame with `chunk` and `trace_name` (the rows that
+    will be read; the direct readers restrict their metadata to it);
+    `dataset` the SeisBench dataset object when the caller already loaded it,
+    else it is loaded here. On the chunked route `chunks_of(name)` lists the
+    chunks whose metadata carries a name, for rows that come without one."""
+
+    def __init__(self, source: str, cache_root, route: str = "auto", wanted=None, dataset=None):
+        self.source, self.cache_root = source, Path(cache_root)
+        os.environ["SEISBENCH_CACHE_ROOT"] = str(self.cache_root)
+        self.md = _import_manifest_dataset()
+        if route == "auto":
+            route = "chunked" if source in CHUNKED_PREFIX else "single" if source in SINGLE_HDF5 else "seisbench"
+        self.route = route
+        path = self.cache_root / "datasets" / source
+        self.reader, self.shim, self._name_chunks = None, None, None
+        if route == "chunked":
+            wanted_by_chunk = None
+            if wanted is not None and len(wanted):
+                wanted_by_chunk = {str(c): set(g["trace_name"].astype(str)) for c, g in wanted.groupby("chunk") if str(c)}
+            self.reader = self.md.ChunkedHDF5Reader(path, CHUNKED_PREFIX.get(source, "waveforms_"), wanted_by_chunk)
+        elif route == "single":
+            names = set(wanted["trace_name"].astype(str)) if wanted is not None and len(wanted) else None
+            self.reader = self.md.SingleHDF5Reader(path, wanted=names)
+        elif route == "seisbench":
+            from types import SimpleNamespace
+            if dataset is None:
+                meta, _ = load_source_metadata(source, cache_root, "seisbench")
+                dataset = meta.attrs["dataset"]
+            self.dataset = dataset
+            index = self.md.ManifestDataset._build_name_index(dataset)
+            unique = {}
+            for (_, name), position in index.items():
+                unique[name] = None if name in unique else position
+            self.shim = SimpleNamespace(_sbd_datasets={source: dataset}, _sbd_name_to_idx={source: index},
+                                        _sbd_unique_names={source: unique})
+        else:
+            raise ValueError(f"Unknown route {route!r}")
+
+    def chunks_of(self, trace_name: str) -> list:
+        """Chunk tags whose metadata lists `trace_name` (chunked route only; the
+        chunk metadata is read once)."""
+        if self.route != "chunked":
+            return []
+        if self._name_chunks is None:
+            prefix = "metadata" + CHUNKED_PREFIX.get(self.source, "waveforms_").removeprefix("waveforms")
+            import build_training_dataset as btd
+            meta = btd._load_chunked_meta(self.cache_root / "datasets" / self.source, prefix=prefix)
+            self._name_chunks = meta.groupby("trace_name")["chunk"].agg(lambda c: sorted(set(map(str, c)))).to_dict()
+        return list(self._name_chunks.get(str(trace_name), []))
+
+    def fetch(self, trace_name: str, chunk: str = ""):
+        if self.route == "chunked":
+            if not chunk:
+                chunks = self.chunks_of(trace_name)
+                if len(chunks) != 1:
+                    raise KeyError(f"Missing or ambiguous source identity: {(self.source, trace_name)} in chunks {chunks}")
+                chunk = chunks[0]
+            return self.reader.get_record(chunk, trace_name, None)
+        if self.route == "single":
+            return self.reader.get_record(trace_name, None)
+        return self.md.ManifestDataset._fetch_sbd(self.shim, self.source, trace_name, chunk or "", {})
+
+    def close(self):
+        if self.reader is not None:
+            self.reader.close()
+
+
 class SeisBenchReader:
     """A stratified deterministic sample of one SeisBench source read through the
-    loader's readers at the stored rate: `manifest_dataset._fetch_sbd` for the
-    SeisBench route (via a namespace shim so the code path is the loader's),
-    `SingleHDF5Reader`/`ChunkedHDF5Reader` (waveform_contract.read_hdf5_trace)
-    for the direct routes. Strata are the builder's distance bins when the
-    source has a distance column, else one stratum. Needs seisbench, h5py and
-    torch (manifest_dataset) at construction, not at import.
+    loader's readers at the stored rate (SourceFetcher). Strata are the
+    builder's distance bins when the source has a distance column, else one
+    stratum. Needs seisbench, h5py and torch (manifest_dataset) at
+    construction, not at import.
     """
 
     def __init__(self, source: str, cache_root, sample: int = 5000, seed: int = 0, route: str = "auto",
                  report_dirs=DEFAULT_REPORT_DIRS):
         self.source, self.cache_root, self.sample, self.seed = source, Path(cache_root), int(sample), int(seed)
         os.environ["SEISBENCH_CACHE_ROOT"] = str(self.cache_root)
-        try:
-            import manifest_dataset as md
-        except ImportError as exc:
-            raise ImportError(f"the seisbench mode needs seisbench, h5py and torch (manifest_dataset): {exc}") from exc
-        self.md = md
+        self.md = _import_manifest_dataset()
         meta, self.route = load_source_metadata(source, cache_root, route)
         self.cfg = source_config(source, meta.columns)
         self.dataset = meta.attrs.get("dataset")
@@ -1012,29 +1100,11 @@ class SeisBenchReader:
         self.strata_counts = {str(k): int(v) for k, v in strata.loc[chosen].value_counts().items()}
         self.flagged, self.report_info = load_multiplet_report(source, report_dirs)
         self.read_errors = []
-        path = self.cache_root / "datasets" / source
-        if self.route == "chunked":
-            wanted = {str(c): set(g["trace_name"].astype(str)) for c, g in self.meta.groupby("chunk")}
-            self.reader = md.ChunkedHDF5Reader(path, CHUNKED_PREFIX.get(source, "waveforms_"), wanted)
-        elif self.route == "single":
-            self.reader = md.SingleHDF5Reader(path, wanted=set(self.meta["trace_name"].astype(str)))
-        else:
-            from types import SimpleNamespace
-            ds = self.dataset
-            index = md.ManifestDataset._build_name_index(ds)
-            unique = {}
-            for (_, name), position in index.items():
-                unique[name] = None if name in unique else position
-            self.shim = SimpleNamespace(_sbd_datasets={source: ds}, _sbd_name_to_idx={source: index},
-                                        _sbd_unique_names={source: unique})
-            self.reader = None
+        self.fetcher = SourceFetcher(source, cache_root, self.route, wanted=self.meta[["chunk", "trace_name"]],
+                                     dataset=self.dataset)
 
     def fetch(self, trace_name: str, chunk: str):
-        if self.route == "chunked":
-            return self.reader.get_record(chunk, trace_name, None)
-        if self.route == "single":
-            return self.reader.get_record(trace_name, None)
-        return self.md.ManifestDataset._fetch_sbd(self.shim, self.source, trace_name, chunk, {})
+        return self.fetcher.fetch(trace_name, chunk)
 
     def rows(self):
         for idx, m in self.meta.iterrows():
@@ -1066,8 +1136,134 @@ class SeisBenchReader:
                                      split=str(row.get("split", ""))))
 
     def close(self):
-        if self.reader is not None:
-            self.reader.close()
+        self.fetcher.close()
+
+
+# ── the benchmark and the historical manifests as row tables ────────────────
+
+# rate notebook 05 cut the benchmark windows at (its NATIVE_SR); the manifest's own ts_tp_s used the metadata rate
+BENCHMARK_NOTEBOOK_RATE = {"mlaapde": 40.0}
+BENCHMARK_DEFAULT_RATE = 100.0
+TABLE_COLUMNS = ["source", "trace_name", "chunk", "p_sample", "s_sample", "index_rate_hz", "distance_km"]
+
+
+def benchmark_rows(path) -> pd.DataFrame:
+    """Rows of notebooks/benchmark_manifest.csv as the common table:
+    source (`dataset`), trace_name, chunk (`source_month` for mlaapde, else
+    empty: resolved from the chunk metadata at read time), p_sample /
+    s_sample (the manifest's arrival samples, S only where `evaluate_s`),
+    index_rate_hz NaN (the loader's stored rate applies), distance_km, and
+    the manifest columns kept as meta (trained_models, dist_bin, ts_tp_s,
+    p_in_s_window, notebook_rate_hz)."""
+    m = pd.read_csv(path, low_memory=False, dtype={"trace_name": str})
+    m = m.drop_duplicates(["dataset", "trace_name"], keep="first").reset_index(drop=True)
+    month = m["source_month"] if "source_month" in m else pd.Series(np.nan, index=m.index)
+    chunk = np.where((m["dataset"] == "mlaapde") & month.notna(),
+                     pd.to_numeric(month, errors="coerce").fillna(0).astype(int).astype(str), "")
+    s_ok = m["evaluate_s"].astype(bool) if "evaluate_s" in m else m["s_arrival_sample"].notna()
+    out = pd.DataFrame({"source": m["dataset"].astype(str), "trace_name": m["trace_name"].astype(str), "chunk": chunk,
+                        "p_sample": pd.to_numeric(m["p_arrival_sample"], errors="coerce"),
+                        "s_sample": pd.to_numeric(m["s_arrival_sample"], errors="coerce").where(s_ok),
+                        "index_rate_hz": np.nan,
+                        "distance_km": pd.to_numeric(m.get("distance_km", np.nan), errors="coerce"),
+                        "notebook_rate_hz": m["dataset"].map(BENCHMARK_NOTEBOOK_RATE).fillna(BENCHMARK_DEFAULT_RATE)})
+    for c in ("trained_models", "dist_bin", "ts_tp_s", "p_in_s_window", "multi_arrival", "source_origin_time"):
+        if c in m:
+            out[c] = m[c]
+    out.loc[out["p_sample"] <= 0, "p_sample"] = np.nan
+    out.loc[out["s_sample"] <= 0, "s_sample"] = np.nan
+    return out[out["p_sample"].notna() | out["s_sample"].notna()].reset_index(drop=True)
+
+
+def manifest_rows(path) -> pd.DataFrame:
+    """Rows of a data/manifests*/{train,val,test}.csv as the common table:
+    source (`dataset_name`), trace_name, chunk, p_sample / s_sample
+    (`p_arrival_sample` / `s_arrival_sample`), index_rate_hz
+    (`arrival_sampling_rate_hz` when the manifest carries it, else NaN: the
+    loader's stored rate), distance_km, and distance_bin, p_col, s_col,
+    source_origin_time as meta. Noise rows (no arrival) are dropped."""
+    m = pd.read_csv(path, low_memory=False, dtype={"chunk": str, "trace_name": str})
+    if "chunk" not in m:
+        m["chunk"] = ""
+    out = pd.DataFrame({"source": m["dataset_name"].astype(str), "trace_name": m["trace_name"].astype(str),
+                        "chunk": m["chunk"].fillna("").astype(str),
+                        "p_sample": pd.to_numeric(m["p_arrival_sample"], errors="coerce"),
+                        "s_sample": pd.to_numeric(m["s_arrival_sample"], errors="coerce"),
+                        "index_rate_hz": pd.to_numeric(m.get("arrival_sampling_rate_hz", np.nan), errors="coerce"),
+                        "distance_km": pd.to_numeric(m.get("distance_km", np.nan), errors="coerce")})
+    for c in ("distance_bin", "p_col", "s_col", "source_origin_time", "split"):
+        if c in m:
+            out[c] = m[c]
+    out.loc[out["p_sample"] < 0, "p_sample"] = np.nan
+    out.loc[out["s_sample"] < 0, "s_sample"] = np.nan
+    return out[out["p_sample"].notna() | out["s_sample"].notna()].reset_index(drop=True)
+
+
+class TableReader:
+    """A stratified deterministic sample (stratum = source, floor STRATUM_FLOOR)
+    of a row table (benchmark_rows or manifest_rows) read per source through
+    SourceFetcher. Picks are the table's samples divided by `index_rate_hz`
+    when given, else by the record's arrival rate, as
+    manifest_dataset.get_sample_with_metadata does; `rate_mismatch` in the
+    row meta says whether the stored rate differs from `notebook_rate_hz`
+    (benchmark rows). Rows the loader cannot read (missing or ambiguous
+    identity, contract violations) are counted in read_errors, never hidden."""
+
+    def __init__(self, table: pd.DataFrame, cache_root, sample: int = 3000, seed: int = 0, route: str = "auto",
+                 report_dirs=DEFAULT_REPORT_DIRS, sources=None):
+        self.cache_root, self.sample, self.seed, self.route = Path(cache_root), int(sample), int(seed), route
+        self.report_dirs = report_dirs
+        table = table.reset_index(drop=True)
+        if sources:
+            table = table[table["source"].isin(list(sources))].reset_index(drop=True)
+        self.n_candidates = int(len(table))
+        chosen = stratified_sample(table["source"], self.sample, self.seed)
+        self.table = table.loc[chosen].reset_index(drop=True)
+        self.strata_counts = {str(k): int(v) for k, v in self.table["source"].value_counts().items()}
+        self.read_errors = []
+        self.report_info = {}
+        self.sources = list(self.table["source"].unique())
+
+    def rows_for(self, source: str):
+        rows = self.table[self.table["source"] == source]
+        flagged, self.report_info[source] = load_multiplet_report(source, self.report_dirs)
+        fetcher = SourceFetcher(source, self.cache_root, self.route, wanted=rows[["chunk", "trace_name"]])
+        try:
+            for r in rows.itertuples(index=False):
+                name, chunk = str(r.trace_name), str(r.chunk or "")
+                try:
+                    if not chunk and fetcher.route == "chunked":
+                        found = fetcher.chunks_of(name)
+                        if len(found) != 1:
+                            raise KeyError(f"Missing or ambiguous source identity: {(source, name)} in chunks {found}")
+                        chunk = found[0]
+                    rec = fetcher.fetch(name, chunk)
+                except Exception as exc:  # noqa: BLE001  a row the loader would reject; counted, not hidden
+                    self.read_errors.append(dict(source=source, trace_name=name, chunk=chunk,
+                                                 error=f"{type(exc).__name__}: {exc}"))
+                    continue
+                stored = float(rec.arrival_sampling_rate)
+                index_rate = float(r.index_rate_hz) if np.isfinite(r.index_rate_hz) else stored
+                notebook_rate = float(getattr(r, "notebook_rate_hz", np.nan))
+                p_sample = float(r.p_sample) if np.isfinite(r.p_sample) else None
+                s_sample = float(r.s_sample) if np.isfinite(r.s_sample) else None
+                meta = dict(chunk=chunk, index_rate_hz=index_rate, stored_rate_hz=stored, notebook_rate_hz=notebook_rate,
+                            rate_mismatch=bool(np.isfinite(notebook_rate) and not np.isclose(notebook_rate, stored)),
+                            trace_start_time=str(rec.start_time) if rec.start_time is not None else "")
+                for c in ("trained_models", "dist_bin", "distance_bin", "ts_tp_s", "p_in_s_window", "p_col", "s_col", "split"):
+                    if hasattr(r, c):
+                        v = getattr(r, c)
+                        meta[c] = "" if v is None or (isinstance(v, float) and np.isnan(v)) else v
+                yield LabelRow(source=source, trace_id=f"{chunk}${name}" if chunk else name, station="",
+                               event_id=str(getattr(r, "source_origin_time", "")) or None, waveform=rec.waveform,
+                               rate_hz=float(rec.sampling_rate),
+                               p_s=None if p_sample is None else p_sample / index_rate,
+                               s_s=None if s_sample is None else s_sample / index_rate,
+                               distance_km=float(r.distance_km) if np.isfinite(r.distance_km) else None,
+                               flagged_multiplet=name in flagged, component_mask=tuple(rec.component_mask),
+                               p_sample=p_sample, meta=meta)
+        finally:
+            fetcher.close()
 
 
 def _event_id(row: dict):
@@ -1246,6 +1442,37 @@ def cmd_seisbench(a, argv) -> pd.DataFrame:
     return write_summary(out_dir, summaries, prov, a.report)
 
 
+def cmd_table(a, argv, mode: str) -> pd.DataFrame:
+    """benchmark / manifest modes: TableReader over the CSV, one run_source per source."""
+    out_dir = Path(a.out_dir)
+    if not a.cache_root:
+        raise SystemExit("--cache-root (or SEISBENCH_CACHE_ROOT) is required")
+    report_dirs = [Path(d) for d in a.report_dirs] if a.report_dirs else list(DEFAULT_REPORT_DIRS)
+    path = a.benchmark if mode == "benchmark" else a.manifest
+    table = benchmark_rows(path) if mode == "benchmark" else manifest_rows(path)
+    reader = TableReader(table, a.cache_root, sample=a.sample, seed=a.seed, route=a.route, report_dirs=report_dirs,
+                         sources=a.sources)
+    prov = base_provenance(mode, argv)
+    prov.update(cache_root=str(a.cache_root), table=str(path), table_sha256=_sha256(path), sample=a.sample, seed=a.seed,
+                c2_rule=a.c2_rule, n_candidates=reader.n_candidates, strata=reader.strata_counts, sources={},
+                label_error_reports={})
+    summaries = []
+    for source in reader.sources:
+        log(f"  {source}")
+        n0 = len(reader.read_errors)
+        df, summary = run_source(source, reader.rows_for(source), out_dir,
+                                 n_read_errors_fn=lambda r=reader, k=n0: len(r.read_errors) - k, c2_rule=a.c2_rule)
+        errors = reader.read_errors[n0:]
+        summary["n_rate_mismatch"] = int(df["rate_mismatch"].sum()) if "rate_mismatch" in df else 0
+        summaries.append(summary)
+        prov["sources"][source] = dict(n_sampled=int(reader.strata_counts.get(source, 0)), n_rows=int(len(df)),
+                                       n_read_errors=len(errors), read_errors=errors[:50],
+                                       n_rate_mismatch=summary["n_rate_mismatch"],
+                                       stored_rates_hz=sorted(float(x) for x in df["stored_rate_hz"].unique()) if len(df) else [])
+        prov["label_error_reports"][source] = reader.report_info.get(source, {})
+    return write_summary(out_dir, summaries, prov, a.report)
+
+
 def cmd_duplicates(a, argv) -> dict:
     out_dir = Path(a.out_dir)
     if not a.cache_root:
@@ -1324,6 +1551,19 @@ def main(argv=None):
                    help="asymmetric (default): flag late labels only; symmetric: also flag emergent onsets")
     s.add_argument("--out-dir", required=True)
     s.add_argument("--report", action="store_true")
+    for mode, flag, help_text in (("benchmark", "--benchmark", "notebooks/benchmark_manifest.csv (the v7 test set)"),
+                                  ("manifest", "--manifest", "a data/manifests*/{train,val,test}.csv")):
+        t = sub.add_parser(mode, help=f"audit the labels of {help_text}, stratified by dataset (needs the cache)")
+        t.add_argument(flag, required=True, dest=mode)
+        t.add_argument("--sources", nargs="*", default=None, help="restrict to these datasets")
+        t.add_argument("--sample", type=int, default=3000)
+        t.add_argument("--seed", type=int, default=0)
+        t.add_argument("--cache-root", default=os.environ.get("SEISBENCH_CACHE_ROOT"))
+        t.add_argument("--route", default="auto", choices=["auto", "seisbench", "single", "chunked"])
+        t.add_argument("--report-dirs", nargs="*", default=None)
+        t.add_argument("--c2-rule", default=C2_RULE, choices=list(C2_RULES))
+        t.add_argument("--out-dir", required=True)
+        t.add_argument("--report", action="store_true")
     d = sub.add_parser("duplicates", help="C5: cross-source duplicate (event, station) rows from metadata only")
     d.add_argument("--sources", nargs="+", required=True)
     d.add_argument("--cache-root", default=os.environ.get("SEISBENCH_CACHE_ROOT"))
@@ -1339,6 +1579,8 @@ def main(argv=None):
         return cmd_seisbench(a, argv)
     if a.cmd == "duplicates":
         return cmd_duplicates(a, argv)
+    if a.cmd in ("benchmark", "manifest"):
+        return cmd_table(a, argv, a.cmd)
     return cmd_report(a, argv)
 
 

@@ -33,9 +33,15 @@ Every row is a `LabelRow`: waveform `(3, n)` ZNE float32 at the stored rate,
 |---|---|---|---|
 | `HeldoutReader(key)` | one per (event, station) with a manual P on a station whose MiniSEED is on disk; S optional | the case's MiniSEED at native rate, 120 s from 30 s before P, shorter at file edges (`window_start_time`, `n_samples` record the actual cut); regression and dev roles only, access recorded as `reference_qa` | catalogue origin and station coordinates, else `stations.csv` `km` |
 | `SeisBenchReader(source, cache_root, sample, seed)` | stratified deterministic sample (strata: the builder's distance bins when the source has a distance column; proportional allocation, floor 50 per stratum) | `manifest_dataset._fetch_sbd` through a namespace shim, `SingleHDF5Reader` / `ChunkedHDF5Reader` for `mlaapde, cwa, aq2009gm, obs, pisdl, meier2019jgr, ross2018gpd`, so the audit reads what the loader reads; picks through `build_training_dataset.coalesce_picks` over `P_PRIORITY` / `S_PRIORITY`, S nulled on teleseismic rows as the builder does | `DATASET_CONFIGS` `dist_col` / `dist_unit` |
+| `TableReader(table, cache_root, sample, seed)` with `benchmark_rows(csv)` or `manifest_rows(csv)` | stratified deterministic sample of the rows of `notebooks/benchmark_manifest.csv` (the v7 test set) or of a `data/manifests*/{train,val,test}.csv` (strata: the dataset, floor 50) | `SourceFetcher`, the same three readers, per dataset; the chunk from `chunk` / `source_month`, else resolved from the chunk metadata when the name is unique (an ambiguous name is a counted read error); picks are the table's arrival samples over `arrival_sampling_rate_hz` when the manifest has it, else the record's stored rate; `rate_mismatch` marks a stored rate that differs from the 100 Hz / 40 Hz notebook 05 assumed | the table's `distance_km` |
 
-The module is torch- and SeisBench-free at import; the SeisBench reader
-imports `seisbench`, `h5py` and `manifest_dataset` (torch) when constructed.
+The module is torch- and SeisBench-free at import; the SeisBench reader,
+`SourceFetcher` and `TableReader` import `seisbench`, `h5py` and
+`manifest_dataset` (torch) when constructed. The laptop screens on the
+benchmark results (consensus of the public pickers, C1 and C4 on the
+manifest, the Aguilar cross-check and the sensitivity of the H1–H4 gaps)
+are `scripts/audit_benchmark_labels.py`, with its outputs and verdict in
+`docs/audit_2026-09-16_benchmark_labels/README.md`.
 
 ## The six checks
 
@@ -216,6 +222,22 @@ each report's sha256. `rows.parquet` stays out of git (`.gitignore`). The
 `seisbench` and `duplicates` paths were exercised here only on a fake
 HDF5+CSV source in the torch venv (both the SeisBench route and the direct
 route); the cache is not on this machine.
+
+Step 6c of the runbook runs the same checks on the benchmark test set and
+on the historical manifests:
+
+```bash
+python scripts/audit_source_labels.py benchmark --benchmark notebooks/benchmark_manifest.csv \
+    --sample 3000 --seed 0 --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/benchmark --report
+python scripts/audit_source_labels.py manifest --manifest data/manifests_v2/test.csv \
+    --sample 3000 --seed 0 --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/manifest_v2_test --report
+```
+
+Both were exercised on the fake HDF5+CSV source in the torch venv (the
+SeisBench route with bucket-style names, the direct single route, and a
+two-chunk source with an ambiguous name); `summary.csv` gains
+`n_rate_mismatch` and `provenance.json` the stored rates and the read
+errors per source.
 
 ## What remains for 41B proper
 

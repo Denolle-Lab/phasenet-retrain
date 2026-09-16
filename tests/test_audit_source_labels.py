@@ -499,3 +499,135 @@ def test_seisbench_reader_reads_fake_source_through_loader_readers(tmp_path, mon
     df = asl.finish_source([asl.audit_row(x) for x in rows], "fake")
     assert not df["c2_flag"].any() and df["c2_testable"].all()
     assert by  # rows carry a chunk in meta on every route
+
+
+# ── the benchmark and manifest modes (41B, benchmark part) ───────────────────
+
+def test_benchmark_rows_and_manifest_rows_tables(tmp_path):
+    bench = pd.DataFrame(dict(dataset=["stead", "mlaapde", "aq2009gm", "stead"],
+                              trace_name=["bucket0$1,:3,:6000", "bucket0$2,:3,:4800", "bucket3$4,:3,:8751", "bucket0$9,:3,:6000"],
+                              source_month=[np.nan, 201408.0, np.nan, np.nan], p_arrival_sample=[500.0, 2400.0, 3125.0, -9999.0],
+                              s_arrival_sample=[1500.0, np.nan, 5000.0, np.nan], evaluate_s=[True, False, False, False],
+                              distance_km=[40.0, 5000.0, 12.0, 30.0], trained_models=["stead", "neic", "", "stead"],
+                              dist_bin=["local", "teleseismic", "local", "local"], ts_tp_s=[10.0, np.nan, np.nan, np.nan],
+                              p_in_s_window=[True, False, False, False]))
+    bench.to_csv(tmp_path / "bench.csv", index=False)
+    t = asl.benchmark_rows(tmp_path / "bench.csv")
+    assert list(t["source"]) == ["stead", "mlaapde", "aq2009gm"]          # the -9999 P without S is dropped
+    assert list(t["chunk"]) == ["", "201408", ""] and t["index_rate_hz"].isna().all()
+    assert list(t["notebook_rate_hz"]) == [100.0, 40.0, 100.0]
+    assert t.loc[2, "s_sample"] != t.loc[2, "s_sample"]                    # evaluate_s False nulls the S
+    assert t.loc[0, "s_sample"] == 1500.0 and t.loc[0, "trained_models"] == "stead"
+    man = pd.DataFrame(dict(dataset_name=["ethz", "mlaapde", "noise_global"], trace_name=["bucket1$3,:3,:12000", "bucket0$5,:3,:4800", "n1"],
+                            chunk=[np.nan, "201307", np.nan], p_arrival_sample=[6000.0, 2400.0, np.nan],
+                            s_arrival_sample=[7000.0, np.nan, np.nan], arrival_sampling_rate_hz=[200.0, np.nan, np.nan],
+                            distance_km=[20.0, 8000.0, np.nan], distance_bin=["local", "teleseismic", "unknown"],
+                            p_col="trace_P_arrival_sample", s_col="", source_origin_time=["2020-01-01T00:00:00Z", "", ""]))
+    man.to_csv(tmp_path / "test.csv", index=False)
+    m = asl.manifest_rows(tmp_path / "test.csv")
+    assert list(m["source"]) == ["ethz", "mlaapde"] and list(m["chunk"]) == ["", "201307"]
+    assert m.loc[0, "index_rate_hz"] == 200.0 and np.isnan(m.loc[1, "index_rate_hz"])
+    assert set(asl.TABLE_COLUMNS) <= set(m.columns) and set(asl.TABLE_COLUMNS) <= set(t.columns)
+
+
+def _fake_chunked_source(cache_root, rate=100.0):
+    """Two chunks a and b with the same bucket names (ambiguous) and one name only in b."""
+    h5py = pytest.importorskip("h5py")
+    d = cache_root / "datasets" / "fakechunk"
+    d.mkdir(parents=True)
+    for tag, n in (("a", 2), ("b", 3)):
+        rows, waves = [], []
+        for i in range(n):
+            tp, ts = 12.0 + i, 20.0 + i
+            w = record(rate, tp, ts, length_s=60.0, seed=10 + i)
+            waves.append(w)
+            rows.append(dict(trace_name=f"bucket0${i},:3,:{w.shape[1]}", trace_sampling_rate_hz=rate, trace_component_order="ZNE",
+                             trace_p_arrival_sample=int(tp * rate), trace_s_arrival_sample=int(ts * rate), station_code=f"S{i}",
+                             station_network_code="XX", source_origin_time="2020-01-01T00:00:00Z"))
+        with h5py.File(d / f"waveforms_{tag}.hdf5", "w") as f:
+            fmt = f.create_group("data_format")
+            fmt["sampling_rate"], fmt["component_order"], fmt["dimension_order"] = rate, "ZNE", "CW"
+            f.create_group("data")["bucket0"] = np.stack(waves)
+        pd.DataFrame(rows).to_csv(d / f"metadata_{tag}.csv", index=False)
+    return d
+
+
+def test_table_reader_benchmark_mode_reads_bucket_names_and_flags_a_rate_mismatch(tmp_path, monkeypatch):
+    pytest.importorskip("h5py")
+    pytest.importorskip("seisbench")
+    pytest.importorskip("torch")
+    cache = tmp_path / "cache"
+    _fake_source(cache, rate=200.0, bucket=True)          # stored at 200 Hz; notebook 05 would have assumed 100 Hz
+    names = [f"bucket0${i},:3,:{int(60 * 200)}" for i in range(5)]
+    bench = pd.DataFrame(dict(dataset="fake", trace_name=names, source_month=np.nan,
+                              p_arrival_sample=[int((10 + i) * 200) for i in range(5)],
+                              s_arrival_sample=[int((16 + 2 * i) * 200) if i != 4 else np.nan for i in range(5)],
+                              evaluate_s=[True] * 4 + [False], distance_km=[10.0 * (i + 1) for i in range(5)],
+                              trained_models="stead", dist_bin="local", ts_tp_s=[6.0 + i for i in range(4)] + [np.nan],
+                              p_in_s_window=True))
+    bench.to_csv(tmp_path / "bench.csv", index=False)
+    reader = asl.TableReader(asl.benchmark_rows(tmp_path / "bench.csv"), cache, sample=4, seed=0, route="seisbench")
+    assert reader.n_candidates == 5 and reader.strata_counts == {"fake": 4} and reader.sources == ["fake"]
+    rows = list(reader.rows_for("fake"))
+    assert len(rows) == 4 and reader.read_errors == []
+    for r in rows:
+        i = int(r.trace_id.split("$")[1].split(",")[0])
+        assert r.rate_hz == 200.0 and r.meta["stored_rate_hz"] == 200.0 and r.meta["notebook_rate_hz"] == 100.0
+        assert r.meta["rate_mismatch"] is True and r.meta["index_rate_hz"] == 200.0
+        assert abs(r.p_s - (10.0 + i)) < 1e-9 and r.distance_km == 10.0 * (i + 1) and r.meta["trained_models"] == "stead"
+        assert (r.s_s is None) == (i == 4)
+    df = asl.finish_source([asl.audit_row(x) for x in rows], "fake")
+    assert df["rate_mismatch"].all() and df["c2_testable"].all() and not df["c2_flag"].any()
+
+
+def test_table_reader_manifest_mode_resolves_chunks_and_counts_ambiguous_names(tmp_path, monkeypatch):
+    pytest.importorskip("h5py")
+    pytest.importorskip("seisbench")
+    pytest.importorskip("torch")
+    cache = tmp_path / "cache"
+    _fake_chunked_source(cache)
+    monkeypatch.setitem(asl.CHUNKED_PREFIX, "fakechunk", "waveforms_")
+    man = pd.DataFrame(dict(dataset_name="fakechunk",
+                            trace_name=["bucket0$0,:3,:6000", "bucket0$1,:3,:6000", "bucket0$2,:3,:6000", "bucket0$0,:3,:6000"],
+                            chunk=["a", np.nan, np.nan, "b"], p_arrival_sample=[1200.0, 1300.0, 1400.0, 1200.0],
+                            s_arrival_sample=[2000.0, 2100.0, 2200.0, 2000.0], arrival_sampling_rate_hz=100.0,
+                            distance_km=[30.0, 40.0, 50.0, 30.0], distance_bin="local"))
+    man.to_csv(tmp_path / "train.csv", index=False)
+    reader = asl.TableReader(asl.manifest_rows(tmp_path / "train.csv"), cache, sample=10, seed=0)
+    rows = list(reader.rows_for("fakechunk"))
+    ids = sorted(r.trace_id for r in rows)
+    assert ids == ["a$bucket0$0,:3,:6000", "b$bucket0$0,:3,:6000", "b$bucket0$2,:3,:6000"]   # $2 exists in b only
+    assert len(reader.read_errors) == 1 and "ambiguous" in reader.read_errors[0]["error"].lower()
+    assert reader.read_errors[0]["trace_name"] == "bucket0$1,:3,:6000"
+    r = next(x for x in rows if x.trace_id.startswith("b$bucket0$2"))
+    assert abs(r.p_s - 14.0) < 1e-9 and abs(r.s_s - 22.0) < 1e-9 and r.meta["chunk"] == "b"
+    assert not np.isfinite(r.meta["notebook_rate_hz"]) and r.meta["rate_mismatch"] is False
+
+
+def test_benchmark_and_manifest_cli_write_summary_with_rate_mismatch(tmp_path, monkeypatch):
+    pytest.importorskip("h5py")
+    pytest.importorskip("seisbench")
+    pytest.importorskip("torch")
+    cache = tmp_path / "cache"
+    _fake_source(cache, bucket=True)
+    names = [f"bucket0${i},:3,:6000" for i in range(5)]
+    pd.DataFrame(dict(dataset="fake", trace_name=names, source_month=np.nan, p_arrival_sample=[(10 + i) * 100 for i in range(5)],
+                      s_arrival_sample=[(16 + 2 * i) * 100 for i in range(5)], evaluate_s=True,
+                      distance_km=[10.0 * (i + 1) for i in range(5)], trained_models="", dist_bin="local",
+                      ts_tp_s=[6.0 + i for i in range(5)], p_in_s_window=True)).to_csv(tmp_path / "bench.csv", index=False)
+    pd.DataFrame(dict(dataset_name="fake", trace_name=names, chunk=np.nan, p_arrival_sample=[(10 + i) * 100 for i in range(5)],
+                      s_arrival_sample=[(16 + 2 * i) * 100 for i in range(5)], arrival_sampling_rate_hz=100.0,
+                      distance_km=[10.0 * (i + 1) for i in range(5)], distance_bin="local")).to_csv(tmp_path / "test.csv", index=False)
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    for mode, flag, csv in (("benchmark", "--benchmark", "bench.csv"), ("manifest", "--manifest", "test.csv")):
+        out = tmp_path / mode
+        summary = asl.main([mode, flag, str(tmp_path / csv), "--sample", "4", "--cache-root", str(cache), "--route", "seisbench",
+                            "--report-dirs", str(reports), "--out-dir", str(out), "--report"])
+        assert len(summary) == 1 and summary["source"].iloc[0] == "fake" and summary["n_rows"].iloc[0] == 4
+        assert summary["n_rate_mismatch"].iloc[0] == 0 and summary["n_read_errors"].iloc[0] == 0
+        prov = json.loads((out / "provenance.json").read_text())
+        assert prov["mode"] == mode and prov["strata"] == {"fake": 4} and prov["sources"]["fake"]["stored_rates_hz"] == [100.0]
+        assert prov["label_error_reports"]["fake"]["status"] == "no_report_for_source"
+        rows = pd.read_parquet(out / "fake" / "rows.parquet")
+        assert len(rows) == 4 and "rate_mismatch" in rows and (out / "report.md").exists() and (out / "fake" / "review_sheet.csv").exists()

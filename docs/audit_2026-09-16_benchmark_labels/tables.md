@@ -1,6 +1,6 @@
 # Benchmark label audit (41B): tables
 
-*commit `3baddc11`, created 2026-09-16T13:19:12.511486+00:00, bootstrap n=1000 seed=0; S1: >= 6 independent weights, prob >= 0.3, MAD <= 0.15 s, offset > 0.3 s, edge 1.0 s of the source trace or the 30 s window; S2: SNR > 10 dB and <= 1 detection. Percentages with 95 % intervals.*
+*commit `fc59a0c9`, created 2026-09-16T13:20:06.657126+00:00, bootstrap n=1000 seed=0; S1: >= 6 independent weights, prob >= 0.3, MAD <= 0.15 s, offset > 0.3 s, edge 1.0 s of the source trace or the 30 s window; S2: SNR > 10 dB and <= 1 detection. Percentages with 95 % intervals.*
 
 | dataset | rows (manifest / results) | P labels | S1 P raw % | S1 P edge % | S1 P flag % | S1 P flag early % | S2 P % | S labels | S1 S edge % | S1 S flag % | S1 S flag early % | S2 S % | C1 n fit | C1 slope s/km | Vp/Vs | C1 hyp. slope | Vp/Vs hyp. | C1 flag % (hyp.) | C1 flag % (epi.) | C4 P mode share | C4 source edge % | p_in_s_window % | S1 P in / not in S window % | S1 S in / not in S window % | Aguilar in report | any flag % |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

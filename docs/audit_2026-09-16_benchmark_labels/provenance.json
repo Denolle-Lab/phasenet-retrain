@@ -1,7 +1,7 @@
 {
   "audit_version": "41b-benchmark-v1",
-  "created_utc": "2026-09-16T13:19:12.511486+00:00",
-  "git_commit": "3baddc1183892d18cacd5ff44c56f00084e159f6",
+  "created_utc": "2026-09-16T13:20:06.657126+00:00",
+  "git_commit": "fc59a0c9bef037486ae08377b8dec35fed9fea7f",
   "command": "--benchmark notebooks/benchmark_manifest.csv --results notebooks/step3_results.parquet --out-dir docs/audit_2026-09-16_benchmark_labels",
   "python": "3.9.20",
   "numpy": "2.0.2",

@@ -16,8 +16,9 @@ tables with coverage flags, and a paired block bootstrap.
     every events, assignments and matches row and into run.json.
   * PyOctoAssociator adapts the pick store and the station table to PyOcto
     (Münchmeyer 2024, Seismica 3(1)). pyocto is imported lazily; a missing
-    install raises ImportError with the remedy. The PyOcto call itself was
-    not executed in this checkpoint (pyocto is not installed here).
+    install raises ImportError with the remedy. Executed against pyocto
+    0.2.0 in 36B (tests/test_event_association.py runs it on the synthetic
+    fixture when pyocto is importable).
   * SyntheticAssociator is a deterministic back-projection over a coarse
     x/y/depth grid with homogeneous velocities. It is a test double for the
     pipeline, not a scientific associator, and must not be used for
@@ -301,10 +302,14 @@ class PyOctoAssociator:
     `frames` maps the pick store and station table to PyOcto's input frames
     (picks: station, phase, time as POSIX seconds, probability; stations:
     id, latitude, longitude, elevation in m) and is testable without pyocto.
-    `associate` imports pyocto lazily. Written against the PyOcto 0.1 API
-    (VelocityModel0D/1D, OctoAssociator.from_area, transform_stations,
-    associate, transform_events); it has not been executed in this
-    repository because pyocto is not installed.
+    `associate` imports pyocto lazily. Calls VelocityModel0D/1D,
+    OctoAssociator.from_area, transform_stations, associate and
+    transform_events; run against pyocto 0.2.0 (36B), whose `associate`
+    returns the assignments already joined with the pick columns, so the
+    pick attributes are always re-taken from our own frame by `pick_idx`.
+    PyOcto raises `n_s_picks` to `n_p_and_s_picks` internally when the
+    former is lower (it prints a notice); the config values are still what
+    is passed and hashed.
     """
     name = "pyocto"
 
@@ -375,7 +380,12 @@ class PyOctoAssociator:
     def _to_schema(self, events, assignments, pick_frame):
         if events is None or len(events) == 0:
             return _empty_events()
-        a = assignments.merge(pick_frame.reset_index().rename(columns={"index": "pick_idx"}), on="pick_idx", how="left")
+        # PyOcto 0.1 returned (event_idx, pick_idx, residual); 0.2 also carries the pick columns. Either way the
+        # pick attributes are taken from our own frame by pick_idx, the row position in `pick_frame`.
+        a = assignments[["event_idx", "pick_idx", "residual"]].merge(
+            pick_frame.reset_index(drop=True).rename_axis("pick_idx").reset_index(), on="pick_idx", how="left")
+        if a["pick_id"].isna().any():
+            raise ValueError("PyOcto returned a pick_idx outside the pick frame")
         a = a.rename(columns={"time": "time_s", "probability": "score"})
         a["time"] = pd.to_datetime((a["time_s"] * 1e9).round().astype(np.int64), unit="ns", utc=True)
         a = a[["event_idx", "pick_id", "station", "phase", "time", "score", "residual"]]
@@ -975,14 +985,19 @@ def paired_block_bootstrap(matches_a, matches_b, reference, block="event", n_boo
 
 # ── run and CLI ──────────────────────────────────────────────────────────────
 
-def select_picks(picks, model_id=None, threshold=None, key=None) -> pd.DataFrame:
-    """One sequence, one access id, one model and one threshold from the 35A
-    pick store; unambiguous or an error.
+def select_picks(picks, model_id=None, threshold=None, key=None, threshold_p=None, threshold_s=None) -> pd.DataFrame:
+    """One sequence, one access id, one model and one threshold per phase from
+    the 35A pick store; unambiguous or an error.
 
-    A store holding more than one `key` must be narrowed with `key`; a store
-    holding more than one `access_id` for the selected key is refused (two
-    scoring runs were mixed; re-run the scorer or pre-filter). Nothing is
-    ever merged across sequences or runs.
+    `threshold` is the shorthand for both phases; `threshold_p` and
+    `threshold_s` override it per phase (36B operating points: each weight
+    at its matched-budget P threshold for P picks and S threshold for S
+    picks). A phase whose threshold is still None takes the store's single
+    threshold, or raises when the store holds several. A store holding more
+    than one `key` must be narrowed with `key`; a store holding more than one
+    `access_id` for the selected key is refused (two scoring runs were mixed;
+    re-run the scorer or pre-filter). Nothing is ever merged across
+    sequences or runs.
     """
     sub = picks
     if "key" in sub:
@@ -1010,13 +1025,23 @@ def select_picks(picks, model_id=None, threshold=None, key=None) -> pd.DataFrame
             raise ValueError(f"model_id {model_id} not in the pick store ({ids})")
     if "threshold" in sub:
         thr = sorted(sub["threshold"].astype(float).unique())
-        if threshold is None:
-            if len(thr) != 1:
-                raise ValueError(f"--threshold is required: the pick store holds {thr}")
-            threshold = thr[0]
-        sub = sub[np.isclose(sub["threshold"].astype(float), float(threshold))]
+        per_phase = {"P": threshold if threshold_p is None else threshold_p,
+                     "S": threshold if threshold_s is None else threshold_s}
+        for phase, value in per_phase.items():
+            if value is None:
+                if len(thr) != 1:
+                    raise ValueError(f"--threshold is required (or --threshold-{phase.lower()}): the pick store holds {thr}")
+                per_phase[phase] = thr[0]
+        parts = []
+        for phase, value in per_phase.items():
+            part = sub[(sub["phase"].astype(str) == phase) & np.isclose(sub["threshold"].astype(float), float(value))]
+            if len(part) == 0 and not np.isclose(thr, float(value)).any():
+                raise ValueError(f"threshold {value} for {phase} not in the pick store ({thr})")
+            parts.append(part)
+        sub = pd.concat(parts) if parts else sub.iloc[0:0]
         if len(sub) == 0:
-            raise ValueError(f"threshold {threshold} not in the pick store ({thr})")
+            raise ValueError(f"no P or S pick at thresholds {per_phase} in the pick store")
+        sub = sub.sort_index()
     return sub.reset_index(drop=True)
 
 
@@ -1041,12 +1066,22 @@ def _sha256_file(path):
 
 def run(picks, stations, catalog, config: AssociatorConfig, *, model_id=None, threshold=None, windows=None,
         mainshock_time=None, key=None, backend="synthetic", tol_time_s=MATCH_TOL_TIME_S, tol_km=MATCH_TOL_KM,
-        tol_depth_km=MATCH_TOL_DEPTH_KM, restrict_stations=True, out_dir=None, sources=None) -> dict:
-    """Associate, match, diagnose and tabulate one (model, threshold) of a pick store; write if out_dir."""
-    picks_sel = select_picks(picks, model_id, threshold, key=key)
+        tol_depth_km=MATCH_TOL_DEPTH_KM, restrict_stations=True, out_dir=None, sources=None,
+        threshold_p=None, threshold_s=None) -> dict:
+    """Associate, match, diagnose and tabulate one (model, threshold per phase) of a pick store; write if out_dir.
+
+    `threshold` applies to both phases unless `threshold_p`/`threshold_s`
+    override it. run.json records `threshold` (the common value, None when
+    the phases differ), `threshold_p` and `threshold_s`, and the runtime of
+    the associator call in seconds.
+    """
+    import time as _time
+    picks_sel = select_picks(picks, model_id, threshold, key=key, threshold_p=threshold_p, threshold_s=threshold_s)
     if restrict_stations and len(picks_sel):
         stations = stations[stations["station"].astype(str).isin(set(picks_sel["station"].astype(str)))]
+    t_start = _time.perf_counter()
     events, assignments = associate(picks_sel, stations, config, backend=backend)
+    associate_runtime_s = _time.perf_counter() - t_start
     if len(assignments) and "matched_event" in picks_sel:
         assignments = assignments.merge(picks_sel[["pick_id", "matched_event"]], on="pick_id", how="left")
     match = match_events(events, catalog, tol_time_s=tol_time_s, tol_km=tol_km, tol_depth_km=tol_depth_km)
@@ -1056,10 +1091,26 @@ def run(picks, stations, catalog, config: AssociatorConfig, *, model_id=None, th
     access_ids = sorted(picks_sel["access_id"].dropna().astype(str).unique()) if "access_id" in picks_sel else []
     model_ids = sorted(picks_sel["model_id"].astype(str).unique()) if "model_id" in picks_sel else []
     thresholds = sorted(picks_sel["threshold"].astype(float).unique()) if "threshold" in picks_sel else []
+
+    def _phase_threshold(phase, requested):
+        # The resolved operating point of a phase is what was requested; the
+        # store's own single value stands in only when nothing was requested.
+        # It is never derived from the surviving picks, so an empty phase
+        # cannot make the two phases look alike.
+        if requested is not None:
+            return float(requested)
+        if "threshold" not in picks_sel:
+            return None
+        v = picks_sel.loc[picks_sel["phase"].astype(str) == phase, "threshold"].astype(float).unique()
+        return float(v[0]) if len(v) == 1 else (None if len(v) == 0 else sorted(map(float, v)))
+
+    thr_p = _phase_threshold("P", threshold if threshold_p is None else threshold_p)
+    thr_s = _phase_threshold("S", threshold if threshold_s is None else threshold_s)
+    common = thr_p if (thr_p == thr_s and not isinstance(thr_p, list)) else None
     meta = dict(
         checkpoint="36A", key=key, access_id=(access_ids[0] if access_ids else None),
         model_id=(model_ids[0] if len(model_ids) == 1 else model_ids or model_id),
-        threshold=(thresholds[0] if len(thresholds) == 1 else thresholds or threshold),
+        threshold=common, threshold_p=thr_p, threshold_s=thr_s, associate_runtime_s=float(associate_runtime_s),
         associator=backend, config=config.to_dict(), config_sha256=config.sha256,
         match_tolerances=dict(tol_time_s=tol_time_s, tol_km=tol_km, tol_depth_km=tol_depth_km),
         mainshock_time=(None if mainshock_time is None else cs.to_timestamp(mainshock_time).isoformat()),
@@ -1071,7 +1122,7 @@ def run(picks, stations, catalog, config: AssociatorConfig, *, model_id=None, th
         import pyocto
         meta["pyocto_version"] = getattr(pyocto, "__version__", "unknown")
     stamp = dict(config_sha256=config.sha256, model_id=meta["model_id"], threshold=meta["threshold"],
-                 access_id=meta["access_id"], key=key)
+                 threshold_p=meta["threshold_p"], threshold_s=meta["threshold_s"], access_id=meta["access_id"], key=key)
     events = events.assign(**{k: v for k, v in stamp.items() if k != "config_sha256"})
     assignments = assignments.assign(**stamp)
     pairs = match.pairs.assign(**stamp)
@@ -1121,7 +1172,9 @@ def main(argv=None):
     ap.add_argument("--config", help="configs/association/<region>.json or a path", default=None)
     ap.add_argument("--sequence", default=None, help="Held-out sequence key; authorises the run (regression/dev only) and supplies defaults")
     ap.add_argument("--model-id", default=None)
-    ap.add_argument("--threshold", type=float, default=None)
+    ap.add_argument("--threshold", type=float, default=None, help="Pick threshold for both phases (shorthand)")
+    ap.add_argument("--threshold-p", type=float, default=None, help="Pick threshold for P picks; overrides --threshold")
+    ap.add_argument("--threshold-s", type=float, default=None, help="Pick threshold for S picks; overrides --threshold")
     ap.add_argument("--associator", choices=sorted(BACKENDS), default="pyocto")
     ap.add_argument("--mainshock", default=None, help="ISO UTC origin of the mainshock; default from the registry for --sequence")
     ap.add_argument("--tol-time-s", type=float, default=MATCH_TOL_TIME_S)
@@ -1186,12 +1239,14 @@ def main(argv=None):
     try:
         res = run(picks, stations, catalog, config, model_id=a.model_id, threshold=a.threshold, windows=windows,
                   mainshock_time=mainshock, key=key, backend=a.associator, tol_time_s=a.tol_time_s, tol_km=a.tol_km,
-                  tol_depth_km=tol_depth, restrict_stations=not a.all_stations, out_dir=a.out_dir, sources=sources)
+                  tol_depth_km=tol_depth, restrict_stations=not a.all_stations, out_dir=a.out_dir, sources=sources,
+                  threshold_p=a.threshold_p, threshold_s=a.threshold_s)
     except (ValueError, ImportError) as exc:
         ap.error(str(exc))
     m = res["meta"]
     print(f"config {m['config_sha256'][:12]} ({config.region} v{config.version}), associator {m['associator']}, "
-          f"model {m['model_id']}, threshold {m['threshold']}, access {m['access_id']}")
+          f"model {m['model_id']}, threshold P {m['threshold_p']} S {m['threshold_s']}, access {m['access_id']}, "
+          f"associate {m['associate_runtime_s']:.1f} s")
     print(f"picks {m['n_picks']}, events {m['n_events']}, reference {m['n_reference']}, matched {m['n_matched']}, "
           f"splits {m['n_splits']}, merges {m['n_merges']}")
     print(format_tables(res["tables"]))

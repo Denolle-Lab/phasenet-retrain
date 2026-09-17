@@ -729,13 +729,11 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
     # ── assemble output ───────────────────────────────────────────────────────
     s_vals = s_vals.loc[meta.index].copy()
     source_report["n_after_cap"] = int(len(meta))
-    source_report["n_with_s_after_cap"] = int(s_vals.notna().sum())
-    if holdout_report is not None:
-        holdout_report.append(source_report)
 
     # P-only policy: null S for teleseismic rows
     tele_mask = dist_bin == "teleseismic"
     s_vals = s_vals.copy()
+    source_report["n_s_nulled_teleseismic"] = int((tele_mask & s_vals.notna()).sum())
     s_vals[tele_mask] = np.nan
 
     out = pd.DataFrame({
@@ -768,6 +766,12 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         out[column] = meta[column].values if column in meta else np.nan
     # The existing teleseismic P-only policy can remove an S-only row's last label.
     out = out.loc[out.p_arrival_sample.notna() | out.s_arrival_sample.notna()].reset_index(drop=True)
+    # counts of what this source contributes to the pool, after the P-only
+    # policy and the last-label drop, so the report matches the written rows
+    source_report["n_written"] = int(len(out))
+    source_report["n_with_s_written"] = int(out["s_arrival_sample"].notna().sum())
+    if holdout_report is not None:
+        holdout_report.append(source_report)
     return out
 
 

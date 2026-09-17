@@ -39,18 +39,39 @@ the parents there at all.
 
 ## 2. The path, in order
 
-Paths follow `docs/2026-09-13_server_session_runbook.md` (§0 environment,
-`SEISBENCH_CACHE_ROOT`). Steps 2.1 and 2.2 are runbook steps 0, 4 and 5;
-the rest is new.
+Paths follow `docs/2026-09-13_server_session_runbook.md` as amended by
+PR #87 (a clone of your own; Akash's clone and cache under
+`/data/wsd04/ak287/` are read-only inputs). Steps 2.1 and 2.2 are runbook
+steps 0, 4 and 5; the rest is new.
 
 ### 2.1 Environment and tests (runbook §0)
 
 ```bash
-cd <server clone>; git fetch; git checkout audit/2026-09-07-generalization; git pull --ff-only
-export SEISBENCH_CACHE_ROOT=/data/wsd04/ak287/.seisbench
+cd /data/<your area>                                   # writable, with room for the manifests, checkpoints and results
+git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
+git checkout audit/2026-09-07-generalization
+conda activate <env with torch, seisbench, h5py, scipy, pandas, obspy, pytest>
+pip install pyarrow pyocto
+
+# a cache of your own: datasets are Akash's by symlink (read-only), models are yours (writable;
+# score_checkpoint.py writes nothing there, but from_pretrained may fetch a missing parent)
+mkdir -p $HOME/.seisbench_phasenet/models
+ln -s /data/wsd04/ak287/.seisbench/datasets $HOME/.seisbench_phasenet/datasets
+export SEISBENCH_CACHE_ROOT=$HOME/.seisbench_phasenet
+ls $SEISBENCH_CACHE_ROOT/datasets | head
 export MPLCONFIGDIR=$PWD/.mpl
-python -m pytest tests -q          # laptop: 449 passed in the torch venv; 399 passed, 20 skipped in base python (no torch)
+
+# the historical clone, read-only; step 2.2 needs its manifests_v2 for the hold-out join
+HIST=/data/wsd04/ak287/<clone>
+mkdir -p data/manifests_v2 && cp $HIST/data/manifests_v2/*.csv data/manifests_v2/
+
+python -c "import sys, torch, seisbench, scipy; print(sys.version.split()[0], torch.__version__, seisbench.__version__, scipy.__version__)"
+python -m pytest tests -q          # laptop: 450 passed in the torch venv; 400 passed, 20 skipped in base python (no torch)
 ```
+
+Every output of this path (manifests, checkpoints, results, exports,
+scores) goes under your clone; nothing writes into `$HIST` or into the
+symlinked `datasets`.
 
 ### 2.2 Exclusion bundle (runbook steps 4 and 5)
 
@@ -117,8 +138,12 @@ stay (the builder keeps any row with a P or an S). The row-level rule that
 nulls S on a teleseismic-bin row is unchanged from the legacy path; with
 the teleseismic fraction at 0 it touches no training row. The removal
 report carries, per source, the bundle counts, `n_beyond_max_distance`,
-the status-filter counts and the profile name and hash; `provenance.json`
-carries the profile record, the normalised fractions and the source list.
+the status-filter counts, `n_after_cap`, `n_s_nulled_teleseismic`,
+`n_written` and `n_with_s_written` (rows and S labels the source
+contributes to the pool after the teleseismic P-only rule, so the S count
+matches the written rows) and the profile name and hash;
+`provenance.json` carries the profile record, the normalised fractions and
+the source list.
 
 ### 2.5 Loader smoke test and the ledger gate (runbook step 9, on the new rows)
 
@@ -189,8 +214,9 @@ matches, for `paired_bootstrap.py` and 36B) and
 case and phase with each model's recall and threshold at the budget and
 the candidate minus each parent. The dev cases need their waveforms
 (`data/heldout_testset/<key>/waveforms/`, built or linked as
-`docs/baselines_2026-09-13/README.md` shows); the annotations are cached,
-so rescoring a parent costs nothing.
+`docs/baselines_2026-09-13/README.md` shows; another built-sequence root
+is `--sequences-root`, separate from `--out-root`); the annotations are
+cached, so rescoring a parent costs nothing.
 
 Read the table against the parents' own numbers in
 `docs/baselines_2026-09-13/matched_budget.csv` (same engine, `jma_wc` as

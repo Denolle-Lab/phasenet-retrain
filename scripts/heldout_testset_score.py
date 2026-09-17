@@ -120,12 +120,13 @@ def load_sequence(key: str):
     return _load_sequence(key)
 
 
-def _load_sequence(key: str, tiers=REFERENCE_TIERS):
+def _load_sequence(key: str, tiers=REFERENCE_TIERS, data_root=None):
     """(windows, picks): windows are dicts with window_id, t0, t1 (UTCDateTime),
     streams {station: Stream} (one band per station, by registry preference)
-    and the reference frame of continuous_scoring.reference_picks."""
+    and the reference frame of continuous_scoring.reference_picks.
+    data_root: the built-sequence root (default OUT_ROOT, data/heldout_testset)."""
     from obspy import UTCDateTime, read
-    d = OUT_ROOT / key
+    d = (OUT_ROOT if data_root is None else Path(data_root)) / key
     picks = pd.read_parquet(d / "picks.parquet")
     wins = [(UTCDateTime(r.t0), UTCDateTime(r.t1)) for r in pd.read_csv(d / "windows.csv").itertuples()]
     pref = {b: i for i, b in enumerate(reg.BY_KEY[key].get("channel_pref", reg.CHANNEL_PREF))}
@@ -168,15 +169,17 @@ def default_annotate(model, stream):
 
 def score(key: str, models: dict, annotate_fn=None, thresholds=THRESHOLDS, annotations_root=None,
           out_dir=None, tiers=REFERENCE_TIERS, budget_reference=None, budget_threshold=REPORT_THRESHOLD,
-          budget_tolerance=BUDGET_TOLERANCE) -> ScoreResult:
+          budget_tolerance=BUDGET_TOLERANCE, data_root=None) -> ScoreResult:
     """Annotate once per model and station, store, extract at each threshold, match, persist.
 
     `models` maps a display name to a model object; `annotate_fn(model, stream)`
     must return an obspy Stream with traces named *_P and *_S (default:
     model.annotate). The model id is the 44A state hash. Stored annotations
     are reused, so a rerun with more thresholds does no inference.
+    `data_root` is the built-sequence root (default OUT_ROOT).
     """
     policy.authorize_scoring([key])
+    data_root = OUT_ROOT if data_root is None else Path(data_root)
     if budget_reference is not None and budget_reference not in models:
         raise ValueError(f"budget_reference {budget_reference!r} is not among the models {sorted(models)}")
     thresholds = cs.dedup_thresholds(thresholds)
@@ -186,13 +189,13 @@ def score(key: str, models: dict, annotate_fn=None, thresholds=THRESHOLDS, annot
         raise ValueError(f"Two weight names share one state hash: {model_ids}")
     annotations_root = ANNOTATIONS_ROOT if annotations_root is None else Path(annotations_root)
     access_id = policy.record_access(
-        key, "model_scoring", data_root=OUT_ROOT, models=fingerprints,
+        key, "model_scoring", data_root=data_root, models=fingerprints,
         settings=dict(thresholds=thresholds, report_threshold=REPORT_THRESHOLD, match_tol_s=MATCH_TOL,
                       reference_tiers=list(tiers), annotations_root=str(annotations_root),
                       budget_reference=budget_reference, budget_threshold=budget_threshold,
                       budget_tolerance=budget_tolerance),
     )
-    windows, _ = _load_sequence(key, tiers=tiers)
+    windows, _ = _load_sequence(key, tiers=tiers, data_root=data_root)
     annotate_fn = default_annotate if annotate_fn is None else annotate_fn
     store = cs.AnnotationStore(annotations_root)
     label = reg.BY_KEY[key]["label"]

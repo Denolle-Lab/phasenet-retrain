@@ -33,9 +33,11 @@ grid, and the matched budget set by --budget-reference (default instance, the
 primary parent) at --budget-threshold. Writes under --out-root (default
 data/evaluation, gitignored): scores/<key>/<access_id>/ per case (the 35A
 artifacts) and summary/<name>/{matched_budget.csv,score_rows.csv}, and
-prints the matched-budget table with the candidate minus each parent. No
-interval here; docs/baselines_2026-09-13/paired_bootstrap.py gives the
-paired station-block bootstrap from the written artifacts.
+prints the matched-budget table with the candidate minus each parent. The
+built cases are read from --sequences-root (default data/heldout_testset);
+--out-root is only where outputs go. No interval here;
+docs/baselines_2026-09-13/paired_bootstrap.py gives the paired
+station-block bootstrap from the written artifacts.
 """
 from __future__ import annotations
 
@@ -200,10 +202,11 @@ def export_checkpoint(checkpoint, parent: str, name: str, out_dir, norm=None,
 
 # ── scoring ──────────────────────────────────────────────────────────────────
 
-def dev_cases(out_root=None) -> list[str]:
-    """Built cases whose suite role is `dev`."""
+def dev_cases(sequences_root=None) -> list[str]:
+    """Built cases whose suite role is `dev`, under the built-sequence root
+    (default heldout_testset_score.OUT_ROOT, data/heldout_testset)."""
     roles = policy.load_policy()["roles"]
-    root = hts.OUT_ROOT if out_root is None else Path(out_root)
+    root = hts.OUT_ROOT if sequences_root is None else Path(sequences_root)
     return [k for k, role in roles.items() if role == "dev" and (root / k / "manifest.json").exists()]
 
 
@@ -228,11 +231,15 @@ def matched_budget_table(budgets: pd.DataFrame, candidate: str, parents) -> pd.D
 
 def score_candidate(name, model, parents=DEFAULT_PARENTS, cases=None, thresholds=DENSE_THRESHOLDS,
                     budget_reference=DEFAULT_BUDGET_REFERENCE, budget_threshold=hts.REPORT_THRESHOLD,
-                    out_root=OUT_ROOT, load_parent=None):
+                    out_root=OUT_ROOT, load_parent=None, sequences_root=None):
     """Score `model` (display name `name`) with the parents on the cases; write
-    the summary under <out_root>/summary/<name>/ and return the table."""
+    the summary under <out_root>/summary/<name>/ and return the table.
+    Two roots: `sequences_root` is where the built cases are read from
+    (default data/heldout_testset), `out_root` is where annotations, scores
+    and the summary are written (default data/evaluation)."""
     out_root = Path(out_root)
-    cases = dev_cases() if cases is None else list(cases)
+    sequences_root = hts.OUT_ROOT if sequences_root is None else Path(sequences_root)
+    cases = dev_cases(sequences_root) if cases is None else list(cases)
     if not cases:
         raise ValueError("no built development case: build or link data/heldout_testset/<key>/ first "
                          "(docs/baselines_2026-09-13/README.md, Reproduce)")
@@ -248,7 +255,7 @@ def score_candidate(name, model, parents=DEFAULT_PARENTS, cases=None, thresholds
         print(f"== {key}", flush=True)
         res = hts.score(key, models, thresholds=thresholds, annotations_root=out_root / "annotations",
                         out_dir=out_root / "scores", budget_reference=budget_reference,
-                        budget_threshold=budget_threshold)
+                        budget_threshold=budget_threshold, data_root=sequences_root)
         budgets.append(res.budget.assign(key=key, access_id=res.access_id))
         rows.append(res.rows)
         if len(res.failures):
@@ -280,7 +287,8 @@ def main(argv=None):
     ap.add_argument("--budget-threshold", type=float, default=hts.REPORT_THRESHOLD)
     ap.add_argument("--cases", nargs="*", default=None, help="Sequence keys (default: every built dev case)")
     ap.add_argument("--thresholds", nargs="+", type=float, default=DENSE_THRESHOLDS)
-    ap.add_argument("--out-root", default=str(OUT_ROOT))
+    ap.add_argument("--out-root", default=str(OUT_ROOT), help="Where exports, annotations, scores and the summary go")
+    ap.add_argument("--sequences-root", default=str(hts.OUT_ROOT), help="Where the built cases are read from")
     ap.add_argument("--export-only", action="store_true", help="Write the SeisBench pair and stop")
     ap.add_argument("--norm", default=None, choices=NORMS,
                     help="Window normalisation to declare (default: the checkpoint's, then the run card's, then data.norm)")
@@ -296,7 +304,8 @@ def main(argv=None):
         return None
     table, summary_dir = score_candidate(run["name"], model, parents=a.parents, cases=a.cases,
                                          thresholds=a.thresholds, budget_reference=a.budget_reference,
-                                         budget_threshold=a.budget_threshold, out_root=out_root)
+                                         budget_threshold=a.budget_threshold, out_root=out_root,
+                                         sequences_root=a.sequences_root)
     print(f"\n-- matched budget ({a.budget_reference} at {a.budget_threshold:g} sets the target; "
           f"recall blank where the budget was not attained within {hts.BUDGET_TOLERANCE:.0%})")
     print(format_table(table))

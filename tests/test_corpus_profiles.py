@@ -273,3 +273,35 @@ def test_build_without_profile_records_no_profile(repo, monkeypatch, tmp_path):
     assert prov["target_fractions"] == btd.TARGET_FRACTIONS
     rep = pd.read_csv(out / "heldout_removal_report.csv")
     assert rep["profile"].isna().all() or (rep["profile"] == "").all()
+
+
+def test_removal_report_s_counts_match_the_written_rows(repo, monkeypatch):
+    """A synthetic source with teleseismic rows: the teleseismic P-only rule
+    nulls their S and drops an S-only teleseismic row, and the report's
+    n_written / n_with_s_written equal what process_dataset returns."""
+    btd = _import_btd(monkeypatch)
+    _fill_cache(repo)
+    monkeypatch.setenv("SEISBENCH_CACHE_ROOT", str(repo / "cache"))
+    path, bundle = build(repo)
+    monkeypatch.setattr(eb, "REPO_ROOT", repo)
+    monkeypatch.setattr(eb, "BUNDLE_PATH", path)
+    monkeypatch.setattr(eb, "USER_LABEL_ERROR_CACHE", repo / "nowhere")
+    eb._cached_trace_exclusions.cache_clear()
+    origins = pd.date_range("2018-01-01", periods=12, freq="6h").strftime("%Y-%m-%dT%H:%M:%S")
+    rows, dist = [], []
+    for i in range(12):
+        tele = i >= 6                                             # 6 local rows, 6 teleseismic rows
+        s_pick = np.nan if i in (2, 8) else 900.0                 # one local and one teleseismic row without S
+        p_pick = np.nan if i == 11 else 500.0                     # one S-only teleseismic row
+        rows.append((f"t{i}", "", p_pick, s_pick, origins[i], 10.0 + i, 20.0 + i, "train", None, None))
+        dist.append(1800.0 if tele else 30.0)
+    cfg = _source("geo", rows, dist=dist)
+    report = []
+    out = btd.process_dataset(cfg, np.random.default_rng(0), bundle=bundle, holdout_report=report)
+    rep = report[0]
+    assert rep["n_after_cap"] == 12
+    assert rep["n_s_nulled_teleseismic"] == 5                     # six teleseismic rows, one had no S
+    assert rep["n_written"] == len(out) == 11                     # the S-only teleseismic row lost its last label
+    assert rep["n_with_s_written"] == int(out["s_arrival_sample"].notna().sum()) == 5
+    assert out.loc[out.distance_bin == "teleseismic", "s_arrival_sample"].isna().all()
+    assert "t11" not in set(out.trace_name)

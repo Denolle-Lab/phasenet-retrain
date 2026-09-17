@@ -227,19 +227,25 @@ def test_matched_budget_table_pivots_and_differences():
 def test_score_candidate_runs_the_scorer_per_case_and_writes_the_summary(tmp_path, monkeypatch):
     calls = []
 
-    def fake_score(key, models, thresholds, annotations_root, out_dir, budget_reference, budget_threshold):
-        calls.append((key, sorted(models), budget_reference, tuple(thresholds)))
+    def fake_score(key, models, thresholds, annotations_root, out_dir, budget_reference, budget_threshold, data_root):
+        calls.append((key, sorted(models), budget_reference, tuple(thresholds), Path(data_root)))
         rec = {"instance": {"P": 0.8, "S": 0.6}, "jma_wc": {"P": 0.7, "S": 0.5}, "cand": {"P": 0.9, "S": 0.65}}
         thr = {"instance": 0.3, "jma_wc": 0.4, "cand": 0.1}
         return hts.ScoreResult(key=key, access_id="a1", rows=pd.DataFrame({"key": [key], "scope": ["aggregate"]}),
                                budget=_budget_rows(key, list(models), rec, thr), models={m: f"id_{m}" for m in models})
 
     monkeypatch.setattr(sc.hts, "score", fake_score)
-    monkeypatch.setattr(sc, "dev_cases", lambda out_root=None: ["samos_2020", "corinth_thiva_2020"])
+    seqs = tmp_path / "built"                                    # the built-sequence root, apart from the output root
+    for k in ("samos_2020", "corinth_thiva_2020", "kaikoura_2016"):
+        (seqs / k).mkdir(parents=True)
+        (seqs / k / "manifest.json").write_text("{}")
     table, summary = sc.score_candidate("cand", object(), parents=("instance", "jma_wc"), thresholds=[0.1, 0.3],
-                                        out_root=tmp_path, load_parent=lambda p: f"weights:{p}")
-    assert [c[0] for c in calls] == ["samos_2020", "corinth_thiva_2020"]
+                                        out_root=tmp_path / "eval", load_parent=lambda p: f"weights:{p}",
+                                        sequences_root=seqs)
+    assert [c[0] for c in calls] == ["samos_2020", "corinth_thiva_2020"]     # dev cases found under sequences_root
+    assert all(c[4] == seqs for c in calls)                                   # and the scorer reads them from there
     assert calls[0][1] == ["cand", "instance", "jma_wc"] and calls[0][2] == "instance" and calls[0][3] == (0.1, 0.3)
+    tmp_path = tmp_path / "eval"
     assert summary == tmp_path / "summary" / "cand"
     written = pd.read_csv(summary / "matched_budget.csv")
     assert len(written) == 4 and written["delta_vs_instance"].round(3).tolist() == [0.1, 0.05, 0.1, 0.05]
@@ -249,9 +255,9 @@ def test_score_candidate_runs_the_scorer_per_case_and_writes_the_summary(tmp_pat
                            load_parent=lambda p: p)
     with pytest.raises(ValueError, match="collides"):
         sc.score_candidate("instance", object(), parents=("instance",), out_root=tmp_path, load_parent=lambda p: p)
-    monkeypatch.setattr(sc, "dev_cases", lambda out_root=None: [])
     with pytest.raises(ValueError, match="no built development case"):
-        sc.score_candidate("cand", object(), out_root=tmp_path, load_parent=lambda p: p)
+        sc.score_candidate("cand", object(), out_root=tmp_path, load_parent=lambda p: p,
+                           sequences_root=tmp_path / "nothing_built")
 
 
 def test_dev_cases_follow_the_policy_roles(tmp_path, monkeypatch):
@@ -262,8 +268,10 @@ def test_dev_cases_follow_the_policy_roles(tmp_path, monkeypatch):
     for k in ("samos_2020", "kaikoura_2016"):
         (tmp_path / k).mkdir()
         (tmp_path / k / "manifest.json").write_text("{}")
+    assert sc.dev_cases(tmp_path) == ["samos_2020"]              # a built regression case is not a dev case
+    assert sc.dev_cases(tmp_path / "empty") == []
     monkeypatch.setattr(sc.hts, "OUT_ROOT", tmp_path)
-    assert sc.dev_cases() == ["samos_2020"]                      # a built regression case is not a dev case
+    assert sc.dev_cases() == ["samos_2020"]                      # the default root is the scorer's
 
 
 # ── torch parts ──────────────────────────────────────────────────────────────

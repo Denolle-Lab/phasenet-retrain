@@ -1092,19 +1092,25 @@ def run(picks, stations, catalog, config: AssociatorConfig, *, model_id=None, th
     model_ids = sorted(picks_sel["model_id"].astype(str).unique()) if "model_id" in picks_sel else []
     thresholds = sorted(picks_sel["threshold"].astype(float).unique()) if "threshold" in picks_sel else []
 
-    def _phase_threshold(phase, fallback):
+    def _phase_threshold(phase, requested):
+        # The resolved operating point of a phase is what was requested; the
+        # store's own single value stands in only when nothing was requested.
+        # It is never derived from the surviving picks, so an empty phase
+        # cannot make the two phases look alike.
+        if requested is not None:
+            return float(requested)
         if "threshold" not in picks_sel:
-            return fallback
+            return None
         v = picks_sel.loc[picks_sel["phase"].astype(str) == phase, "threshold"].astype(float).unique()
-        return float(v[0]) if len(v) == 1 else (fallback if len(v) == 0 else sorted(map(float, v)))
+        return float(v[0]) if len(v) == 1 else (None if len(v) == 0 else sorted(map(float, v)))
 
     thr_p = _phase_threshold("P", threshold if threshold_p is None else threshold_p)
     thr_s = _phase_threshold("S", threshold if threshold_s is None else threshold_s)
+    common = thr_p if (thr_p == thr_s and not isinstance(thr_p, list)) else None
     meta = dict(
         checkpoint="36A", key=key, access_id=(access_ids[0] if access_ids else None),
         model_id=(model_ids[0] if len(model_ids) == 1 else model_ids or model_id),
-        threshold=(thresholds[0] if len(thresholds) == 1 else (threshold if not thresholds else None)),
-        threshold_p=thr_p, threshold_s=thr_s, associate_runtime_s=float(associate_runtime_s),
+        threshold=common, threshold_p=thr_p, threshold_s=thr_s, associate_runtime_s=float(associate_runtime_s),
         associator=backend, config=config.to_dict(), config_sha256=config.sha256,
         match_tolerances=dict(tol_time_s=tol_time_s, tol_km=tol_km, tol_depth_km=tol_depth_km),
         mainshock_time=(None if mainshock_time is None else cs.to_timestamp(mainshock_time).isoformat()),

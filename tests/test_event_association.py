@@ -700,6 +700,12 @@ def test_run_records_the_per_phase_operating_point(tmp_path):
                  out_dir=tmp_path / "run")
     meta = json.loads((tmp_path / "run" / "run.json").read_text())
     assert meta["threshold_p"] == 0.3 and meta["threshold_s"] == 0.1 and meta["threshold"] is None
+    # an S threshold that selects no S pick must still be reported as requested, never collapsed onto P's
+    res2 = ea.run(store, sta, cat, cfg, key="samos_2020", backend="synthetic", threshold_p=0.1, threshold_s=0.3)
+    m2 = res2["meta"]
+    assert m2["threshold_p"] == 0.1 and m2["threshold_s"] == 0.3 and m2["threshold"] is None
+    res3 = ea.run(store, sta, cat, cfg, key="samos_2020", backend="synthetic", threshold=0.1)
+    assert res3["meta"]["threshold"] == 0.1 and res3["meta"]["threshold_p"] == 0.1 and res3["meta"]["threshold_s"] == 0.1
     assert meta["associate_runtime_s"] >= 0 and meta["n_matched"] == 2
     events = pd.read_parquet(tmp_path / "run" / "events.parquet")
     assert set(events["threshold_p"]) == {0.3} and set(events["threshold_s"]) == {0.1}

@@ -1,7 +1,7 @@
 {
   "audit_version": "41b-benchmark-v1",
-  "created_utc": "2026-09-16T13:20:06.657126+00:00",
-  "git_commit": "fc59a0c9bef037486ae08377b8dec35fed9fea7f",
+  "created_utc": "2026-09-17T12:42:09.053230+00:00",
+  "git_commit": "872912fe752620eb2feaf75307eb390981e7af2a",
   "command": "--benchmark notebooks/benchmark_manifest.csv --results notebooks/step3_results.parquet --out-dir docs/audit_2026-09-16_benchmark_labels",
   "python": "3.9.20",
   "numpy": "2.0.2",
@@ -75,14 +75,16 @@
   "label_error_reports": {
     "aq2009gm": {
       "status": "cached",
-      "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/wt_bench/data/labelerrors/aq2009_report.csv",
+      "file": "aq2009_report.csv",
+      "source": "https://raw.githubusercontent.com/albertleonardo/labelerrors/main/multiplet_reports/aq2009_report.csv",
       "sha256": "dfe9a493b41e427de5834089f769ec6eccdc41954e7135afd3a9d0ea4b85eaf3",
       "n_report_rows": 26739,
       "name_key_ambiguous": true
     },
     "ceed": {
       "status": "cached",
-      "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/wt_bench/data/labelerrors/ceed_report.csv",
+      "file": "ceed_report.csv",
+      "source": "https://raw.githubusercontent.com/albertleonardo/labelerrors/main/multiplet_reports/ceed_report.csv",
       "sha256": "bd4324b8ed7c1be88b639388df6cc15182ebe45957318e2db3b09939451656c5",
       "n_report_rows": 253309,
       "name_key_ambiguous": false
@@ -92,14 +94,16 @@
     },
     "ethz": {
       "status": "cached",
-      "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/wt_bench/data/labelerrors/ethz_report.csv",
+      "file": "ethz_report.csv",
+      "source": "https://raw.githubusercontent.com/albertleonardo/labelerrors/main/multiplet_reports/ethz_report.csv",
       "sha256": "b8019006f8f3d639bc60a25055a042cefab9a7556af2b88ccbeb1034f7efd21c",
       "n_report_rows": 895,
       "name_key_ambiguous": false
     },
     "instancecounts": {
       "status": "cached",
-      "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/wt_bench/data/labelerrors/instance_report.csv",
+      "file": "instance_report.csv",
+      "source": "https://raw.githubusercontent.com/albertleonardo/labelerrors/main/multiplet_reports/instance_report.csv",
       "sha256": "19a22fba4c37f1cd556cbab3847e23bff34d18961c0d663dc2464a44e61902fb",
       "n_report_rows": 92561,
       "name_key_ambiguous": false
@@ -115,21 +119,24 @@
     },
     "pnw": {
       "status": "cached",
-      "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/wt_bench/data/labelerrors/pnw_report.csv",
+      "file": "pnw_report.csv",
+      "source": "https://raw.githubusercontent.com/albertleonardo/labelerrors/main/multiplet_reports/pnw_report.csv",
       "sha256": "d08e8187746be1829e5b16e476a5905232d16821dd66bd849e8cb63b6a7470f4",
       "n_report_rows": 4970,
       "name_key_ambiguous": false
     },
     "stead": {
       "status": "cached",
-      "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/wt_bench/data/labelerrors/stead_report.csv",
+      "file": "stead_report.csv",
+      "source": "https://raw.githubusercontent.com/albertleonardo/labelerrors/main/multiplet_reports/stead_report.csv",
       "sha256": "b43638532fc79783e10355f69cf6b8ed0d807cf371e70939fae37400fd6452dc",
       "n_report_rows": 149,
       "name_key_ambiguous": false
     },
     "txed": {
       "status": "cached",
-      "path": "/private/tmp/claude-501/-Users-marinedenolle-GitHub-phasenet-retrain/807d774a-f13a-49c9-9884-bb1912be0bb8/scratchpad/wt_bench/data/labelerrors/txed_report.csv",
+      "file": "txed_report.csv",
+      "source": "https://raw.githubusercontent.com/albertleonardo/labelerrors/main/multiplet_reports/txed_report.csv",
       "sha256": "8410dd328fb4d52be7f68a8045728009b7f3a4080e85142b3a525dd56cc48e44",
       "n_report_rows": 4672,
       "name_key_ambiguous": false

@@ -361,14 +361,25 @@ def multiplet_names(dataset: str, report_dirs=DEFAULT_REPORT_DIRS, download: boo
     status = "cached"
     if path is None:
         if not download:
-            return set(), dict(status="report_not_cached", stem=stem, searched=[str(d) for d in report_dirs])
+            return set(), dict(status="report_not_cached", stem=stem, searched=[_portable(d) for d in report_dirs])
         path = lef.download_multiplet_report(stem, cache_dir=str(report_dirs[0]))
         status = "downloaded"
         if path is None or not Path(path).exists():
             return set(), dict(status="download_failed", stem=stem)
     names = set(pd.read_csv(path, usecols=["trace_name"])["trace_name"].astype(str))
-    return names, dict(status=status, path=str(path), sha256=_sha256(path), n_report_rows=len(names),
+    return names, dict(status=status, file=Path(path).name, source=lef.MULTIPLET_REPORT_URL.format(base=lef.GITHUB_RAW_BASE, stem=stem),
+                       sha256=_sha256(path), n_report_rows=len(names),
                        name_key_ambiguous=dataset in CHUNKED_NAME_DATASETS)
+
+
+def _portable(path) -> str:
+    """A path relative to the repository when inside it, else the bare name:
+    provenance identifies files by sha256, never by a machine-specific location."""
+    path = Path(path).resolve()
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return path.name
 
 
 # ── sensitivity ──────────────────────────────────────────────────────────────
@@ -672,7 +683,7 @@ def run(benchmark, results_path, out_dir, report_dirs=DEFAULT_REPORT_DIRS, downl
                 pandas=pd.__version__, constants=constants(), public_weights=list(public_weights),
                 sensitivity_weights=list(sensitivity_weights),
                 weight_trained_on={w: weight_trained_on(w) for w in public_weights},
-                inputs={str(p): _sha256(p) for p in (benchmark, results_path)})
+                inputs={_portable(p): _sha256(p) for p in (benchmark, results_path)})
     log("reading inputs")
     m = load_manifest(benchmark)
     all_weights = list(dict.fromkeys(list(public_weights) + list(sensitivity_weights)))

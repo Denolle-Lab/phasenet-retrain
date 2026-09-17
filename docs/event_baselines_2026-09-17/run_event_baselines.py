@@ -149,6 +149,13 @@ def paired_rows(results, cases, label):
     return rows
 
 
+def reference_station_support(key, scored_stations) -> pd.Series:
+    """event -> number of scored stations with a reference_ok P pick (37A's 3-station rule, on the scored stations)."""
+    ref = pd.read_parquet(reg_root(key) / "picks.parquet")
+    ref = ref[ref["reference_ok"] & (ref["phase"] == "P") & ref["station"].isin(set(scored_stations))]
+    return ref.groupby("event")["station"].nunique()
+
+
 def nearest_catalogue(unmatched: pd.DataFrame, catalog: pd.DataFrame) -> pd.DataFrame:
     """For each unmatched predicted event: nearest catalogue event in time and its distance (review aid)."""
     return _nearest(unmatched, "time", catalog, "origin", "event", "nearest_event")
@@ -232,18 +239,26 @@ def main(argv=None):
 
     # per case and weight
     by_case, by_mag, by_hour, by_day, support, unmatched, unmatched_ref = [], [], [], [], [], [], []
+    stations_by_key = {key: set(pd.read_parquet(find_pick_store(scores, key) / "picks.parquet", columns=["station"])["station"])
+                       for key in a.keys}
     for (key, w), res in results.items():
         s = res["tables"]["summary"].iloc[0]
         lo, hi = recovery_interval(res, key)
         st = res["tables"]["station_support"]
         ev = res["events"]
         elig = evaluability.loc[key]
+        cov = res["tables"]["coverage"]
+        cov = cov[cov["in_window"]]
+        n_p_sta = cov["event"].astype(str).map(reference_station_support(key, stations_by_key[key])).fillna(0).astype(int)
+        sup3 = cov[n_p_sta >= 3]
         by_case.append(dict(
             key=key, regime=reg.BY_KEY[key]["regime"], weight=w,
             event_scoring_eligible_37A=bool(elig["network_event_scoring_eligible"]),
             n_catalogue=int(s["n_reference"]), n_catalogue_in_windows=int(s["n_reference_covered"]),
             n_matched=int(s["n_matched"]), recovery=round(float(s["recovery"]), 4) if pd.notna(s["recovery"]) else np.nan,
             recovery_ci_low=round(lo, 4) if pd.notna(lo) else np.nan, recovery_ci_high=round(hi, 4) if pd.notna(hi) else np.nan,
+            n_catalogue_in_windows_3staP=int(len(sup3)), n_matched_3staP=int(sup3["matched"].sum()),
+            recovery_3staP=(round(float(sup3["matched"].mean()), 4) if len(sup3) else np.nan),
             n_predicted=int(s["n_predicted"]), n_unmatched_predicted=int(s["n_unmatched_predicted"]),
             n_matched_outside_windows=int(s["n_matched_outside_windows"]),
             n_splits=res["diagnostics"].n_splits, n_merges=res["diagnostics"].n_merges,

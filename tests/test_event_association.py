@@ -1,7 +1,8 @@
-"""Behavioural tests for scripts/event_association.py (issue #36, checkpoint 36A).
+"""Behavioural tests for scripts/event_association.py (issue #36, checkpoints 36A and 36B).
 
 Synthetic station networks, catalogues and picks only: no network, no torch,
-no seisbench, no pyocto, no model inference. Run with
+no seisbench, no model inference. The one test that calls PyOcto itself is
+skipped when pyocto is not importable. Run with
     python -m pytest tests/test_event_association.py -q
 """
 import ast
@@ -287,6 +288,35 @@ def test_pyocto_frames_map_the_pick_store_and_station_table():
     assert station_frame["elevation"].tolist() == sta["elev_m"].tolist()
     no_score = picks.drop(columns=["score"])
     assert (ea.PyOctoAssociator.frames(no_score, sta)[0]["probability"] == 1.0).all()
+
+
+def test_pyocto_adapter_recovers_the_synthetic_catalogue_with_the_real_package():
+    """36B: the adapter executed against the installed pyocto (0.2.0 here), config values passed unchanged."""
+    pyocto = pytest.importorskip("pyocto")
+    cfg, sta, cat = test_config(), stations(), catalogue()
+    picks = synth_picks(cat, sta, cfg, n_noise=20)
+    events, assignments = ea.PyOctoAssociator(cfg).associate(picks, sta)
+    assert list(events.columns) == ea.EVENT_COLUMNS
+    assert list(assignments.columns) == ea.ASSIGNMENT_COLUMNS
+    assert len(events) == len(cat)
+    match = ea.match_events(events, cat)
+    assert match.n_matched == len(cat)
+    assert match.pairs["dt_s"].abs().max() < 1.0
+    assert match.pairs["dist_km"].max() < 5.0
+    assert not any(p.startswith("noise") for p in assignments["pick_id"])
+    assert set(events["associator"]) == {"pyocto"} and set(events["config_sha256"]) == {cfg.sha256}
+    assert (events["n_stations"] == len(sta)).all() and (events["n_p_and_s"] == len(sta)).all()
+    assert assignments["time"].dt.tz is not None
+    # every assigned pick keeps its own store attributes (pyocto 0.2 returns the pick columns too; 0.1 did not)
+    joined = assignments.merge(picks[["pick_id", "station", "phase"]], on="pick_id", suffixes=("", "_store"))
+    assert (joined["station"] == joined["station_store"]).all() and (joined["phase"] == joined["phase_store"]).all()
+    # the parameters PyOcto received are the config's, not defaults
+    assoc = ea.PyOctoAssociator(cfg).build(ea.PyOctoAssociator.frames(picks, sta)[1])
+    assert assoc.n_picks == cfg.min_picks and assoc.n_p_picks == cfg.min_p_picks
+    assert assoc.n_p_and_s_picks == cfg.n_p_and_s_picks
+    assert assoc.pick_match_tolerance == cfg.time_tolerance_s and assoc.min_node_size == cfg.spatial_tolerance_km
+    assert assoc.time_before == cfg.time_before_s and tuple(assoc.zlim) == tuple(cfg.depth_range_km)
+    assert getattr(pyocto, "__version__", None)
 
 
 # ── event matching ───────────────────────────────────────────────────────────
@@ -636,6 +666,47 @@ def test_run_selects_one_model_and_threshold_from_the_pick_store():
         ea.select_picks(both, model_id="a" * 64, threshold=0.9)
 
 
+def test_select_picks_takes_one_threshold_per_phase():
+    cfg, sta, cat = test_config(), stations(), catalogue(offsets_s=(0,))
+    lo = pick_store(cat, sta, cfg, threshold=0.1)
+    hi = pick_store(cat, sta, cfg, threshold=0.3)
+    hi = hi[hi["phase"] == "P"]                      # at 0.3 only P picks survive
+    hi["pick_id"] = hi["pick_id"] + "|hi"
+    store = pd.concat([lo, hi], ignore_index=True)
+    sel = ea.select_picks(store, threshold_p=0.3, threshold_s=0.1)
+    assert set(sel.loc[sel["phase"] == "P", "threshold"]) == {0.3}
+    assert set(sel.loc[sel["phase"] == "S", "threshold"]) == {0.1}
+    assert len(sel) == len(hi) + int((lo["phase"] == "S").sum())
+    both = ea.select_picks(store, threshold=0.1)     # the shorthand applies to both phases
+    assert set(both["threshold"]) == {0.1} and len(both) == len(lo)
+    override = ea.select_picks(store, threshold=0.1, threshold_p=0.3)
+    assert set(override.loc[override["phase"] == "P", "threshold"]) == {0.3}
+    assert set(override.loc[override["phase"] == "S", "threshold"]) == {0.1}
+    empty_s = ea.select_picks(store, threshold_p=0.1, threshold_s=0.3)   # 0.3 exists but has no S pick
+    assert (empty_s["phase"] == "P").all()
+    with pytest.raises(ValueError, match="--threshold is required"):
+        ea.select_picks(store, threshold_p=0.3)
+    with pytest.raises(ValueError, match="for S not in the pick store"):
+        ea.select_picks(store, threshold_p=0.3, threshold_s=0.7)
+
+
+def test_run_records_the_per_phase_operating_point(tmp_path):
+    cfg, sta, cat = test_config(), stations(), catalogue(offsets_s=(0, 1800))
+    lo = pick_store(cat, sta, cfg, threshold=0.1, n_noise=4)
+    hi = pick_store(cat, sta, cfg, threshold=0.3)
+    hi["pick_id"] = hi["pick_id"] + "|hi"
+    store = pd.concat([lo, hi], ignore_index=True)
+    res = ea.run(store, sta, cat, cfg, key="samos_2020", backend="synthetic", threshold_p=0.3, threshold_s=0.1,
+                 out_dir=tmp_path / "run")
+    meta = json.loads((tmp_path / "run" / "run.json").read_text())
+    assert meta["threshold_p"] == 0.3 and meta["threshold_s"] == 0.1 and meta["threshold"] is None
+    assert meta["associate_runtime_s"] >= 0 and meta["n_matched"] == 2
+    events = pd.read_parquet(tmp_path / "run" / "events.parquet")
+    assert set(events["threshold_p"]) == {0.3} and set(events["threshold_s"]) == {0.1}
+    single = ea.run(store, sta, cat, cfg, key="samos_2020", backend="synthetic", threshold=0.3)
+    assert single["meta"]["threshold"] == 0.3 and single["meta"]["threshold_p"] == 0.3 == single["meta"]["threshold_s"]
+
+
 def _write_inputs(tmp_path, key="samos_2020", noise=6):
     cfg, sta, cat = test_config(), stations(), catalogue(offsets_s=(0, 1800))
     picks = pick_store(cat, sta, cfg, key=key, n_noise=noise)
@@ -659,6 +730,11 @@ def test_cli_runs_end_to_end_on_a_pick_store(tmp_path, capsys):
     assert meta["key"] == "samos_2020"            # taken from the pick store
     text = capsys.readouterr().out
     assert "by_hour" in text and meta["config_sha256"][:12] in text
+    per_phase = ea.main(["--picks", str(tmp_path / "picks.parquet"), "--stations", str(tmp_path / "stations.csv"),
+                         "--catalog", str(tmp_path / "catalog.parquet"), "--config", str(tmp_path / "assoc.json"),
+                         "--associator", "synthetic", "--threshold-p", "0.3", "--threshold-s", "0.3"])
+    assert per_phase["meta"]["threshold_p"] == 0.3 and per_phase["meta"]["threshold_s"] == 0.3
+    assert per_phase["meta"]["threshold"] == 0.3
 
 
 def test_cli_refuses_a_protected_sequence(tmp_path):

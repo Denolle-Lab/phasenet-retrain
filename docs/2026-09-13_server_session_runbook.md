@@ -131,6 +131,42 @@ where the source exposes it, rows inside held-out windows, native rates.
 With step 4 this fixes which sources enter the T0 pilot
 (`docs/2026-09-11_training_strategy_v3.md` §4.1).
 
+## 6b. 41B on the cache: model-independent label audit of the curated sources (1–3 h)
+
+```bash
+python scripts/audit_source_labels.py seisbench --sources instancecounts ethz stead ceed pnw txed aq2009gm \
+    geofon crew cwa iquique lendb vcseis scedc pisdl meier2019jgr ross2018gpd mlaapde \
+    --sample 5000 --seed 0 --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/seisbench --report
+python scripts/audit_source_labels.py duplicates --sources stead instancecounts ethz ceed scedc ross2018gpd \
+    --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/seisbench
+cat data/label_audit/seisbench/report.md
+git add data/label_audit/seisbench/summary.csv data/label_audit/seisbench/provenance.json \
+    data/label_audit/seisbench/report.md data/label_audit/seisbench/*/review_sheet.csv \
+    data/label_audit/seisbench/duplicates.csv data/label_audit/seisbench/duplicates_provenance.json
+```
+
+5000 stratified rows per source (seed 0), read through the loader's own
+readers at the stored rate; no model. The Aguilar multiplet reports must be
+cached under `data/labelerrors/` (add `--download-reports` once if they are
+not; `provenance.json` records their sha256). Per source the report gives
+the S−P line and its flag rate, the P and S onset residuals against the AIC
+energy onset, the edge and modal-sample shares, and the fraction of windows
+with an unlabelled arrival split by Aguilar flag, with bootstrap intervals.
+The laptop calibration on the seven regression/dev held-out cases
+(`docs/2026-09-15_41b_label_audit.md`) says what to expect from analyst
+picks: C1 flags 0–8.5 %, C2 late P labels 2.8–13.1 % (suspect picks 0–6.8 %,
+the rest unlabelled earlier events), emergent onsets 2–41 % reported and not
+flagged, C6 unlabelled arrivals in 59–100 % of aftershock-sequence windows. Time scales with rows × trace length; `meier2019jgr`, `ross2018gpd`
+and `mlaapde` read 5000 traces each through h5py and are the slow ones.
+`rows.parquet` stays out of git.
+
+**Decision this step makes.** Which sources need the reviewed sample of 41B
+first (a C2 early-energy fraction or a C1 flag rate far above the held-out
+calibration), and whether the Aguilar flags mark rows the STA/LTA screen
+also finds (the flagged/unflagged split): if the unflagged rows carry a
+similar unlabelled-arrival rate, the report is not a filter and the extra
+arrivals go in as masked `automatic` arrivals for every source alike.
+
 ## 7. Legacy noise pools: what 42A needs from them (10 min)
 
 ```bash

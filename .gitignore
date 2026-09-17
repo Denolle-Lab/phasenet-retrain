@@ -123,8 +123,14 @@ lightning_logs/
 !data/heldout_testset/evaluability.csv
 !data/heldout_testset/*/evaluability_stations.csv
 data/heldout_testset/*/waveforms/
+data/heldout_testset/*/waveforms
 data/heldout_testset/*/cache/
 data/heldout_testset/*/build.log
+
+# label audit (41B, scripts/audit_source_labels.py): summary.csv, provenance.json,
+# report.md, review_sheet.csv and the C5 pair list are committed; rows.parquet is not
+!data/label_audit/
+data/label_audit/**/rows.parquet
 
 # source census (2026-09-11, #39A): the census CSVs are committed, the cached
 # raw bulletin responses under data/census/raw/ are not

@@ -256,7 +256,7 @@ def main() -> None:
 
     print("Manifests (v7's training data):")
     for rel in MANIFESTS:
-        if not (REPO_ROOT / rel).exists():
+        if not (REPO_ROOT / rel).is_file():
             # The historical manifests only add their own counts; the exclusion
             # list is the union over the full corpora and the benchmark, so it
             # is complete without them (they are subsets of the corpora).

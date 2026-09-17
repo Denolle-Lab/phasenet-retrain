@@ -315,10 +315,10 @@ the arms.
 
 ## 6. Validation on 2026-09-18
 
-Base `python` 3.9.20 (no torch): `python -m pytest tests -q`, 399 passed,
+Base `python` 3.9.20 (no torch): `python -m pytest tests -q`, 400 passed,
 20 skipped (the torch and cached-weight tests).
 Torch venv (Python 3.11, torch 2.2.2, SeisBench 0.12.5, cached `instance`
-and `jma_wc`): 449 passed. `scripts/score_checkpoint.py` was run on the
+and `jma_wc`): 450 passed. `scripts/score_checkpoint.py` was run on the
 laptop CPU against the four built development cases with a checkpoint made
 from `instance` through `PhaseNetFinetune` (`configs/e1_t0/base.yaml`, so
 `norm: peak`) with every parameter perturbed by 1e-3, against `instance`

@@ -27,7 +27,7 @@ pip install pyarrow pyocto
 
 # a cache of your own: datasets are Akash's by symlink (read-only), models are yours (writable)
 mkdir -p $HOME/.seisbench_phasenet/models
-ln -s /data/wsd04/ak287/.seisbench/datasets $HOME/.seisbench_phasenet/datasets
+ln -sfn /data/wsd04/ak287/.seisbench/datasets $HOME/.seisbench_phasenet/datasets   # idempotent on reruns
 export SEISBENCH_CACHE_ROOT=$HOME/.seisbench_phasenet
 ls $SEISBENCH_CACHE_ROOT/datasets | head
 export MPLCONFIGDIR=$PWD/.mpl
@@ -41,11 +41,13 @@ python -m pytest tests -q            # laptop: 407 passed in the torch venv; mus
 ```
 
 Which conda env: the one the 2026 fine-tunes ran in, if it still exists
-(`conda env list`; the noise builder's docstring names it `surface`),
-because step 3 replays the v7 rows under the runtime that trained them and
-because it is the pinned runtime the checkpoints were never tested against.
-If the suite fails there on version grounds, keep that env untouched for
-step 3 and make a second one for everything else:
+(`conda env list`; the noise builder's docstring names it `surface`). Two
+reasons: step 3 must replay the v7 rows under the runtime that trained
+them, and the repaired code has so far been tested only on the laptop
+(PyTorch 2.2.2, SeisBench 0.12.5), so the suite has to pass under the
+server's actual versions before anything is trusted. If the suite fails
+there on version grounds, keep that env untouched for step 3 and make a
+second one for everything else:
 `conda create -n phasenet-audit python=3.11 -y && conda activate phasenet-audit && pip install -r requirements.txt pyocto`.
 
 Record the four versions (Python, PyTorch, SeisBench, SciPy); the run card

@@ -1,0 +1,72 @@
+# seed 2 copy of configs/e1_t0/kd_t1p5.yaml written by scripts/e1_seed_configs.py; do not edit, regenerate.
+# E1 / 46B, arm `kd_t1p5`, seed 0: distillation from the parent (`instance`,
+#  the frozen teacher) at alpha 0.3 and temperature 1.5. Differs from
+#  base.yaml in training.distillation only. The v11 comparison (T = 1.5)
+#  carried the loader defects and is rerun here.
+#  Everything else is the base recipe of base.yaml (instance init, 34A loader,
+#  masked policy, soft CE, alpha 0, adaptive BN, AdamW 5e-6, wd 1e-4, batch 256,
+#  warm-up 2 then cosine to 1e-6, clip 1.0, val_loss patience 10, 60 epochs,
+#  crop/jitter/flip only). Seeds 1 and 2: scripts/e1_seed_configs.py.
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "instance"
+    freeze_layers: []
+
+training:
+  batch_size: 256
+  num_workers: 16
+  max_epochs: 60
+  learning_rate: 0.000005
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.3
+    temperature: 1.5
+
+  soft_ce: true
+  freeze_bn_stats: false
+  timing_beta: 0.0
+  presence_gamma: 0.0
+  focal_gamma: 0.0
+
+  scheduler:
+    name: "CosineAnnealingWarmup"
+    warmup_epochs: 2
+    min_lr: 1.0e-6
+    warmup_start_factor: 0.01
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 10
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_t0/train.csv"
+  val_manifest:   "data/manifests_t0/val.csv"
+  test_manifest:  "data/manifests_t0/test.csv"
+  window_length: 3001
+  label_policy: "masked"
+  augmentation:
+    noise_prob: 0.0
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "e1_t0_kd_t1p5_seed2"
+  checkpoint_dir: "checkpoints/e1_t0_kd_t1p5_seed2"
+  metrics_csv: "results/e1_t0_kd_t1p5_seed2_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  amp: true
+
+seed: 2

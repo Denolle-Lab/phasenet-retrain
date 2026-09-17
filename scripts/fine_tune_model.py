@@ -151,6 +151,15 @@ class PhaseNetFinetune(nn.Module):
         model_name = pretrained.get("model_name", "jma_wc")
         print(f"Loading pretrained PhaseNet: {model_name}")
         self.model = sbm.PhaseNet.from_pretrained(model_name)
+        self.parent_name = model_name
+        # The 34A loader normalises every window per component to unit std
+        # (manifest_dataset._normalise_std). A parent trained under another
+        # SeisBench norm (`instance`: peak) starts from mismatched input
+        # statistics; the export of scripts/score_checkpoint.py records std.
+        parent_norm = getattr(self.model, "norm", None)
+        if parent_norm not in (None, "std"):
+            print(f"  NOTE: parent {model_name} was trained with norm={parent_norm!r}; the training loader "
+                  "normalises with std, and the exported weights will declare norm='std'")
 
         for layer_name in pretrained.get("freeze_layers", []):
             for name, param in self.model.named_parameters():
@@ -181,6 +190,14 @@ class PhaseNetFinetune(nn.Module):
             self.teacher.eval()
         else:
             self.teacher = None
+
+        # Frozen BatchNorm statistics (strategy v3 section 7, an E1 arm): the
+        # BatchNorm modules stay in eval mode during training, so the running
+        # mean and variance are the parent's and are not updated; their affine
+        # weight and bias still train. Default False = adaptive statistics.
+        self.freeze_bn_stats = bool(training_cfg.get("freeze_bn_stats", False))
+        if self.freeze_bn_stats:
+            print("  BatchNorm stats FROZEN (affine parameters still train)")
 
         self.timing_beta = training_cfg.get("timing_beta", 0.0)
         if self.timing_beta > 0:
@@ -218,7 +235,15 @@ class PhaseNetFinetune(nn.Module):
         super().train(mode)
         if self.teacher is not None:
             self.teacher.eval()   # teacher must always stay in eval (no dropout/BN in train mode)
+        if mode and getattr(self, "freeze_bn_stats", False):
+            for module in self.model.modules():
+                if isinstance(module, nn.modules.batchnorm._BatchNorm):
+                    module.eval()   # running statistics fixed; affine parameters keep requires_grad
         return self
+
+    def bn_modules(self):
+        """The student's BatchNorm modules, in module order."""
+        return [m for m in self.model.modules() if isinstance(m, nn.modules.batchnorm._BatchNorm)]
 
     def forward(self, x: torch.Tensor, logits: bool = False) -> torch.Tensor:
         return self.model(x, logits=logits)

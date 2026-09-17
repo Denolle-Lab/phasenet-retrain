@@ -1,0 +1,116 @@
+# Corpus profiles for scripts/build_training_dataset.py --profile <name> (#40A).
+#
+# A profile selects which DATASET_CONFIGS sources enter the pool and overrides
+# their `cap` and `use_s`; the loader details of each source (SeisBench class,
+# distance column and unit, default distance bin) stay in DATASET_CONFIGS.
+# Sources are processed in DATASET_CONFIGS order whatever the order here.
+#
+# Per profile:
+#   sources            name -> {cap, use_s, [require_status_columns], [manual_values], [default_bin]}
+#   target_fractions   distance-bin fractions of the training split; renormalised
+#                      to sum to one, a missing bin is 0 (0 removes the bin from
+#                      the training split; val and test keep it)
+#   max_distance_km    rows with a known epicentral distance above this are
+#                      dropped before the cap; rows without a distance are kept
+#   allow_p_only       false refuses any source with use_s: false
+#   skip_sources       skipped unless --include-obs (ocean-bottom, 2026-09-08)
+#
+# require_status_columns: metadata columns that, WHEN PRESENT in the source,
+# must carry one of `manual_values` (default: manual; compared case-insensitively
+# after stripping) for the pick of that phase to be kept. The phase is read from
+# the column name (trace_P*/trace_p* -> P, trace_S*/trace_s* -> S; any other
+# name constrains both picks). A pick whose status is absent, NaN or not manual
+# is nulled, and a row with no pick left is removed; the counts go to
+# heldout_removal_report.csv (n_p_dropped_by_status, n_s_dropped_by_status,
+# n_rows_removed_by_status, status_columns_present). A column listed here but
+# absent from the source is a no-op and is printed as a WARNING. The names
+# below are the ones the repository records (scripts/source_census.py
+# STATUS_RECORD and status_counts; scripts/audit_source_labels.py
+# P_STATUS_COLUMNS / S_STATUS_COLUMNS); the 39A census on the cache
+# (data/census/seisbench_sources.csv, columns status_columns and
+# pick_status_counts, `server` until run) says which of them a source really
+# carries. Do not add names the census has not seen.
+#
+# The profile's sha256 (canonical JSON of its mapping) and the file's sha256
+# go into provenance.json and heldout_removal_report.csv.
+
+version: 1
+
+profiles:
+
+  legacy_v2:
+    description: >
+      The module defaults of scripts/build_training_dataset.py (DATASET_CONFIGS
+      caps and use_s, TARGET_FRACTIONS, SKIP_SOURCES_THIS_ROUND) as a profile.
+      Running without --profile is identical; tests/test_corpus_profiles.py
+      proves it. The v2 global-picker mix: teleseismic P-only sources kept.
+    allow_p_only: true
+    max_distance_km: null
+    skip_sources: [obst2024, obs]
+    target_fractions:
+      local: 0.40
+      regional: 0.25
+      teleseismic: 0.25
+      unknown: 0.10
+    sources:
+      geofon:        {cap: 150000, use_s: false}
+      stead:         {cap: 100000, use_s: true}
+      ceed:          {cap: 100000, use_s: true}
+      instancecounts: {cap: 100000, use_s: true}
+      mlaapde:       {cap: 80000,  use_s: true}
+      ethz:          {cap: 60000,  use_s: true}
+      crew:          {cap: 30000,  use_s: true}
+      cwa:           {cap: 30000,  use_s: true}
+      iquique:       {cap: 13400,  use_s: true}
+      txed:          {cap: 40000,  use_s: true}
+      pnw:           {cap: 40000,  use_s: true}
+      lendb:         {cap: 40000,  use_s: false}
+      pisdl:         {cap: 10000,  use_s: true}
+      vcseis:        {cap: 30000,  use_s: true}
+      aq2009gm:      {cap: 60000,  use_s: true}
+      obst2024:      {cap: 60000,  use_s: true}
+      scedc:         {cap: 60000,  use_s: true}
+      meier2019jgr:  {cap: 150000, use_s: false}
+      ross2018gpd:   {cap: 200000, use_s: true}
+      obs:           {cap: 100000, use_s: true}
+
+  t0_pilot:
+    description: >
+      T0 pilot corpus of docs/2026-09-11_training_strategy_v3.md section 4.1:
+      SeisBench sets with manual P and S, every native rate represented,
+      S-only rows kept, no P-only set, nothing beyond 2000 km, no ocean-bottom
+      data. About 90,000 rows before the exclusion bundle, the status filter
+      and the split; the training split is what remains after the 10/10
+      event-grouped val/test split and the distance stratification.
+      The bulletin-harvest slices (INGV, NOA, GeoNet) of the same tier are
+      40A proper and are not built here.
+    allow_p_only: false
+    max_distance_km: 2000
+    skip_sources: [obst2024, obs]
+    target_fractions:
+      local: 0.55
+      regional: 0.40
+      unknown: 0.05
+      teleseismic: 0.0
+    sources:
+      ethz:     {cap: 10000, use_s: true}     # 100-500 Hz native; S on few rows (census: 86 of 36,743)
+      pnw:      {cap: 10000, use_s: true}     # 100 Hz; no status column, uncertainties 0.01-0.08 s
+      cwa:      {cap: 10000, use_s: true}     # chunked; columns not recorded, 39A fills
+      scedc:    {cap: 10000, use_s: true}     # 40 and 100 Hz; status NaN in the five sampled rows, weights 1.0/0.3/0.5
+      ceed:     {cap: 10000, use_s: true}     # 100 Hz; columns not recorded, 39A fills
+      txed:     {cap: 10000, use_s: true}     # no status column, uncertainties only
+      iquique:  {cap: 5000,  use_s: true}     # 100 Hz; no status column
+      instancecounts:
+        cap: 15000
+        use_s: true
+        # "INSTANCE where the pick status is manual" (strategy 4.1). The census
+        # record (STATUS_RECORD: trace_P_uncertainty_s, trace_S_uncertainty_s,
+        # path_weight_phase_location_P/S) shows no status column in the five
+        # sampled rows; the names below are the forms the repository knows and
+        # apply only if the cache carries them. If the 39A census confirms
+        # none exists, the manual filter for INSTANCE is not expressible from
+        # metadata and this entry must be revisited (uncertainty threshold or
+        # drop the source); the build prints a WARNING in that case.
+        require_status_columns: [trace_P_status, trace_S_status, trace_P_arrival_status, trace_S_arrival_status]
+        manual_values: [manual]
+      vcseis:   {cap: 10000, use_s: true}     # 100 Hz; volcanic; Hawaii tier-2 hold-out applied by the bundle

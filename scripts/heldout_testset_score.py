@@ -144,6 +144,21 @@ def _load_sequence(key: str, tiers=REFERENCE_TIERS):
 
 # ── model adapter ────────────────────────────────────────────────────────────
 
+def load_weights(spec):
+    """A SeisBench PhaseNet from a cached weight name (`jma_wc`, `instance`) or
+    from a local pair <base>.json + <base>.pt as SeisBench save() writes them
+    (spec may be <base>, <base>.pt or <base>.json; scripts/score_checkpoint.py
+    exports such pairs)."""
+    import seisbench.models as sbm
+    p = Path(spec)
+    base = p.with_suffix("") if p.suffix in (".pt", ".json") else p
+    if Path(f"{base}.json").exists() and Path(f"{base}.pt").exists():
+        return sbm.PhaseNet.load(base)
+    if p.exists() or p.suffix in (".pt", ".json"):
+        raise FileNotFoundError(f"{spec}: expected {base}.json and {base}.pt beside each other")
+    return sbm.PhaseNet.from_pretrained(spec)
+
+
 def default_annotate(model, stream):
     """SeisBench WaveformModel.annotate: a Stream of *_P, *_S (and *_N) probability traces."""
     return model.annotate(stream)
@@ -280,7 +295,7 @@ def main(argv=None):
     selection = ap.add_mutually_exclusive_group(required=True)
     selection.add_argument("--sequence", action="append", default=[])
     selection.add_argument("--all", action="store_true", help="Score built regression/dev sequences only")
-    ap.add_argument("--weights", nargs="+", default=["jma_wc"], help="SeisBench PhaseNet weight names, or paths to converted .pt/.json pairs")
+    ap.add_argument("--weights", nargs="+", default=["jma_wc"], help="SeisBench PhaseNet weight names, or local <base>[.pt|.json] pairs (load_weights)")
     ap.add_argument("--thresholds", nargs="+", type=float, default=THRESHOLDS, help="Trigger thresholds; deduplicated and sorted")
     ap.add_argument("--annotations-root", default=str(ANNOTATIONS_ROOT), help="AnnotationStore root (raw P/S probabilities, reused on rerun)")
     ap.add_argument("--out-dir", default=str(SCORES_ROOT), help="Per-run parquet artifacts under <out-dir>/<key>/<access_id>/")
@@ -300,10 +315,7 @@ def main(argv=None):
     except (PermissionError, ValueError) as exc:
         ap.error(str(exc))
     # Authorize the entire selection before loading any weights or waveform data.
-    import seisbench.models as sbm
-    models = {}
-    for w in a.weights:
-        models[w] = sbm.PhaseNet.from_pretrained(w) if not Path(w).exists() else sbm.PhaseNet.load(Path(w))
+    models = {w: load_weights(w) for w in a.weights}
     results = []
     for k in keys:
         print(f"== {k}")

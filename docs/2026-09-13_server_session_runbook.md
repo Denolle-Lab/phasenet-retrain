@@ -167,6 +167,48 @@ also finds (the flagged/unflagged split): if the unflagged rows carry a
 similar unlabelled-arrival rate, the report is not a filter and the extra
 arrivals go in as masked `automatic` arrivals for every source alike.
 
+## 6c. 41B on the cache: the benchmark test set and the historical manifests (1–2 h)
+
+```bash
+python scripts/audit_source_labels.py benchmark --benchmark notebooks/benchmark_manifest.csv \
+    --sample 3000 --seed 0 --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/benchmark --report
+for split in train val test; do
+  python scripts/audit_source_labels.py manifest --manifest data/manifests_v2/$split.csv \
+      --sample 3000 --seed 0 --cache-root $SEISBENCH_CACHE_ROOT --out-dir data/label_audit/manifest_v2_$split --report
+done
+cat data/label_audit/benchmark/report.md
+python - <<'PY'
+import json
+for d in ("benchmark", "manifest_v2_train", "manifest_v2_val", "manifest_v2_test"):
+    p = json.load(open(f"data/label_audit/{d}/provenance.json"))
+    print(d, {s: (v["n_rows"], v["n_read_errors"], v["n_rate_mismatch"], v["stored_rates_hz"]) for s, v in p["sources"].items()})
+PY
+git add data/label_audit/benchmark/summary.csv data/label_audit/benchmark/provenance.json data/label_audit/benchmark/report.md \
+    data/label_audit/benchmark/*/review_sheet.csv data/label_audit/manifest_v2_*/summary.csv \
+    data/label_audit/manifest_v2_*/provenance.json data/label_audit/manifest_v2_*/report.md
+```
+
+Same C1–C6 as step 6b, on the rows the 2026 fine-tunes were tested on
+(3000 benchmark rows stratified by dataset, floor 50, read through the
+loader at the stored rate with bucket-style names) and on the rows v7 was
+trained, validated and tested on (3000 rows per `data/manifests_v2` split).
+The laptop part, `docs/audit_2026-09-16_benchmark_labels/README.md`, says
+what to look for: the C2 S-onset residual on STEAD, TXED and INSTANCE, where
+six or more independent public pickers put the S 0.3–5 s after the label on
+11–14 % of the S labels; `n_rate_mismatch` per source in `provenance.json`
+(the stored rate against notebook 05's 100 Hz: AQ2009GM is expected at
+125 Hz and ETHZ at 120–500 Hz, which rescales their benchmark residuals);
+and the loader's read errors on AQ2009GM, whose benchmark names carry no
+chunk (an ambiguous name is a benchmark row whose waveform may not belong
+to its label). `rows.parquet` stays out of git.
+
+**Decision this step makes.** Whether the late-S consensus is a label
+convention (C2 finds the energy onset at the label: keep the labels, the
+pickers pick a later phase) or a label error (C2 finds the onset with the
+pickers: the S labels of those sources go to `unknown` tier), and whether
+the AQ2009GM and ETHZ benchmark rows must be recut at their stored rate
+before the 34C numbers are recomputed.
+
 ## 7. Legacy noise pools: what 42A needs from them (10 min)
 
 ```bash

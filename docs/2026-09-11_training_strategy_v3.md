@@ -94,16 +94,37 @@ freeze is the act that makes them a test.
   deployed `in_samples` is 3001 (audit finding on #48). Sixty-second
   context is an experiment (48A contract first, then 48B), motivated by
   regional S and by overlapping events; it is not assumed.
-- **Initialisation.** From `jma_wc`, the parent that still leads the
-  benchmark and the non-US sequences. The SeisBench `instance` weights are
-  the second parent: they lead `jma_wc` on precision per pick along the
-  whole matched-budget overlap on Kaikōura, Norcia and Thessaly (§2), at
-  standard PhaseNet width. Both enter E4 as initialisations, with the
-  caveat that fine-tune exclusions cannot remove Italian sequences already
-  in the `instance` weights, so every candidate carries its parent's
-  exposure as provenance (35B). A from-scratch arm at matched width runs
-  at T1 scale and above (§8, E4); the one scratch run in the history was a
-  narrower model on the defective corpus and proves nothing.
+- **Initialisation.** From the SeisBench `instance` weights, revised on
+  2026-09-17 from `jma_wc`. The corrected baselines
+  (`docs/baselines_2026-09-13/`, `docs/event_baselines_2026-09-17/`) put
+  `instance` above `jma_wc` at the parent's pick budget on every one of
+  the seven regression and development cases and both phases (S by
+  +0.11 to +0.19 with intervals off zero on six cases), and above it at
+  event level on the four eligible mainshock cases (+0.063 [+0.028,
+  +0.097] catalogue events recovered, paired by event), including the
+  non-Italian Kaikōura (+0.15). The `original` weights were scored the
+  same way on 2026-09-17 and sit at or below `jma_wc` on six of seven
+  cases (Norcia P −0.07, Corinth P −0.05); their 1.00 P recall on the
+  positives-only benchmark is a trigger-happy model the benchmark cannot
+  see, not a credential. `jma_wc` stays as the second initialisation and
+  as the teacher option in E4, and E0 keeps it because E0 replays the v7
+  rows. Caveats that travel with `instance`: three of the seven cases are
+  Italian and may sit in its training set, which is the 35C provenance
+  label; it is standard PhaseNet width, so the width question (E5) is
+  now also a parent question; its probability scale is low (the parent's
+  budget is attained at 0.04–0.24), which per-weight thresholds (#38)
+  absorb. A from-scratch arm at matched width runs at T1 scale and above
+  (§8, E4); the one scratch run in the history was a narrower model on the
+  defective corpus and proves nothing.
+- **Campaign picker now.** The Phase-0 gate of the v2 plan (a candidate
+  that leads at matched budget on the non-US pairs and does not raise the
+  false-pick rate replaces `jma_wc` in the campaign before any training)
+  is met by `instance` on the regression and development cases: same
+  emitted count, more matched, therefore fewer unmatched, on all 14
+  case–phase pairs. The switch is a deployment decision under #49's
+  interim rule, not an acceptance result; it needs the #38 thresholds
+  for `instance` and a run of the two QuakeScope notebooks, and the
+  sealed panel stays unread.
 - **Batch normalisation.** The v7 input-layer running variance is 0.758 of
   the parent's (audit probes). Adaptive versus frozen BN statistics, with
   affine parameters controlled separately, is an arm of E1.
@@ -266,9 +287,9 @@ target formula, the 34A loader with the mask. Three seeds. Scored on the
 regression sets. This separates the loader defects from everything else
 and is the only experiment that uses the v7 corpus. *Server.*
 
-**E1, recipe factorial on T0 (46B).** Base arm: 34A loader, mask on, soft
-CE, α = 0, adaptive BN, LR 5e-6, no augmentation beyond crop, jitter and
-flip. One-factor deviations from the base: mask off; α = 0.3 at T = 1.5;
+**E1, recipe factorial on T0 (46B).** Base arm: `instance` initialisation,
+34A loader, mask on, soft CE, α = 0, adaptive BN, LR 5e-6, no augmentation
+beyond crop, jitter and flip. One-factor deviations from the base: mask off; α = 0.3 at T = 1.5;
 α = 0.3 at T = 4; frozen BN; LR 2e-6; LR 2e-5. Seven arms, three seeds,
 21 short runs. Selection of the recipe on the development suite with paired
 intervals.
@@ -287,10 +308,10 @@ Matched-budget recall per regime against corpus size. The T2 build is
 authorised only if the 0.5 → 1 M step still gains.
 
 **E4, initialisation and anchor at the chosen size (46C).** Initialisation
-∈ {`jma_wc`, `instance`, matched-width scratch}, crossed with α ∈ {0, 0.3}
+∈ {`instance`, `jma_wc`, matched-width scratch}, crossed with α ∈ {0, 0.3}
 (the teacher being the arm's own parent) and with replay on or off, three
-seeds. The `instance` arm runs at standard width unless E5 has already
-shown the width difference to matter.
+seeds. `instance` is the primary arm; the `jma_wc` arm runs at PhaseNetWC
+width, so the pair also brackets the width question until E5 settles it.
 
 **E5, context and width (48A, 48B).** Export contract for 6000 samples
 first; then 3001 against 6000 at the chosen size, and PhaseNetWC against

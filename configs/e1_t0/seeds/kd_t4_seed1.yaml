@@ -51,6 +51,7 @@ data:
   test_manifest:  "data/manifests_t0/test.csv"
   window_length: 3001
   label_policy: "masked"
+  norm: "peak"                  # window normalisation follows the parent (SeisBench model_args.norm)
   augmentation:
     noise_prob: 0.0
 

@@ -41,6 +41,10 @@ class CachedManifestDataset(Dataset):
                         dict for label_targets.LabelPolicy (#41A)
     return_mask       : also cache and return the (window_len,) loss mask;
                         __getitem__ then yields (x, y, mask)
+    norm              : window normalisation, "std" (default) or "peak"; must
+                        follow the parent weights (manifest_dataset.NORMS).
+                        The noise injection below assumes unit-std windows;
+                        under "peak" its SNR labels are nominal.
     """
 
     def __init__(
@@ -55,6 +59,7 @@ class CachedManifestDataset(Dataset):
         rejection_log=None,
         label_policy=None,
         return_mask: bool = False,
+        norm: str = "std",
     ):
         self.augment           = augment
         self.window_len        = window_len
@@ -66,11 +71,12 @@ class CachedManifestDataset(Dataset):
         # ── extract all samples from HDF5 into RAM ────────────────────────────
         raw = ManifestDataset(manifest_csv, augment=False, window_len=window_len,
                               rejection_log=rejection_log, label_policy=label_policy,
-                              return_mask=self.return_mask)
+                              return_mask=self.return_mask, norm=norm)
         self.label_policy = raw.policy.name
+        self.norm = raw.norm
         N   = len(raw)
         print(f"  Pre-loading {N:,} samples into RAM "
-              f"({N * 3 * window_len * 4 * 2 / 1e9:.1f} GB, label policy {self.label_policy}) ...")
+              f"({N * 3 * window_len * 4 * 2 / 1e9:.1f} GB, label policy {self.label_policy}, norm {self.norm}) ...")
 
         waveforms = np.empty((N, 3, window_len), dtype=np.float32)
         labels    = np.empty((N, 3, window_len), dtype=np.float32)

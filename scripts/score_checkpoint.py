@@ -16,12 +16,15 @@ pair `heldout_testset_score.load_weights` and `sbm.PhaseNet.load` read. This
 is the same strip-and-load as scripts/eval_finetuned.py (lines 84-95) and
 QuakeScope's sb_catalog/models/v3/phasenet/convert_checkpoint.py; that
 converter is the deployment step (it hard-codes the jma_wc parent) and is
-not duplicated here. The export declares norm "std": the 34A loader trains
-on per-component unit-std windows (manifest_dataset._normalise_std),
-whatever the parent's own norm (`instance` is "peak"). A sidecar
-<name>.export.json records the sha256 of the checkpoint and of both files,
-the epoch, the parent and its norm, and the run card's checkpoint hash when
-the run directory has one.
+not duplicated here. The export declares the window normalisation the run
+trained with (waveform_contract.NORMS: "std" or "peak"), read in this order:
+--norm, the checkpoint's own `norm` field (finetune.save_checkpoint writes
+it), the run card's `extra.norm`, the config's `data.norm`; a checkpoint
+whose norm none of these states is refused, since annotate() would then
+normalise differently from training. A sidecar <name>.export.json records
+the sha256 of the checkpoint and of both files, the epoch, the parent and
+its norm, the export norm and where it came from, and the run card's
+checkpoint hash when the run directory has one.
 
 Scoring. scripts/heldout_testset_score.score on every built case whose role
 in configs/evaluation_suites.json is `dev` (or --cases), with the candidate
@@ -51,12 +54,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import evaluation_policy as policy  # noqa: E402
 import heldout_testset_score as hts  # noqa: E402
+from waveform_contract import NORMS  # noqa: E402
 
 OUT_ROOT = REPO_ROOT / "data" / "evaluation"
 DEFAULT_PARENTS = ("instance", "jma_wc")
 DEFAULT_BUDGET_REFERENCE = "instance"
 DENSE_THRESHOLDS = [round(x / 100, 2) for x in range(2, 92, 2)]   # the 2026-09-13 baseline grid
-EXPORT_NORM = "std"                                               # the training loader's normalisation
 
 
 def sha256_file(path) -> str:
@@ -124,14 +127,40 @@ def student_state_dict(ckpt: dict) -> tuple[dict, int]:
     return student, sum(1 for k in raw if k.startswith("teacher."))
 
 
-def export_checkpoint(checkpoint, parent: str, name: str, out_dir, norm: str = EXPORT_NORM,
-                      card: dict | None = None, config_path=None):
-    """Write <out_dir>/<name>.json + .pt with SeisBench save(); returns (model, sidecar dict)."""
+def export_norm(ckpt: dict, card: dict | None = None, config: dict | None = None, override=None):
+    """(norm, source) the export must declare: --norm, the checkpoint's `norm`
+    field, the run card's extra.norm, the config's data.norm, in that order.
+    Raises ValueError when none states it or the value is not in NORMS."""
+    candidates = [
+        (override, "--norm"),
+        ((ckpt or {}).get("norm"), "checkpoint"),
+        ((((card or {}).get("extra") or {}).get("norm") or {}).get("norm"), "run card extra.norm"),
+        (((config or {}).get("data") or {}).get("norm"), "config data.norm"),
+    ]
+    for value, source in candidates:
+        if value is None:
+            continue
+        if value not in NORMS:
+            raise ValueError(f"{source} declares norm {value!r}; expected one of {NORMS}")
+        return value, source
+    raise ValueError("the checkpoint's window normalisation is unknown: no --norm, no `norm` in the checkpoint "
+                     "(written by finetune.save_checkpoint since 2026-09-18), no extra.norm in the run card and "
+                     "no data.norm in the config; pass --norm std for a run trained before the contract")
+
+
+def export_checkpoint(checkpoint, parent: str, name: str, out_dir, norm=None,
+                      card: dict | None = None, config: dict | None = None, config_path=None):
+    """Write <out_dir>/<name>.json + .pt with SeisBench save(); returns (model, sidecar dict).
+    `norm` overrides the checkpoint/card/config value (export_norm)."""
     import torch
     import seisbench.models as sbm
     checkpoint = Path(checkpoint)
     ckpt = torch.load(checkpoint, map_location="cpu")
+    norm, norm_source = export_norm(ckpt, card, config, override=norm)
     student, n_teacher = student_state_dict(ckpt)
+    ckpt_parent = ckpt.get("parent")
+    if ckpt_parent is not None and ckpt_parent != parent:
+        raise ValueError(f"checkpoint was trained from parent {ckpt_parent!r}, export asked for {parent!r}")
     model = sbm.PhaseNet.from_pretrained(parent)
     parent_norm = model.norm
     model.load_state_dict(student, strict=True)        # raises on any width or key mismatch
@@ -146,14 +175,14 @@ def export_checkpoint(checkpoint, parent: str, name: str, out_dir, norm: str = E
     out_dir.mkdir(parents=True, exist_ok=True)
     doc = (f"phasenet-retrain E1/T0 export of {checkpoint} (epoch {ckpt.get('epoch', '?')}, "
            f"val_loss {ckpt.get('val_loss', float('nan')):.6f}) from parent {parent} "
-           f"(parent norm {parent_norm}); trained on std-normalised windows, so norm={norm}. "
+           f"(parent norm {parent_norm}); trained on {norm}-normalised windows ({norm_source}), so norm={norm}. "
            f"Written by scripts/score_checkpoint.py at commit {git_commit()}.")
     model.save(out_dir / name, weights_docstring=doc, version_str=None)
     pt_path, json_path = out_dir / f"{name}.pt", out_dir / f"{name}.json"
     sidecar = {
         "name": name, "checkpoint": str(checkpoint), "checkpoint_sha256": ck_sha,
         "run_card_checkpoint_sha256": card_sha, "epoch": ckpt.get("epoch"), "val_loss": ckpt.get("val_loss"),
-        "parent": parent, "parent_norm": parent_norm, "export_norm": norm,
+        "parent": parent, "parent_norm": parent_norm, "export_norm": norm, "export_norm_source": norm_source,
         "n_student_tensors": len(student), "n_teacher_tensors_stripped": n_teacher,
         "pt": str(pt_path), "pt_sha256": sha256_file(pt_path),
         "json": str(json_path), "json_sha256": sha256_file(json_path),
@@ -253,13 +282,15 @@ def main(argv=None):
     ap.add_argument("--thresholds", nargs="+", type=float, default=DENSE_THRESHOLDS)
     ap.add_argument("--out-root", default=str(OUT_ROOT))
     ap.add_argument("--export-only", action="store_true", help="Write the SeisBench pair and stop")
+    ap.add_argument("--norm", default=None, choices=NORMS,
+                    help="Window normalisation to declare (default: the checkpoint's, then the run card's, then data.norm)")
     a = ap.parse_args(argv)
     run = resolve_run(a.run, a.checkpoint, a.config, a.name)
     out_root = Path(a.out_root)
     model, sidecar = export_checkpoint(run["checkpoint"], run["parent"], run["name"], out_root / "exports",
-                                       card=run["card"], config_path=run["config_path"])
+                                       norm=a.norm, card=run["card"], config=run["config"], config_path=run["config_path"])
     print(f"exported {sidecar['pt']} (parent {sidecar['parent']}, parent norm {sidecar['parent_norm']}, "
-          f"export norm {sidecar['export_norm']}, epoch {sidecar['epoch']}, "
+          f"export norm {sidecar['export_norm']} from {sidecar['export_norm_source']}, epoch {sidecar['epoch']}, "
           f"{sidecar['n_teacher_tensors_stripped']} teacher tensors stripped)")
     if a.export_only:
         return None

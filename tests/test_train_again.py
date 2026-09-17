@@ -64,6 +64,7 @@ def test_base_config_is_the_e1_base_recipe():
     assert t["max_epochs"] == 60
     d = cfg["data"]
     assert d["label_policy"] == "masked" and d["window_length"] == 3001
+    assert d["norm"] == "peak"                                   # follows the instance parent
     assert d["augmentation"] == {"noise_prob": 0.0}
     assert {d["train_manifest"], d["val_manifest"], d["test_manifest"]} == {
         "data/manifests_t0/train.csv", "data/manifests_t0/val.csv", "data/manifests_t0/test.csv"}
@@ -82,7 +83,14 @@ def test_base_config_is_the_e1_base_recipe():
     ("base_jma_wc", ("model", "pretrained", "model_name"), "jma_wc"),
 ])
 def test_each_arm_differs_from_base_in_exactly_one_factor(arm, path, value):
+    """One key per arm; base_jma_wc also carries data.norm std because the
+    normalisation follows the parent (jma_wc is std, instance is peak)."""
     base, cfg = _load("base"), _load(arm)
+    if arm == "base_jma_wc":
+        assert cfg["data"]["norm"] == "std"
+        cfg["data"]["norm"] = base["data"]["norm"]
+    else:
+        assert cfg["data"]["norm"] == "peak"
 
     def get(c, p):
         for k in p:
@@ -319,6 +327,7 @@ def test_phasenet_finetune_builds_from_instance_for_every_arm(arm):
     cfg = _load(arm)
     m = ftm.PhaseNetFinetune(cfg)
     assert m.parent_name == "instance" and m.model.norm == "peak" and getattr(m.model, "filter_factor", 1) == 1
+    assert m.parent_norm == "peak" and m.norm == "peak"                   # data.norm follows the parent
     assert sum(p.numel() for p in m.model.parameters()) == 268_443
     t = cfg["training"]
     assert m.soft_ce is True and m.class_weight is None
@@ -363,20 +372,144 @@ def test_finetune_config_path_loads_and_the_export_round_trips(tmp_path, monkeyp
     opt, _ = m.build_optimiser(cfg)
     ck = tmp_path / "checkpoints" / "best.pt"
     finetune.save_checkpoint(m, opt, torch.cuda.amp.GradScaler(enabled=False), 3, 0.123, ck)
+    saved = torch.load(ck, map_location="cpu")
+    assert saved["norm"] == "peak" and saved["parent"] == "instance"          # the config's data.norm travels with the checkpoint
     reloaded, sidecar = sc.export_checkpoint(ck, "instance", "e1_test", tmp_path / "exports",
                                              card={"checkpoint": {"sha256": sc.sha256_file(ck)}})
-    assert reloaded.norm == "std" and sidecar["parent_norm"] == "peak" and sidecar["export_norm"] == "std"
+    assert reloaded.norm == "peak" and sidecar["parent_norm"] == "peak" and sidecar["export_norm"] == "peak"
+    assert sidecar["export_norm_source"] == "checkpoint"
     assert sidecar["epoch"] == 3 and sidecar["n_teacher_tensors_stripped"] > 0
     assert torch.equal(reloaded.in_bn.weight, m.model.in_bn.weight)
     assert sidecar["pt_sha256"] == sc.sha256_file(tmp_path / "exports" / "e1_test.pt")
     meta = json.loads((tmp_path / "exports" / "e1_test.json").read_text())
-    assert meta["model_args"]["norm"] == "std" and meta["model_args"]["phases"] == "PSN"
-    assert "epoch 3" in meta["docstring"]
+    assert meta["model_args"]["norm"] == "peak" and meta["model_args"]["phases"] == "PSN"
+    assert "epoch 3" in meta["docstring"] and "peak-normalised" in meta["docstring"]
+    # the export json carries whatever norm the run used, never a fixed value
+    m.norm = "std"
+    ck_std = tmp_path / "checkpoints" / "best_std.pt"
+    finetune.save_checkpoint(m, opt, torch.cuda.amp.GradScaler(enabled=False), 4, 0.2, ck_std)
+    re_std, side_std = sc.export_checkpoint(ck_std, "instance", "e1_std", tmp_path / "exports")
+    assert re_std.norm == "std" and json.loads((tmp_path / "exports" / "e1_std.json").read_text())["model_args"]["norm"] == "std"
+    # a checkpoint without a norm is refused unless the card, the config or --norm states it
+    m.norm = None
+    ck_none = tmp_path / "checkpoints" / "best_none.pt"
+    finetune.save_checkpoint(m, opt, torch.cuda.amp.GradScaler(enabled=False), 5, 0.3, ck_none)
+    with pytest.raises(ValueError, match="unknown"):
+        sc.export_checkpoint(ck_none, "instance", "e1_none", tmp_path / "exports")
+    _, side = sc.export_checkpoint(ck_none, "instance", "e1_card", tmp_path / "exports",
+                                   card={"extra": {"norm": {"norm": "peak", "source": "parent instance"}}})
+    assert (side["export_norm"], side["export_norm_source"]) == ("peak", "run card extra.norm")
+    _, side = sc.export_checkpoint(ck_none, "instance", "e1_cfg", tmp_path / "exports", config={"data": {"norm": "std"}})
+    assert (side["export_norm"], side["export_norm_source"]) == ("std", "config data.norm")
+    _, side = sc.export_checkpoint(ck_none, "instance", "e1_flag", tmp_path / "exports", norm="std", config={"data": {"norm": "peak"}})
+    assert (side["export_norm"], side["export_norm_source"]) == ("std", "--norm")
+    with pytest.raises(ValueError, match="trained from parent"):
+        sc.export_checkpoint(ck, "jma_wc", "e1_wrong_parent", tmp_path / "exports")
     again = hts.load_weights(str(tmp_path / "exports" / "e1_test.pt"))     # the .pt spelling works too
     assert torch.equal(again.in_bn.weight, reloaded.in_bn.weight)
     with pytest.raises(ValueError, match="sha256"):
         sc.export_checkpoint(ck, "instance", "e1_bad", tmp_path / "exports", card={"checkpoint": {"sha256": "0" * 64}})
     # a jma_wc parent cannot take instance-width weights
     if _have_cached("jma_wc"):
+        saved.pop("parent")
+        torch.save(saved, tmp_path / "checkpoints" / "no_parent.pt")
         with pytest.raises(RuntimeError):
-            sc.export_checkpoint(ck, "jma_wc", "e1_wrong", tmp_path / "exports")
+            sc.export_checkpoint(tmp_path / "checkpoints" / "no_parent.pt", "jma_wc", "e1_wrong", tmp_path / "exports")
+
+
+def test_export_norm_order_and_refusal():
+    assert sc.export_norm({"norm": "peak"}, {"extra": {"norm": {"norm": "std"}}}, {"data": {"norm": "std"}}) == ("peak", "checkpoint")
+    assert sc.export_norm({}, {"extra": {"norm": {"norm": "std"}}}, {"data": {"norm": "peak"}}) == ("std", "run card extra.norm")
+    assert sc.export_norm({}, None, {"data": {"norm": "peak"}}) == ("peak", "config data.norm")
+    assert sc.export_norm({"norm": "peak"}, None, None, override="std") == ("std", "--norm")
+    with pytest.raises(ValueError, match="unknown"):
+        sc.export_norm({}, {"extra": {}}, {"data": {}})
+    with pytest.raises(ValueError, match="expected one of"):
+        sc.export_norm({"norm": "minmax"}, None, None)
+
+
+# ── the window normalisation contract ────────────────────────────────────────
+
+def test_std_path_is_unchanged_and_peak_is_per_component():
+    from waveform_contract import NORMS, _normalise_peak, _normalise_std, normalise_waveform
+    rng = np.random.default_rng(0)
+    x = (rng.normal(size=(3, 3001)) * np.array([[5.0], [0.2], [40.0]]) + np.array([[1.0], [-3.0], [7.0]])).astype(np.float32)
+    assert NORMS == ("std", "peak")
+    std = normalise_waveform(x, "std")
+    assert np.array_equal(std, _normalise_std(x))
+    d = x - x.mean(axis=-1, keepdims=True)
+    assert np.allclose(std, np.clip(d / d.std(axis=-1, keepdims=True), -10, 10), atol=1e-6)   # the pinned formula
+    peak = normalise_waveform(x, "peak")
+    assert np.array_equal(peak, _normalise_peak(x))
+    assert np.allclose(np.abs(peak).max(axis=-1), 1.0) and np.allclose(peak.mean(axis=-1), 0.0, atol=1e-6)
+    assert np.allclose(peak, d / np.abs(d).max(axis=-1, keepdims=True), atol=1e-6)
+    flat = np.zeros((3, 100), np.float32)
+    flat[1] = 2.5
+    flat[2] = 1e-7 * np.sin(np.arange(100))                          # a live channel in small physical units
+    out = normalise_waveform(flat, "peak")
+    assert np.array_equal(out[:2], np.zeros((2, 100), np.float32))
+    assert np.isclose(np.abs(out[2]).max(), 1.0)
+    with pytest.raises(ValueError, match="normalisation"):
+        normalise_waveform(x, "minmax")
+
+
+@needs_torch
+def test_peak_normalisation_equals_seisbench_annotate_batch_pre():
+    """waveform_contract._normalise_peak against seisbench 0.12.5
+    PhaseNet.annotate_batch_pre with norm="peak" (phasenet.py lines 192 and
+    202-204: per-component demean, divide by max |x| over time + 1e-10) on a
+    random batch with offsets and per-component scales; and the std path
+    against the same routine with norm="std" up to torch's unbiased std."""
+    import torch
+    import seisbench.models as sbm
+    from waveform_contract import normalise_waveform
+    rng = np.random.default_rng(1)
+    x = (rng.normal(size=(8, 3, 3001)) * rng.uniform(0.1, 50, size=(8, 3, 1)) + rng.uniform(-20, 20, size=(8, 3, 1))).astype(np.float32)
+    x[2, 1] = 0.7                                                    # a constant channel (DC only)
+    ours = np.stack([normalise_waveform(w, "peak") for w in x])
+    ref = sbm.PhaseNet(norm="peak").annotate_batch_pre(torch.from_numpy(x), {}).numpy()
+    live = np.ones(x.shape[:2], bool)
+    live[2, 1] = False
+    assert np.allclose(ours[live], ref[live], atol=1e-5), np.abs(ours[live] - ref[live]).max()
+    assert np.allclose(np.abs(ours[live]).max(axis=-1), 1.0)
+    # the documented difference: SeisBench serves the float32 residue of a DC
+    # channel at unit amplitude, the loader keeps it at zero
+    assert np.abs(ours[2, 1]).max() < 1e-6 and np.abs(ref[2, 1]).max() > 0.9
+    ours_std = np.stack([normalise_waveform(w, "std") for w in x])
+    ref_std = sbm.PhaseNet(norm="std").annotate_batch_pre(torch.from_numpy(x), {}).numpy()
+    ok = np.abs(ref_std) < 10                                        # outside the loader's clip the paths differ by design
+    assert np.allclose(ours_std[ok], ref_std[ok] * np.sqrt(3001 / 3000), rtol=1e-5, atol=1e-5)   # torch std is unbiased
+    assert not np.allclose(ours, ours_std)
+
+
+@needs_torch
+def test_resolve_norm_from_config_or_parent(monkeypatch):
+    import types
+    import seisbench.models as sbm
+    import manifest_data_module as mdm
+    assert mdm.resolve_norm({"data": {"norm": "std"}, "model": {"pretrained": {"model_name": "instance"}}}) == ("std", "config")
+    with pytest.raises(ValueError, match="data.norm"):
+        mdm.resolve_norm({"data": {"norm": "minmax"}})
+    fake = {"instance": "peak", "jma_wc": "std", "odd": "minmax"}
+    monkeypatch.setattr(sbm.PhaseNet, "from_pretrained", classmethod(lambda cls, name: types.SimpleNamespace(norm=fake[name])))
+    assert mdm.resolve_norm({"data": {}, "model": {"pretrained": {"model_name": "instance"}}}) == ("peak", "parent instance")
+    assert mdm.resolve_norm({}) == ("std", "parent jma_wc")            # the finetune.py default parent
+    with pytest.raises(ValueError, match="declares norm"):
+        mdm.resolve_norm({"model": {"pretrained": {"model_name": "odd"}}})
+
+
+@needs_instance
+def test_parent_norm_from_the_cached_weights():
+    import manifest_data_module as mdm
+    assert mdm.parent_norm("instance") == "peak"
+    assert mdm.resolve_norm(_load("base") | {"data": {}}) == ("peak", "parent instance")
+    if _have_cached("jma_wc"):
+        assert mdm.parent_norm("jma_wc") == "std"
+        assert mdm.resolve_norm(_load("base_jma_wc") | {"data": {}}) == ("std", "parent jma_wc")
+
+
+def test_run_card_records_data_norm():
+    import run_card as rc
+    section = rc.config_section(_load("base"), None)
+    assert section["norm"] == "peak" and section["training"]["freeze_bn_stats"] is False
+    assert rc.config_section({"data": {}}, None)["norm"] is None          # a legacy config: null, never a guess

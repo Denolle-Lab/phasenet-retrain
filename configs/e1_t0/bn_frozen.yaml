@@ -1,9 +1,9 @@
 # E1 / 46B, arm `bn_frozen`, seed 0: BatchNorm running statistics frozen at
 #  the parent's values (modules in eval mode during training); the affine
 #  parameters still train. Differs from base.yaml in
-#  training.freeze_bn_stats only. Confound to keep in mind: `instance` was
-#  trained under peak normalisation and the loader feeds std-normalised
-#  windows, so the frozen input BN statistics are those of another scale.
+#  training.freeze_bn_stats only. The loader normalises with the parent's
+#  norm (data.norm "peak" for `instance`), so the frozen statistics are the
+#  ones the parent computed on the same input scale.
 #  Everything else is the base recipe of base.yaml (instance init, 34A loader,
 #  masked policy, soft CE, alpha 0, adaptive BN, AdamW 5e-6, wd 1e-4, batch 256,
 #  warm-up 2 then cosine to 1e-6, clip 1.0, val_loss patience 10, 60 epochs,
@@ -53,6 +53,7 @@ data:
   test_manifest:  "data/manifests_t0/test.csv"
   window_length: 3001
   label_policy: "masked"
+  norm: "peak"                  # window normalisation follows the parent (SeisBench model_args.norm)
   augmentation:
     noise_prob: 0.0
 

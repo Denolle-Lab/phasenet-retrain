@@ -20,6 +20,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import seisbench.models as sbm
 
+from waveform_contract import NORMS
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Pick-residual helper
@@ -152,14 +154,20 @@ class PhaseNetFinetune(nn.Module):
         print(f"Loading pretrained PhaseNet: {model_name}")
         self.model = sbm.PhaseNet.from_pretrained(model_name)
         self.parent_name = model_name
-        # The 34A loader normalises every window per component to unit std
-        # (manifest_dataset._normalise_std). A parent trained under another
-        # SeisBench norm (`instance`: peak) starts from mismatched input
-        # statistics; the export of scripts/score_checkpoint.py records std.
-        parent_norm = getattr(self.model, "norm", None)
-        if parent_norm not in (None, "std"):
-            print(f"  NOTE: parent {model_name} was trained with norm={parent_norm!r}; the training loader "
-                  "normalises with std, and the exported weights will declare norm='std'")
+        # Window normalisation contract (2026-09-18): the loader's norm follows
+        # the parent's SeisBench norm unless data.norm says otherwise
+        # (manifest_data_module.resolve_norm). finetune.py sets self.norm to
+        # the value the loaders were built with; save_checkpoint stores it and
+        # scripts/score_checkpoint.py exports with it.
+        self.parent_norm = getattr(self.model, "norm", None)
+        self.norm = (config.get("data", {}) or {}).get("norm")
+        if self.norm is not None:
+            if self.norm not in NORMS:
+                raise ValueError(f"data.norm {self.norm!r} is not one of {NORMS}")
+            if self.parent_norm is not None and self.norm != self.parent_norm:
+                print(f"  WARNING: data.norm={self.norm!r} but parent {model_name} was trained with "
+                      f"norm={self.parent_norm!r}; training input statistics will not match the parent's")
+        print(f"  window norm: {self.norm or 'from parent'} (parent {model_name}: {self.parent_norm})")
 
         for layer_name in pretrained.get("freeze_layers", []):
             for name, param in self.model.named_parameters():

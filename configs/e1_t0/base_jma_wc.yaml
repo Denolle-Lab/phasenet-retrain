@@ -1,7 +1,8 @@
 # E1 / 46B, arm `base_jma_wc`, seed 0: the base recipe from the second parent
-#  `jma_wc` (PhaseNetWC width, norm std, so no normalisation confound).
-#  Differs from base.yaml in model.pretrained.model_name only. Not one of
-#  the seven E1 arms; it brackets the initialisation question until E4.
+#  `jma_wc` (PhaseNetWC width, SeisBench norm std). Differs from base.yaml
+#  in model.pretrained.model_name and, because the normalisation follows
+#  the parent, data.norm ("std" here, "peak" for `instance`). Not one of the
+#  seven E1 arms; it brackets the initialisation question until E4.
 #  Everything else is the base recipe of base.yaml (instance init, 34A loader,
 #  masked policy, soft CE, alpha 0, adaptive BN, AdamW 5e-6, wd 1e-4, batch 256,
 #  warm-up 2 then cosine to 1e-6, clip 1.0, val_loss patience 10, 60 epochs,
@@ -51,6 +52,7 @@ data:
   test_manifest:  "data/manifests_t0/test.csv"
   window_length: 3001
   label_policy: "masked"
+  norm: "std"                  # window normalisation follows the parent (SeisBench model_args.norm)
   augmentation:
     noise_prob: 0.0
 

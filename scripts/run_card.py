@@ -139,6 +139,7 @@ def config_section(config: dict, config_path) -> dict:
         "seed": config.get("seed", 42),
         "seed_source": "config" if "seed" in config else "default 42 (scripts/finetune.py)",
         "label_policy": data_cfg.get("label_policy"),
+        "norm": data_cfg.get("norm"),
         "augmentation": data_cfg.get("augmentation"),
         "window_length": data_cfg.get("window_length"),
         "training": {k: train_cfg.get(k) for k in (

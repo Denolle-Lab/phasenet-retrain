@@ -15,10 +15,11 @@
 #  interim rule until the 35A development-excerpt scorer runs per epoch
 #  (strategy section 7); selection between arms is on the development suite
 #  through scripts/score_checkpoint.py, not on val_loss.
-#  Known confound: `instance` was trained with SeisBench norm "peak" and the
-#  loader normalises with std (manifest_dataset._normalise_std); the base arm
-#  adapts its BN statistics to that, the bn_frozen arm cannot. The export of
-#  score_checkpoint.py declares norm "std" so annotate() matches training.
+#  Window normalisation follows the parent: data.norm "peak" is `instance`'s
+#  SeisBench model_args.norm (waveform_contract.normalise_waveform, matched to
+#  seisbench 0.12.5 phasenet.py annotate_batch_pre lines 192, 202-204), so
+#  the input statistics match the parent from the first step and the export
+#  of score_checkpoint.py declares the same norm. `base_jma_wc` uses "std".
 
 model:
   pretrained:
@@ -64,6 +65,7 @@ data:
   test_manifest:  "data/manifests_t0/test.csv"
   window_length: 3001
   label_policy: "masked"
+  norm: "peak"                  # window normalisation follows the parent (SeisBench model_args.norm)
   augmentation:
     noise_prob: 0.0
 

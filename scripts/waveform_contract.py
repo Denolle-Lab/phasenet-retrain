@@ -10,6 +10,62 @@ import pandas as pd
 from scipy.signal import resample_poly
 
 CONTRACT_VERSION = "34a-v1"
+
+NORMS = ("std", "peak")   # window normalisation contract; follows the parent weights' SeisBench norm
+NORM_CLIP = 10.0
+
+
+def _normalise_std(waveform):
+    """Per-component demean + unit-std normalisation (norm=std, matches jma_wc training).
+
+    SeisBench 0.12.5 seisbench/models/phasenet.py annotate_batch_pre, lines
+    192 and 199-201: demean over time per component, divide by the std over
+    time per component (+1e-10). Differences kept on purpose: numpy's
+    population std against torch's unbiased std (a factor sqrt(N/(N-1)),
+    1.00017 at 3001 samples), a zero-std guard of 1.0, and the clip at
+    +-NORM_CLIP that the deployed path does not apply.
+    """
+    waveform = waveform - waveform.mean(axis=-1, keepdims=True)
+    std = waveform.std(axis=-1, keepdims=True)
+    std[std < 1e-6] = 1.0
+    waveform = waveform / std
+    return np.clip(waveform, -NORM_CLIP, NORM_CLIP)
+
+
+def _normalise_peak(waveform):
+    """Per-component demean + unit-peak normalisation (norm=peak, the `instance`
+    weights' training normalisation).
+
+    SeisBench 0.12.5 seisbench/models/phasenet.py annotate_batch_pre, lines
+    192 and 202-204 (norm_amp_per_comp False, the `instance` setting):
+    `batch - batch.mean(axis=-1, keepdims=True)`, then
+    `peak = batch.abs().max(axis=-1, keepdims=True)[0]; batch / (peak + 1e-10)`
+    on a (batch, component, time) tensor, so the peak is per component over
+    time. Two deliberate differences: a flat channel (peak after demeaning at
+    or below 1e-6 of the raw peak, which covers an all-zero channel and the
+    float32 rounding residue of a constant channel) divides by 1 and stays
+    zero, where SeisBench divides the residue by (peak + 1e-10) and serves it
+    at unit amplitude (a 34C parity item for dead channels with a DC offset);
+    and the +-NORM_CLIP clip of the std path is applied, a no-op on values
+    already in [-1, 1]. tests/test_train_again.py checks the equality on a
+    random batch against the installed annotate_batch_pre.
+    """
+    raw_peak = np.abs(waveform).max(axis=-1, keepdims=True)
+    waveform = waveform - waveform.mean(axis=-1, keepdims=True)
+    peak = np.abs(waveform).max(axis=-1, keepdims=True)
+    peak[peak <= 1e-6 * raw_peak] = 1.0
+    waveform = waveform / peak
+    return np.clip(waveform, -NORM_CLIP, NORM_CLIP)
+
+
+def normalise_waveform(waveform, norm="std"):
+    """Apply the window normalisation `norm` (one of NORMS) per component."""
+    if norm == "std":
+        return _normalise_std(waveform)
+    if norm == "peak":
+        return _normalise_peak(waveform)
+    raise ValueError(f"Unknown window normalisation {norm!r}; expected one of {NORMS}")
+
 METADATA_FIELDS = {
     "trace_name", "trace_sampling_rate_hz", "trace_dt_s", "sampling_rate",
     "trace_component_order", "component_order", "trace_dimension_order",

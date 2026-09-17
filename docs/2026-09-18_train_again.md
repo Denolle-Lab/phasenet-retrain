@@ -33,7 +33,8 @@ the parents there at all.
 | Manual-status filter | `apply_status_filter` in the builder; `require_status_columns` per source | picks whose status column is present and not `manual` are nulled; absent columns are a printed no-op |
 | E1 configs | `configs/e1_t0/{base,mask_off,kd_t1p5,kd_t4,bn_frozen,lr_2e-6,lr_2e-5,base_jma_wc}.yaml`; seeds 1 and 2 under `configs/e1_t0/seeds/` from `scripts/e1_seed_configs.py` | the base recipe and the one-factor arms of strategy §8 E1 |
 | Frozen BN statistics | `training.freeze_bn_stats` in `scripts/fine_tune_model.py` (recorded by the run card) | BatchNorm modules in eval mode during training, affine parameters trainable |
-| Post-run scoring | `scripts/score_checkpoint.py`; `load_weights` in `scripts/heldout_testset_score.py` | `best.pt` to a SeisBench pair, scored with the 35A engine against `instance` and `jma_wc` at matched budget on the dev cases |
+| Window normalisation contract | `waveform_contract.NORMS`, `normalise_waveform`; `norm` on `ManifestDataset` and `CachedManifestDataset`; `manifest_data_module.resolve_norm`; `data.norm` in the configs; `norm` in every checkpoint and in the run card | the loader normalises the way the parent's `annotate()` does: `std` for `jma_wc`, `peak` for `instance` (SeisBench 0.12.5 `phasenet.py` lines 192, 199-204) |
+| Post-run scoring | `scripts/score_checkpoint.py`; `load_weights` in `scripts/heldout_testset_score.py` | `best.pt` to a SeisBench pair declaring the run's norm, scored with the 35A engine against `instance` and `jma_wc` at matched budget on the dev cases |
 | Tests | `tests/test_corpus_profiles.py`, `tests/test_train_again.py` | profiles, status filter, P-only refusal, fraction renormalisation, configs, seed copies, BN freeze, `instance` build, export round trip, scoring wrapper |
 
 ## 2. The path, in order
@@ -48,7 +49,7 @@ the rest is new.
 cd <server clone>; git fetch; git checkout audit/2026-09-07-generalization; git pull --ff-only
 export SEISBENCH_CACHE_ROOT=/data/wsd04/ak287/.seisbench
 export MPLCONFIGDIR=$PWD/.mpl
-python -m pytest tests -q          # laptop: 442 passed in the torch venv; 396 passed, 17 skipped in base python (no torch)
+python -m pytest tests -q          # laptop: 449 passed in the torch venv; 399 passed, 20 skipped in base python (no torch)
 ```
 
 ### 2.2 Exclusion bundle (runbook steps 4 and 5)
@@ -151,10 +152,13 @@ done
 ```
 
 The base recipe (`configs/e1_t0/base.yaml`): `instance` init, masked label
-policy, soft cross-entropy, no distillation, adaptive BN, AdamW 5e-6 with
-weight decay 1e-4, batch 256, warm-up 2 epochs then cosine to 1e-6,
-gradient clip 1.0, at most 60 epochs, early stopping on `val_loss` with
-patience 10. Early stopping on `val_loss` is the interim rule: strategy §7
+policy, `data.norm: peak` (the parent's normalisation), soft cross-entropy,
+no distillation, adaptive BN, AdamW 5e-6 with weight decay 1e-4, batch 256,
+warm-up 2 epochs then cosine to 1e-6, gradient clip 1.0, at most 60 epochs,
+early stopping on `val_loss` with patience 10. The loader prints
+`Window normalisation: peak (config)` at preload; the run card records
+`config.norm` and `extra.norm` (value and origin), and every checkpoint
+carries `norm` and `parent`. Early stopping on `val_loss` is the interim rule: strategy §7
 wants the development metric per epoch on a fixed excerpt, and that scorer
 is not wired into the loop yet; the checkpoint choice therefore uses
 validation loss and the arm choice uses §2.7. Run the loop sequentially or
@@ -170,8 +174,11 @@ python scripts/score_checkpoint.py --run results/e1_t0_base_seed2
 
 Per run: `data/evaluation/exports/<run>.{json,pt,export.json}` (the
 SeisBench pair, reloadable with `sbm.PhaseNet.load` or
-`heldout_testset_score.load_weights`; the sidecar has the checkpoint,
-`.pt` and `.json` sha256, epoch, parent and norm), then the 35A engine on
+`heldout_testset_score.load_weights`; the pair declares the norm the run
+trained with, read from the checkpoint, else the run card, else the
+config's `data.norm`, else `--norm`; a checkpoint whose norm none of these
+states is refused; the sidecar has the checkpoint, `.pt` and `.json`
+sha256, epoch, parent, parent norm, export norm and its origin), then the 35A engine on
 every built case with role `dev` in `configs/evaluation_suites.json`
 (Samos, Adriatic 2022, Etna, Corinth-Thiva) with the candidate,
 `instance` and `jma_wc`, thresholds 0.02 to 0.90 in steps of 0.02, budget
@@ -216,16 +223,25 @@ Each arm file changes one key of the base and says so in its header:
 
 ## 3. What to expect, and two confounds to carry
 
-- **Normalisation.** `instance` was trained with SeisBench norm `peak`;
-  the 34A loader trains on per-component unit-std windows
-  (`manifest_dataset._normalise_std`, clipped at 10). `PhaseNetFinetune`
-  prints a NOTE on this at build time. The base arm re-adapts its BN
-  statistics; `bn_frozen` keeps input BN statistics that belong to another
-  input scale, so that arm is handicapped by the parent choice, not only
-  by the BN question. The export declares `norm: std` so `annotate()` sees
-  what training saw. Making the loader follow the parent's norm is a 34C
-  parity decision, not taken here; `base_jma_wc` (norm `std`) has no such
-  confound.
+- **Normalisation follows the parent.** `instance` was trained with
+  SeisBench norm `peak`, `jma_wc` with `std`. The loader now takes
+  `data.norm` (every E1 config states it: `peak` for the `instance` arms,
+  `std` for `base_jma_wc`) and, when a config omits it, reads the parent's
+  `model_args.norm` through `PhaseNet.from_pretrained(name).norm`
+  (`manifest_data_module.resolve_norm`, printed at preload, recorded in
+  the run card with its origin). `waveform_contract._normalise_peak`
+  matches SeisBench 0.12.5 `phasenet.py` `annotate_batch_pre` lines 192
+  and 202-204 (per-component demean, divide by max |x| over time), checked
+  on a random batch against the installed routine in
+  `tests/test_train_again.py`; the one difference is a flat channel with a
+  DC offset, whose float32 residue SeisBench serves at unit amplitude and
+  the loader keeps at zero (a 34C item). The std path is unchanged
+  (population std, guard, clip at 10; SeisBench's unbiased std differs by
+  a factor 1.00017 at 3001 samples). The input statistics therefore match
+  the parent from the first step, the `bn_frozen` arm is no longer
+  confounded by the input scale, and the export declares the run's norm so
+  `annotate()` sees what training saw. `PhaseNetFinetune` warns when
+  `data.norm` disagrees with the parent's norm.
 - **Probability scale.** `instance` attains the parent budget at 0.04 to
   0.24 (`docs/baselines_2026-09-13/README.md`); a fine-tune from it will
   sit on its own scale, which is why the table reports recall at matched
@@ -273,11 +289,19 @@ the arms.
 
 ## 6. Validation on 2026-09-18
 
-Base `python` 3.9.20 (no torch): `python -m pytest tests -q`, 396 passed,
-17 skipped (the torch and cached-weight tests). Torch venv (Python 3.11,
-torch 2.2.2, SeisBench 0.12.5, cached `instance` and `jma_wc`): 442 passed. `scripts/score_checkpoint.py` was run on the laptop CPU against the
-four built development cases with a checkpoint made from `instance`
-through `PhaseNetFinetune` with every parameter perturbed by 1e-3, against
-`instance` and `jma_wc`: the export reloaded with norm `std`, the four
-cases scored, and the summary table was written. That run is a path check,
-not a result; its output directory is not committed.
+Base `python` 3.9.20 (no torch): `python -m pytest tests -q`, 399 passed,
+20 skipped (the torch and cached-weight tests).
+Torch venv (Python 3.11, torch 2.2.2, SeisBench 0.12.5, cached `instance`
+and `jma_wc`): 449 passed. `scripts/score_checkpoint.py` was run on the
+laptop CPU against the four built development cases with a checkpoint made
+from `instance` through `PhaseNetFinetune` (`configs/e1_t0/base.yaml`, so
+`norm: peak`) with every parameter perturbed by 1e-3, against `instance`
+and `jma_wc`: the export reloaded with norm `peak` read from the
+checkpoint, the four cases scored, and the summary table was written. That
+run is a path check, not a result; its output directory is not committed.
+It did show the point of the contract: the perturbed `instance` exported
+with `norm: peak` reproduces the parent's operating point (recall within
+0.01 of `instance` at the same threshold 0.3 on all eight case-phase rows),
+whereas the same weights exported under the earlier fixed `std` sat 0.06
+to 0.10 below the parent and attained the budget only at thresholds of
+0.04 to 0.06, with two S rows not attaining it at all.

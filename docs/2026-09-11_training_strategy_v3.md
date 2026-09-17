@@ -96,7 +96,8 @@ freeze is the act that makes them a test.
   regional S and by overlapping events; it is not assumed.
 - **Initialisation.** From the SeisBench `instance` weights, revised on
   2026-09-17 from `jma_wc`. The corrected baselines
-  (`docs/baselines_2026-09-13/`, `docs/event_baselines_2026-09-17/`) put
+  (`docs/baselines_2026-09-13/`; `docs/event_baselines_2026-09-17/` on
+  PR #85, which merges before this amendment) put
   `instance` above `jma_wc` at the parent's pick budget on every one of
   the seven regression and development cases and both phases (S by
   +0.11 to +0.19 with intervals off zero on six cases), and above it at
@@ -118,10 +119,12 @@ freeze is the act that makes them a test.
   defective corpus and proves nothing.
 - **Campaign picker now.** The Phase-0 gate of the v2 plan (a candidate
   that leads at matched budget on the non-US pairs and does not raise the
-  false-pick rate replaces `jma_wc` in the campaign before any training)
-  is met by `instance` on the regression and development cases: same
-  emitted count, more matched, therefore fewer unmatched, on all 14
-  case–phase pairs. The switch is a deployment decision under #49's
+  unmatched-pick rate replaces `jma_wc` in the campaign before any
+  training) is met by `instance` on the regression and development
+  cases: same emitted count, more matched, therefore fewer unmatched
+  picks, on all 14 case–phase pairs. Unmatched is the #38 proxy, not a
+  reviewed false-positive rate; the reviewed rate comes with the #38
+  calibration days. The switch is a deployment decision under #49's
   interim rule, not an acceptance result; it needs the #38 thresholds
   for `instance` and a run of the two QuakeScope notebooks, and the
   sealed panel stays unread.

@@ -9,28 +9,61 @@ configs (`data/manifests_v2/{train,val,test}.csv`,
 `results/finetune_*_metrics.csv`, `checkpoints/finetune_*/best.pt`); verify
 each path exists before the step that needs it. Nothing here trains a model.*
 
-## 0. Environment (10 min)
+## 0. Environment (20 min)
+
+Work in a clone of your own. The 2026 runs live in Akash's clone under
+`/data/wsd04/ak287/`, which is read-only to others; nothing below writes
+there. Read access to two things in it is all that is needed: the SeisBench
+cache (`.seisbench/datasets`) and the historical artifacts (`data/manifests_v2/*.csv`,
+`checkpoints/`, `results/`). If `ls` on either fails, ask for group read;
+write is never required.
 
 ```bash
-cd <server clone>; git fetch; git checkout audit/2026-09-07-generalization; git pull --ff-only
-conda activate <env with torch, seisbench, h5py, scipy, pandas, obspy, pytest>
-export SEISBENCH_CACHE_ROOT=/data/wsd04/ak287/.seisbench
+cd /data/<your area>                                  # writable, with room for results and caches
+git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
+git checkout audit/2026-09-07-generalization           # or main, once PR #82 has merged
+conda activate <env with torch, seisbench, h5py, scipy, pandas, obspy, pytest>   # the 2026 env first, see below
+pip install pyarrow pyocto
+
+# a cache of your own: datasets are Akash's by symlink (read-only), models are yours (writable)
+mkdir -p $HOME/.seisbench_phasenet/models
+ln -sfn /data/wsd04/ak287/.seisbench/datasets $HOME/.seisbench_phasenet/datasets   # idempotent on reruns
+export SEISBENCH_CACHE_ROOT=$HOME/.seisbench_phasenet
+ls $SEISBENCH_CACHE_ROOT/datasets | head
 export MPLCONFIGDIR=$PWD/.mpl
-python -m pytest tests -q            # laptop: 361 passed in the torch venv; must pass here first
-python -c "import sys, torch, seisbench, scipy, numpy; print(sys.version.split()[0], torch.__version__, seisbench.__version__, scipy.__version__)"
+
+# the historical manifests, copied: the loader writes its rejection ledger beside the manifest it reads
+HIST=/data/wsd04/ak287/<clone>                          # Akash's clone, read-only
+mkdir -p data/manifests_v2 && cp $HIST/data/manifests_v2/*.csv data/manifests_v2/
+
+python -c "import sys, torch, seisbench, scipy; print(sys.version.split()[0], torch.__version__, seisbench.__version__, scipy.__version__)"
+python -m pytest tests -q            # laptop: 407 passed in the torch venv; must pass here first
 ```
 
-Record the four versions (Python, PyTorch, SeisBench, SciPy); the run card records them too. If the suite fails
-here, stop and report the failure before anything else: the checkpoints
-were validated on the laptop with SeisBench 0.12.5 and PyTorch 2.2.2, and
-the server's pinned runtime is the one that matters.
+Which conda env: the one the 2026 fine-tunes ran in, if it still exists
+(`conda env list`; the noise builder's docstring names it `surface`). Two
+reasons: step 3 must replay the v7 rows under the runtime that trained
+them, and the repaired code has so far been tested only on the laptop
+(PyTorch 2.2.2, SeisBench 0.12.5), so the suite has to pass under the
+server's actual versions before anything is trusted. If the suite fails
+there on version grounds, keep that env untouched for step 3 and make a
+second one for everything else:
+`conda create -n phasenet-audit python=3.11 -y && conda activate phasenet-audit && pip install -r requirements.txt pyocto`.
+
+Record the four versions (Python, PyTorch, SeisBench, SciPy); the run card
+records them too. If the suite fails, stop and report the failure before
+anything else.
+
+Every later step that names `data/manifests_v2`, `checkpoints/` or
+`results/` of the historical runs reads them from `$HIST`; every output
+goes under your clone.
 
 ## 1. Immutability of the historical inputs (5 min)
 
 ```bash
-python scripts/hash_manifests.py --check            # every listed manifest against data/manifest_checksums.csv
-ls -la data/manifests_v2/ checkpoints/finetune_jma_wc_global_v7/ results/ | head -40
-sha256sum checkpoints/finetune_jma_wc_global_v7/best.pt models/jma_wc_ft_global_v7.pt
+python scripts/hash_manifests.py --check            # the copied manifests against data/manifest_checksums.csv
+ls -la $HIST/data/manifests_v2/ $HIST/checkpoints/finetune_jma_wc_global_v7/ $HIST/results/ | head -40
+sha256sum $HIST/checkpoints/finetune_jma_wc_global_v7/best.pt $HIST/models/jma_wc_ft_global_v7.pt
 ```
 
 A checksum mismatch on `manifests_v2` means the 34B attribution to v7
@@ -43,8 +76,8 @@ Runs trained after 2026-07-12 (`71d7e2d`) logged fetch failures. Read
 them before the replay:
 
 ```bash
-grep -l -i "fetch" results/*_metrics.csv results/*/*.log 2>/dev/null | head
-grep -h -i -E "fetch.*fail|zero.*sample|substitut" results/*/*.log 2>/dev/null | sort | uniq -c | sort -rn | head -20
+grep -l -i "fetch" $HIST/results/*_metrics.csv $HIST/results/*/*.log 2>/dev/null | head
+grep -h -i -E "fetch.*fail|zero.*sample|substitut" $HIST/results/*/*.log 2>/dev/null | sort | uniq -c | sort -rn | head -20
 ```
 
 Note per run: run name, manifest, count of failed fetches, datasets named
@@ -276,4 +309,4 @@ parity; a laptop task with the torch venv and the local weights), 35C
 (calibrated baselines; needs 38A's availability table from the continuous
 archives, which is a server download), and 44B (panel freeze after 37B).
 E0 itself is three arms × three seeds on the v7 rows; per-epoch time from
-`results/finetune_jma_wc_global_v7_metrics.csv` sets the schedule.
+`$HIST/results/finetune_jma_wc_global_v7_metrics.csv` sets the schedule.

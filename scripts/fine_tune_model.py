@@ -20,6 +20,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import seisbench.models as sbm
 
+from waveform_contract import NORMS
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Pick-residual helper
@@ -151,6 +153,21 @@ class PhaseNetFinetune(nn.Module):
         model_name = pretrained.get("model_name", "jma_wc")
         print(f"Loading pretrained PhaseNet: {model_name}")
         self.model = sbm.PhaseNet.from_pretrained(model_name)
+        self.parent_name = model_name
+        # Window normalisation contract (2026-09-18): the loader's norm follows
+        # the parent's SeisBench norm unless data.norm says otherwise
+        # (manifest_data_module.resolve_norm). finetune.py sets self.norm to
+        # the value the loaders were built with; save_checkpoint stores it and
+        # scripts/score_checkpoint.py exports with it.
+        self.parent_norm = getattr(self.model, "norm", None)
+        self.norm = (config.get("data", {}) or {}).get("norm")
+        if self.norm is not None:
+            if self.norm not in NORMS:
+                raise ValueError(f"data.norm {self.norm!r} is not one of {NORMS}")
+            if self.parent_norm is not None and self.norm != self.parent_norm:
+                print(f"  WARNING: data.norm={self.norm!r} but parent {model_name} was trained with "
+                      f"norm={self.parent_norm!r}; training input statistics will not match the parent's")
+        print(f"  window norm: {self.norm or 'from parent'} (parent {model_name}: {self.parent_norm})")
 
         for layer_name in pretrained.get("freeze_layers", []):
             for name, param in self.model.named_parameters():
@@ -181,6 +198,14 @@ class PhaseNetFinetune(nn.Module):
             self.teacher.eval()
         else:
             self.teacher = None
+
+        # Frozen BatchNorm statistics (strategy v3 section 7, an E1 arm): the
+        # BatchNorm modules stay in eval mode during training, so the running
+        # mean and variance are the parent's and are not updated; their affine
+        # weight and bias still train. Default False = adaptive statistics.
+        self.freeze_bn_stats = bool(training_cfg.get("freeze_bn_stats", False))
+        if self.freeze_bn_stats:
+            print("  BatchNorm stats FROZEN (affine parameters still train)")
 
         self.timing_beta = training_cfg.get("timing_beta", 0.0)
         if self.timing_beta > 0:
@@ -218,7 +243,15 @@ class PhaseNetFinetune(nn.Module):
         super().train(mode)
         if self.teacher is not None:
             self.teacher.eval()   # teacher must always stay in eval (no dropout/BN in train mode)
+        if mode and getattr(self, "freeze_bn_stats", False):
+            for module in self.model.modules():
+                if isinstance(module, nn.modules.batchnorm._BatchNorm):
+                    module.eval()   # running statistics fixed; affine parameters keep requires_grad
         return self
+
+    def bn_modules(self):
+        """The student's BatchNorm modules, in module order."""
+        return [m for m in self.model.modules() if isinstance(m, nn.modules.batchnorm._BatchNorm)]
 
     def forward(self, x: torch.Tensor, logits: bool = False) -> torch.Tensor:
         return self.model(x, logits=logits)

@@ -152,6 +152,23 @@ git add data/exclusions/bundle.json
 issue asks for. The bundle must report `certified: true`; if a source is
 listed under `uncertified_sources`, its snapshot path is wrong.
 
+## 5b. Alternative path after step 5: train again on the T0 pilot corpus
+
+With the certified bundle in place, the forward path of
+`docs/2026-09-18_train_again.md` can start without steps 3 and 6c: the 39A
+census (step 6, recommended first, because it decides whether the
+INSTANCE manual-status filter is expressible), then
+
+```bash
+python scripts/build_training_dataset.py --profile t0_pilot --output-dir data/manifests_t0 --seed 42
+python scripts/finetune.py --config configs/e1_t0/base.yaml          # then seeds/base_seed1.yaml, seeds/base_seed2.yaml
+python scripts/run_card.py check results/e1_t0_base_seed0/run_card.json
+python scripts/score_checkpoint.py --run results/e1_t0_base_seed0     # export + matched budget vs instance and jma_wc on the dev cases
+```
+
+and the six one-factor arms under `configs/e1_t0/`. A T0 model is the E1
+recipe pilot, not the campaign picker (strategy §2 holds the rule).
+
 ## 6. 39A on the cache: pick status and held-out overlap per SeisBench source (20 min)
 
 ```bash
@@ -301,7 +318,8 @@ skip. This is the migration list of
 |---|---|
 | 34B `phase_summary.csv` | the group report's missing number; 46A/E0 design |
 | task 1 counts and the certified bundle (33A) | 40A pilot corpus build; every future manifest |
-| 39A SeisBench table | T0 source list |
+| 39A SeisBench table | T0 source list; whether the `t0_pilot` status filter applies to INSTANCE |
+| step 5b | E1 base and arms on T0 (`docs/2026-09-18_train_again.md`) |
 | loader smoke test | 46A configs `configs/e0_46a_*_targets.yaml` become runnable |
 
 Still needed before E0 starts: 34C (benchmark timebase and deployment

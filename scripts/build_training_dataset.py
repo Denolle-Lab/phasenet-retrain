@@ -39,14 +39,25 @@ valid bundle), label-error flagged traces, benchmark events under another
 trace_name. provenance.json beside the manifests records the bundle hash, git
 commit, per-source counts and the manifest key hashes.
 
+Corpus profiles (#40A): --profile <name> selects a profile from
+configs/corpus_profiles.yaml (which sources, their cap and use_s, an optional
+manual-status filter per source, the training distance fractions, a maximum
+epicentral distance, whether P-only sources are allowed, which sources are
+skipped). Without --profile the module defaults below apply, which the
+`legacy_v2` profile reproduces exactly. The profile name and hash are written
+to provenance.json and heldout_removal_report.csv.
+
 Usage:
   python scripts/build_training_dataset.py
   python scripts/build_training_dataset.py --output-dir data/manifests --seed 42
+  python scripts/build_training_dataset.py --profile t0_pilot --output-dir data/manifests_t0
 """
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 import warnings
 from datetime import datetime, timezone
@@ -54,6 +65,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import yaml
 
 warnings.filterwarnings("ignore")
 
@@ -355,6 +367,159 @@ TARGET_FRACTIONS = {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Corpus profiles (#40A): configs/corpus_profiles.yaml
+# ──────────────────────────────────────────────────────────────────────────────
+
+PROFILES_PATH = Path(__file__).resolve().parent.parent / "configs" / "corpus_profiles.yaml"
+DISTANCE_BINS = ("local", "regional", "teleseismic", "unknown")
+MANUAL_STATUS_VALUES = ("manual",)
+PROFILE_SOURCE_KEYS = ("cap", "use_s", "require_status_columns", "manual_values", "default_bin")
+
+
+def load_profiles(path=PROFILES_PATH):
+    """The `profiles` mapping of the YAML file (version 1) and the file's sha256."""
+    path = Path(path)
+    raw = path.read_bytes()
+    doc = yaml.safe_load(raw) or {}
+    if doc.get("version") != 1 or not isinstance(doc.get("profiles"), dict) or not doc["profiles"]:
+        raise ValueError(f"{path}: expected version 1 and a non-empty `profiles` mapping")
+    return doc["profiles"], hashlib.sha256(raw).hexdigest()
+
+
+def normalise_fractions(fractions):
+    """Every bin of DISTANCE_BINS, missing bins 0, negatives refused, renormalised
+    to sum to one (left untouched when the sum is already 1 within 1e-9, so the
+    legacy fractions pass through bit for bit)."""
+    if not isinstance(fractions, dict) or not fractions:
+        raise ValueError("target_fractions must be a non-empty mapping of distance bin -> fraction")
+    unknown = set(fractions) - set(DISTANCE_BINS)
+    if unknown:
+        raise ValueError(f"target_fractions has unknown bins {sorted(unknown)}; expected {DISTANCE_BINS}")
+    out = {}
+    for b in DISTANCE_BINS:
+        v = float(fractions.get(b, 0.0))
+        if not np.isfinite(v) or v < 0:
+            raise ValueError(f"target_fractions[{b!r}] must be a finite, non-negative number, got {v}")
+        out[b] = v
+    total = sum(out.values())
+    if total <= 0:
+        raise ValueError("target_fractions sum to zero")
+    if abs(total - 1.0) > 1e-9:
+        out = {b: v / total for b, v in out.items()}
+    return out
+
+
+def profile_sha256(profile):
+    """sha256 of the profile mapping as sorted, whitespace-free JSON (layout-independent)."""
+    return hashlib.sha256(json.dumps(profile, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
+
+
+def _status_phase(column):
+    """Phase a status column constrains, from its name: trace_P*/trace_p* -> P,
+    trace_S*/trace_s* -> S, anything else -> None (both picks)."""
+    m = re.match(r"^trace_([PpSs])", str(column))
+    return m.group(1).upper() if m else None
+
+
+def resolve_profile(name, path=PROFILES_PATH, dataset_configs=None):
+    """Apply a profile to DATASET_CONFIGS.
+
+    Returns a dict with `configs` (the DATASET_CONFIGS entries the profile
+    lists, in DATASET_CONFIGS order, with cap/use_s and the optional keys
+    overridden), `target_fractions` (normalised), `skip_sources` (frozenset),
+    `max_distance_km`, `allow_p_only`, `name`, `description`, `sha256`
+    (profile mapping) and `file_sha256`. Refuses an unknown profile, a source
+    DATASET_CONFIGS does not know, a source key outside PROFILE_SOURCE_KEYS,
+    and, when allow_p_only is false, any source with use_s false.
+    """
+    profiles, file_sha = load_profiles(path)
+    if name not in profiles:
+        raise ValueError(f"unknown profile {name!r}; {Path(path).name} has {sorted(profiles)}")
+    prof = profiles[name] or {}
+    base = DATASET_CONFIGS if dataset_configs is None else dataset_configs
+    known = {cfg["name"]: cfg for cfg in base}
+    sources = prof.get("sources") or {}
+    if not isinstance(sources, dict) or not sources:
+        raise ValueError(f"profile {name!r} lists no sources")
+    missing = sorted(set(sources) - set(known))
+    if missing:
+        raise ValueError(f"profile {name!r} names sources DATASET_CONFIGS does not know: {missing}")
+    allow_p_only = bool(prof.get("allow_p_only", True))
+    configs = []
+    for cfg in base:                                   # DATASET_CONFIGS order, not the profile's
+        if cfg["name"] not in sources:
+            continue
+        spec = sources[cfg["name"]] or {}
+        extra = sorted(set(spec) - set(PROFILE_SOURCE_KEYS))
+        if extra:
+            raise ValueError(f"profile {name!r}, source {cfg['name']!r}: unknown keys {extra}; "
+                             f"allowed {PROFILE_SOURCE_KEYS}")
+        if "cap" not in spec or "use_s" not in spec:
+            raise ValueError(f"profile {name!r}, source {cfg['name']!r}: cap and use_s are required")
+        new = dict(cfg)
+        new["cap"] = int(spec["cap"])
+        new["use_s"] = bool(spec["use_s"])
+        if "default_bin" in spec:
+            new["default_bin"] = spec["default_bin"]
+        if spec.get("require_status_columns"):
+            cols = [str(c) for c in spec["require_status_columns"]]
+            new["require_status_columns"] = cols
+            new["manual_values"] = [str(v) for v in (spec.get("manual_values") or MANUAL_STATUS_VALUES)]
+        if not allow_p_only and not new["use_s"]:
+            raise ValueError(f"profile {name!r} has allow_p_only: false but source {cfg['name']!r} "
+                             "is P-only (use_s: false)")
+        configs.append(new)
+    max_dist = prof.get("max_distance_km")
+    if max_dist is not None:
+        max_dist = float(max_dist)
+        if not (np.isfinite(max_dist) and max_dist > 0):
+            raise ValueError(f"profile {name!r}: max_distance_km must be positive, got {max_dist}")
+    return {
+        "name": name,
+        "description": " ".join(str(prof.get("description", "")).split()),
+        "configs": configs,
+        "target_fractions": normalise_fractions(prof.get("target_fractions") or TARGET_FRACTIONS),
+        "skip_sources": frozenset(prof.get("skip_sources") or ()),
+        "max_distance_km": max_dist,
+        "allow_p_only": allow_p_only,
+        "sha256": profile_sha256(prof),
+        "file_sha256": file_sha,
+        "path": str(path),
+    }
+
+
+def apply_status_filter(meta, p_vals, s_vals, columns, manual_values=MANUAL_STATUS_VALUES):
+    """Null every pick whose status column (when present) is not a manual value.
+
+    columns : status column names; the phase each constrains comes from
+              _status_phase (None constrains both picks). Absent columns are
+              no-ops and are reported.
+    Returns (p_vals, s_vals, report) with report keys status_columns_listed,
+    status_columns_present, n_p_dropped_by_status, n_s_dropped_by_status,
+    n_rows_removed_by_status (rows left with no pick; the caller drops them).
+    """
+    manual = {str(v).strip().lower() for v in manual_values}
+    present = [c for c in columns if c in meta.columns]
+    p_vals, s_vals = p_vals.copy(), s_vals.copy()
+    had_pick = p_vals.notna() | s_vals.notna()
+    n_p0, n_s0 = int(p_vals.notna().sum()), int(s_vals.notna().sum())
+    for col in present:
+        ok = meta[col].astype(str).str.strip().str.lower().isin(manual) & meta[col].notna()
+        phase = _status_phase(col)
+        if phase in (None, "P"):
+            p_vals = p_vals.where(ok)
+        if phase in (None, "S"):
+            s_vals = s_vals.where(ok)
+    report = {
+        "status_columns_listed": ";".join(columns),
+        "status_columns_present": ";".join(present),
+        "n_p_dropped_by_status": n_p0 - int(p_vals.notna().sum()),
+        "n_s_dropped_by_status": n_s0 - int(s_vals.notna().sum()),
+        "n_rows_removed_by_status": int((had_pick & ~(p_vals.notna() | s_vals.notna())).sum()),
+    }
+    return p_vals, s_vals, report
+
+# ──────────────────────────────────────────────────────────────────────────────
 # SeisBench split-column normalisation
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -382,9 +547,13 @@ def normalise_split(s):
 
 def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_balanced=False,
                      label_error_exclude=None, label_error_report=None,
-                     bundle=None, holdout_report=None):
+                     bundle=None, holdout_report=None, max_distance_km=None):
     """
     Load one dataset, retain valid P or permitted S picks, compute distances, apply cap.
+    cfg may carry `require_status_columns` (and `manual_values`) from a corpus
+    profile (#40A): picks whose status is not manual are nulled before anything
+    else (apply_status_filter). max_distance_km drops rows whose known distance
+    exceeds it, before the cap; rows without a distance are kept.
     benchmark_exclude : set of trace_name strings to exclude (benchmark traces).
     bundle            : the exclusion bundle (scripts/exclusion_bundle.py, #33A); required.
                         exclusion_bundle.apply_exclusions(kind="signal") removes the listed
@@ -392,7 +561,8 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
                         held-out window and rows with a 2016/2021 origin; rows whose origin
                         time or location is missing are quarantined per the bundle's policy
                         (dropped, or kept with `independence_unverified` set).
-    holdout_report    : optional list to append the per-dataset apply_exclusions counts to.
+    holdout_report    : optional list to append the per-dataset removal counts to (the
+                        apply_exclusions counts plus the status-filter and distance counts).
     event_exclude     : frozenset of event_keys.py fingerprints to exclude — catches
                         the same earthquake landing in the benchmark under a
                         DIFFERENT trace_name (issue #32), which benchmark_exclude
@@ -428,6 +598,22 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         pd.Series(np.nan, index=meta.index), None)
     p_vals = p_vals.where(np.isfinite(p_vals) & (p_vals >= 0))
     s_vals = s_vals.where(np.isfinite(s_vals) & (s_vals >= 0))
+    source_report = {"dataset": name}
+
+    # ── manual-status filter (corpus profile, #40A) ───────────────────────────
+    status_cols = cfg.get("require_status_columns")
+    if status_cols:
+        p_vals, s_vals, st = apply_status_filter(meta, p_vals, s_vals, status_cols,
+                                                 cfg.get("manual_values") or MANUAL_STATUS_VALUES)
+        source_report.update(st)
+        if not st["status_columns_present"]:
+            print(f"    WARNING: none of the status columns {status_cols} exists in {name}; "
+                  "the manual-status filter is a no-op for this source (39A census decides)")
+        else:
+            print(f"    status filter on {st['status_columns_present']}: dropped "
+                  f"{st['n_p_dropped_by_status']:,} P and {st['n_s_dropped_by_status']:,} S picks, "
+                  f"{st['n_rows_removed_by_status']:,} rows left without a pick")
+
     keep = p_vals.notna() | s_vals.notna()
     if s_balanced and cfg["use_s"]:
         keep &= s_vals.notna()
@@ -464,9 +650,8 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
     if ex_report["n_unknown_kept_flagged"]:
         print(f"    WARNING: {ex_report['n_unknown_kept_flagged']:,} rows have no origin time or location; "
               f"kept with {eb.FLAG_COL}=True (bundle policy allow_unknown) and outside any independence claim")
-    if holdout_report is not None:
-        holdout_report.append({"dataset": name, **{k: v for k, v in ex_report.items()
-                                                    if k.startswith("n_") or k in ("trace_list_checked", "bundle_sha256")}})
+    source_report.update({k: v for k, v in ex_report.items()
+                          if k.startswith("n_") or k in ("trace_list_checked", "bundle_sha256")})
 
     # ── exclude Aguilar-flagged bad-label traces (issue #10) ──────────────────
     if label_error_exclude and "trace_name" in meta.columns:
@@ -503,6 +688,16 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
     else:
         dist_km = pd.Series(np.nan, index=meta.index)
 
+    # ── maximum distance (corpus profile, #40A): known distances only ────────
+    if max_distance_km is not None:
+        far = dist_km.notna() & (dist_km > max_distance_km)
+        source_report["n_beyond_max_distance"] = int(far.sum())
+        if far.any():
+            meta    = meta.loc[~far].copy()
+            p_vals  = p_vals.loc[~far]
+            dist_km = dist_km.loc[~far]
+            print(f"    excluded {int(far.sum()):,} rows beyond {max_distance_km:g} km → {len(meta):,} remaining")
+
     def _bin(d):
         return distance_bin(d, default=cfg["default_bin"] or "unknown")
 
@@ -533,10 +728,12 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
 
     # ── assemble output ───────────────────────────────────────────────────────
     s_vals = s_vals.loc[meta.index].copy()
+    source_report["n_after_cap"] = int(len(meta))
 
     # P-only policy: null S for teleseismic rows
     tele_mask = dist_bin == "teleseismic"
     s_vals = s_vals.copy()
+    source_report["n_s_nulled_teleseismic"] = int((tele_mask & s_vals.notna()).sum())
     s_vals[tele_mask] = np.nan
 
     out = pd.DataFrame({
@@ -569,6 +766,12 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
         out[column] = meta[column].values if column in meta else np.nan
     # The existing teleseismic P-only policy can remove an S-only row's last label.
     out = out.loc[out.p_arrival_sample.notna() | out.s_arrival_sample.notna()].reset_index(drop=True)
+    # counts of what this source contributes to the pool, after the P-only
+    # policy and the last-label drop, so the report matches the written rows
+    source_report["n_written"] = int(len(out))
+    source_report["n_with_s_written"] = int(out["s_arrival_sample"].notna().sum())
+    if holdout_report is not None:
+        holdout_report.append(source_report)
     return out
 
 
@@ -576,18 +779,21 @@ def process_dataset(cfg, rng, benchmark_exclude=None, event_exclude=None, s_bala
 # Distance stratification (training set only)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def stratify_training(train_df, rng):
+def stratify_training(train_df, rng, fractions=None):
     """
-    Resample train_df so the distance-bin distribution matches TARGET_FRACTIONS.
+    Resample train_df so the distance-bin distribution matches `fractions`
+    (default TARGET_FRACTIONS; a corpus profile passes its own).
     Bins below their target fraction are kept whole; over-represented bins are
-    downsampled.  The total size is determined by the smallest-ratio bin.
+    downsampled.  The total size is determined by the smallest-ratio bin. A bin
+    with fraction 0 is removed from the training split.
     """
+    fractions = TARGET_FRACTIONS if fractions is None else fractions
     bin_counts = train_df["distance_bin"].value_counts()
     total_available = len(train_df)
 
     # compute how many traces each bin *could* support given its target fraction
     max_total_per_bin = {}
-    for b, frac in TARGET_FRACTIONS.items():
+    for b, frac in fractions.items():
         if b not in bin_counts or frac == 0:
             max_total_per_bin[b] = 0
             continue
@@ -598,7 +804,7 @@ def stratify_training(train_df, rng):
     target_total = min(target_total, total_available)
 
     sampled = []
-    for b, frac in TARGET_FRACTIONS.items():
+    for b, frac in fractions.items():
         target_n = int(round(target_total * frac))
         available = train_df[train_df["distance_bin"] == b]
         if len(available) == 0:
@@ -847,10 +1053,29 @@ SKIP_SOURCES_THIS_ROUND = frozenset({"obst2024", "obs"})
 
 
 def main(output_dir, seed, s_balanced=False, label_error_filter=True, include_obs=False,
-         allow_uncertified_bundle=False):
+         allow_uncertified_bundle=False, profile=None, profiles_file=None):
     rng = np.random.default_rng(seed)
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
+
+    # ── corpus profile (#40A) or the module defaults ─────────────────────────
+    if profile is not None:
+        resolved = resolve_profile(profile, path=profiles_file or PROFILES_PATH)
+        dataset_configs = resolved["configs"]
+        fractions = resolved["target_fractions"]
+        skip_sources = resolved["skip_sources"]
+        max_distance_km = resolved["max_distance_km"]
+        profile_record = {k: resolved[k] for k in ("name", "description", "sha256", "file_sha256", "path",
+                                                   "allow_p_only", "max_distance_km", "target_fractions")}
+        profile_record["skip_sources"] = sorted(skip_sources)
+    else:
+        dataset_configs = DATASET_CONFIGS
+        fractions = TARGET_FRACTIONS
+        skip_sources = SKIP_SOURCES_THIS_ROUND
+        max_distance_km = None
+        profile_record = {"name": None, "sha256": None,
+                          "reason": "no --profile; module DATASET_CONFIGS, TARGET_FRACTIONS and "
+                                    "SKIP_SOURCES_THIS_ROUND (the legacy_v2 profile)"}
 
     print("=" * 70)
     print("Building PhaseNet training manifests")
@@ -860,6 +1085,13 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, include_ob
     print(f"  S-balanced mode      : {s_balanced}")
     print(f"  Label-error filter   : {label_error_filter}")
     print(f"  Year hold-out        : {sorted(hs.HOLDOUT_YEARS)} (unknown origins: bundle quarantine policy)")
+    if profile is not None:
+        print(f"  Corpus profile       : {profile} ({profile_record['sha256'][:12]}, "
+              f"{len(dataset_configs)} sources, max distance {max_distance_km}, "
+              f"P-only allowed {profile_record['allow_p_only']})")
+    else:
+        print("  Corpus profile       : none (module defaults = legacy_v2)")
+    print(f"  Target fractions     : {fractions}")
     print("=" * 70)
 
     # ── load benchmark exclusions ────────────────────────────────────────────
@@ -887,8 +1119,8 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, include_ob
     frames = []
     label_error_report = []
     holdout_report = []
-    for cfg in DATASET_CONFIGS:
-        if cfg["name"] in SKIP_SOURCES_THIS_ROUND and not include_obs:
+    for cfg in dataset_configs:
+        if cfg["name"] in skip_sources and not include_obs:
             print(f"\n  [{cfg['name']}]\n    SKIP — ocean-bottom data are out of scope this round (2026-09-08); pass --include-obs to override")
             continue
         exclude = benchmark_exclusions.get(cfg["name"], set())
@@ -899,7 +1131,8 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, include_ob
                               label_error_exclude=le_exclude,
                               label_error_report=label_error_report,
                               bundle=bundle,
-                              holdout_report=holdout_report)
+                              holdout_report=holdout_report,
+                              max_distance_km=max_distance_km)
         if df is not None:
             frames.append(df)
 
@@ -918,7 +1151,7 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, include_ob
 
     # ── distance-stratify training set ───────────────────────────────────────
     print(f"\n  Training set before stratification : {len(train_df):,}")
-    train_df = stratify_training(train_df, rng)
+    train_df = stratify_training(train_df, rng, fractions=fractions)
     print(f"  Training set after stratification  : {len(train_df):,}")
 
     # ── drop working column ──────────────────────────────────────────────────
@@ -954,6 +1187,8 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, include_ob
     summary.to_csv(out_path / "composition_summary.csv", index=False)
 
     ho_df = pd.DataFrame(holdout_report)
+    ho_df["profile"] = profile_record["name"] or ""
+    ho_df["profile_sha256"] = profile_record["sha256"] or ""
     ho_df.to_csv(out_path / "heldout_removal_report.csv", index=False)
     print("\n  Exclusion bundle removal per source (#33A):")
     for _, r in ho_df.iterrows():
@@ -991,7 +1226,13 @@ def main(output_dir, seed, s_balanced=False, label_error_filter=True, include_ob
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "builder": "scripts/build_training_dataset.py",
         "options": {"seed": seed, "s_balanced": s_balanced, "label_error_filter": label_error_filter,
-                    "include_obs": include_obs, "allow_uncertified_bundle": allow_uncertified_bundle},
+                    "include_obs": include_obs, "allow_uncertified_bundle": allow_uncertified_bundle,
+                    "profile": profile},
+        "profile": profile_record,
+        "target_fractions": fractions,
+        "sources": [{"name": c["name"], "cap": c["cap"], "use_s": c["use_s"],
+                     "require_status_columns": c.get("require_status_columns")} for c in dataset_configs
+                    if not (c["name"] in skip_sources and not include_obs)],
         "per_source": holdout_report,
         "gate": gate,
         "manifests": manifest_hashes,
@@ -1037,10 +1278,27 @@ if __name__ == "__main__":
                              "(the sequence list is still required); recorded in provenance.json")
     parser.add_argument("--include-obs", action="store_true",
                         help="Include obst2024 and obs (ocean-bottom) sources, which are skipped this round (2026-09-08)")
+    parser.add_argument("--profile", default=None, metavar="NAME",
+                        help="Corpus profile from --profiles-file (t0_pilot, legacy_v2, ...); default: the module "
+                             "defaults, which legacy_v2 reproduces")
+    parser.add_argument("--profiles-file", default=str(PROFILES_PATH),
+                        help=f"Profile YAML (default: {PROFILES_PATH.relative_to(PROFILES_PATH.parents[1])})")
+    parser.add_argument("--list-profiles", action="store_true", help="Print the profiles of --profiles-file and exit")
     args = parser.parse_args()
+    if args.list_profiles:
+        profiles, file_sha = load_profiles(args.profiles_file)
+        print(f"{args.profiles_file} (sha256 {file_sha[:12]})")
+        for pname, prof in profiles.items():
+            srcs = prof.get("sources") or {}
+            print(f"  {pname:12s} {profile_sha256(prof)[:12]}  {len(srcs)} sources, "
+                  f"{sum(int(v['cap']) for v in srcs.values()):,} rows at cap, "
+                  f"max distance {prof.get('max_distance_km')}, P-only allowed {prof.get('allow_p_only', True)}")
+            print(f"    {' '.join(str(prof.get('description', '')).split())}")
+        sys.exit(0)
     if args.strict_year_holdout:
         print("NOTE: --strict-year-holdout is a no-op; the exclusion bundle's quarantine policy applies")
     main(args.output_dir, args.seed, s_balanced=args.s_balanced,
          label_error_filter=not args.no_label_error_filter,
          include_obs=args.include_obs,
-         allow_uncertified_bundle=args.allow_uncertified_bundle)
+         allow_uncertified_bundle=args.allow_uncertified_bundle,
+         profile=args.profile, profiles_file=args.profiles_file)

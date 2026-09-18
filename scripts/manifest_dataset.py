@@ -35,8 +35,9 @@ import seisbench
 seisbench.cache_root = SEISBENCH_CACHE
 import seisbench.data as sbd
 
-from waveform_contract import (CONTRACT_VERSION, METADATA_FIELDS, TraceRecord, canonical_waveform,
-                               has_rate, metadata_rate, present, read_hdf5_trace, resample_waveform, text_value, valid_rate)
+from waveform_contract import (CONTRACT_VERSION, METADATA_FIELDS, NORMS, NORM_CLIP, TraceRecord, canonical_waveform,
+                               has_rate, metadata_rate, present, read_hdf5_trace, resample_waveform, text_value, valid_rate,
+                               _normalise_std, _normalise_peak, normalise_waveform)  # noqa: F401  (window normalisation contract)
 from arrivals import (ARRIVALS_COLUMN, NEGATIVE_SUPPORT_COLUMN, arrivals_from_columns, arrivals_from_json,
                       shift_arrivals)
 from label_targets import LEGACY, LabelPolicy, build_targets
@@ -203,15 +204,6 @@ WINDOW_LEN  = 3001         # samples @ 100 Hz = 30 s
 LABEL_SIGMA = 10           # samples — Gaussian label width
 
 
-def _normalise_std(waveform):
-    """Per-component demean + unit-std normalisation (norm=std, matches jma_wc training)."""
-    waveform = waveform - waveform.mean(axis=-1, keepdims=True)
-    std = waveform.std(axis=-1, keepdims=True)
-    std[std < 1e-6] = 1.0
-    waveform = waveform / std
-    return np.clip(waveform, -10.0, 10.0)
-
-
 def _resample_if_needed(waveform, src_sr, tgt_sr=TARGET_SR):
     return resample_waveform(waveform, src_sr, tgt_sr)
 
@@ -276,12 +268,18 @@ class ManifestDataset(Dataset):
     """
 
     def __init__(self, manifest_csv, augment=False, window_len=WINDOW_LEN, rejection_log=None,
-                 label_policy=None, return_mask=False):
+                 label_policy=None, return_mask=False, norm="std"):
         # label_policy: None keeps the legacy targets and the (waveform, labels)
         # API; "legacy", "masked" or a dict select a label_targets.LabelPolicy
         # (#41A). return_mask=True makes __getitem__ yield (waveform, labels, mask).
+        # norm: the window normalisation, "std" (default, every run before
+        # 2026-09-18) or "peak"; it must follow the parent weights' SeisBench
+        # norm (manifest_data_module.resolve_norm).
         self.policy = LabelPolicy.from_config(label_policy)
         self.return_mask = bool(return_mask)
+        if norm not in NORMS:
+            raise ValueError(f"Unknown window normalisation {norm!r}; expected one of {NORMS}")
+        self.norm = norm
         self.manifest_path = Path(manifest_csv)
         self.manifest_hash = hashlib.sha256(self.manifest_path.read_bytes()).hexdigest()
         self.manifest = pd.read_csv(manifest_csv, low_memory=False,
@@ -438,7 +436,7 @@ class ManifestDataset(Dataset):
                         rejected_picks[phase] = "outside crop support"
             if not is_noise and all(value is None for value in offsets.values()):
                 raise ValueError("Signal row has no arrival inside resampled crop support")
-            wf = _normalise_std(wf)
+            wf = normalise_waveform(wf, self.norm)
             if self.augment:
                 wf *= np.random.uniform(0.5, 2.0)
                 if np.random.random() < 0.1:
@@ -470,7 +468,7 @@ class ManifestDataset(Dataset):
                         crop_start_offset_s=start / TARGET_SR, valid_samples=valid_samples,
                         component_mask=record.component_mask, arrival_offsets=offsets,
                         excluded_arrivals=rejected_picks,
-                        label_policy=self.policy.name, negative_support=negative_support,
+                        label_policy=self.policy.name, negative_support=negative_support, norm=self.norm,
                         arrivals=[a.to_dict() for a in arrivals], n_supervised=built.n_supervised,
                         supervised_fraction=built.info["supervised_fraction"], mask=built.mask)
             return torch.from_numpy(wf), torch.from_numpy(built.targets), info

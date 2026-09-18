@@ -394,5 +394,35 @@ class LoaderContractTests(unittest.TestCase):
         self.assertEqual(float(mask[430:1001].min()), 1.0)
         self.assertEqual(float(mask[1001:].max()), 0.0)
 
+    def test_window_norm_follows_the_contract(self):
+        """norm="peak" serves per-component unit-peak windows and records it in
+        the sample info; the default stays std (every earlier fixture); an
+        unknown norm is refused at construction, before any read."""
+        self.source(100)
+        ds_std = self.dataset(window_len=801)
+        ds_peak = self.dataset(window_len=801, norm="peak")
+        self.assertEqual((ds_std.norm, ds_peak.norm), ("std", "peak"))
+        wave_std, _, info_std = ds_std.get_sample_with_metadata(0)
+        wave_peak, _, info_peak = ds_peak.get_sample_with_metadata(0)
+        self.assertEqual((info_std["norm"], info_peak["norm"]), ("std", "peak"))
+        peak = wave_peak.abs().amax(dim=-1)
+        self.assertTrue(torch.all((peak == 1.0) | (peak == 0.0)))          # the N channel is flat: stays 0
+        self.assertGreater(float(peak[0]), 0.0)
+        self.assertTrue(torch.allclose(wave_peak.mean(dim=-1), torch.zeros(3), atol=1e-6))
+        self.assertGreater(float(wave_std[0].abs().amax()), 1.0)             # a Gaussian pulse: std-normalised peak > 1
+        self.assertGreater(float(wave_std[0].abs().amax()), float(wave_peak[0].abs().amax()))
+        # the two are the same window up to a per-component scale
+        for c in (0, 2):
+            ratio = wave_std[c] / wave_peak[c]
+            finite = torch.isfinite(ratio) & (wave_peak[c].abs() > 1e-3)
+            self.assertLess(float(ratio[finite].std()), 1e-4)
+        with self.assertRaisesRegex(ValueError, "normalisation"):
+            self.dataset(window_len=801, norm="bogus")
+        with patch.dict(md._SINGLE_HDF5_DS, {"fixture": self.root}):
+            cached = CachedManifestDataset(ds_peak.manifest_path, window_len=801, load_workers=0, load_batch=1, norm="peak")
+            self.assertEqual(cached.norm, "peak")
+            torch.testing.assert_close(cached[0][0], wave_peak)
+
+
 if __name__ == "__main__":
     unittest.main()

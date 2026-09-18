@@ -49,7 +49,7 @@ import seisbench
 seisbench.cache_root = os.environ["SEISBENCH_CACHE_ROOT"]
 
 from fine_tune_model      import MetricsLogger, PhaseNetFinetune, pick_residuals
-from manifest_data_module import build_dataloaders
+from manifest_data_module import build_dataloaders, resolve_norm
 from run_card import build_run_card, finalize_run_card, verify_ledger, write_run_card
 from plot_training_curves import load_metrics, plot_dashboard, plot_loss, plot_accuracy, plot_residuals, plot_lr
 
@@ -73,6 +73,10 @@ def save_checkpoint(model, optimiser, scaler, epoch, val_loss, path: Path):
         "model":     raw.state_dict(),
         "optimiser": optimiser.state_dict(),
         "scaler":    scaler.state_dict(),
+        # the window normalisation the loader used (manifest_dataset.NORMS);
+        # scripts/score_checkpoint.py exports with it and refuses a checkpoint without it
+        "norm":      getattr(raw, "norm", None),
+        "parent":    getattr(raw, "parent_name", None),
     }, path)
 
 
@@ -273,6 +277,10 @@ def train(config: dict, resume_path=None, init_from=None, config_path=None, allo
               f"         This run cannot be a reported result.", flush=True)
     rows_read = {"train": len(train_loader.dataset), "val": len(val_loader.dataset)}
     run_dir = Path(log_cfg.get("save_dir", "results")) / log_cfg.get("run_name", "finetune_jma_wc")
+    norm, norm_source = resolve_norm(config)          # the value the loaders were built with
+    loader_norm = getattr(train_loader.dataset, "norm", None)
+    if loader_norm is not None and loader_norm != norm:
+        raise RuntimeError(f"loader norm {loader_norm!r} != resolved norm {norm!r}")
     card_extra = {
         "allow_rejections": bool(allow_rejections),
         "resume_path": resume_path, "init_from": init_from,
@@ -280,6 +288,7 @@ def train(config: dict, resume_path=None, init_from=None, config_path=None, allo
         "n_supervised_samples": {"train": getattr(train_loader.dataset, "n_supervised_samples", None),
                                  "val": getattr(val_loader.dataset, "n_supervised_samples", None)},
         "loader_label_policy": getattr(train_loader.dataset, "label_policy", None),
+        "norm": {"norm": norm, "source": norm_source},
     }
     card = build_run_card(config, config_path, manifest_paths, rows_read=rows_read, extra=card_extra)
     card_path = write_run_card(card, run_dir)
@@ -287,6 +296,7 @@ def train(config: dict, resume_path=None, init_from=None, config_path=None, allo
 
     # ── model ─────────────────────────────────────────────────────────────────
     model_raw = PhaseNetFinetune(config).to(device)
+    model_raw.norm = norm                              # travels with every checkpoint (save_checkpoint)
 
     # torch.compile: fuses ops for extra GPU throughput
     try:

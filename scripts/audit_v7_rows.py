@@ -287,6 +287,7 @@ class Replay:
         # loader coordinates differ between the two routes; masks are 46A work.
         self.new.policy = sources.md.LabelPolicy.from_config("legacy")
         self.new.return_mask = False
+        self.new.norm = "std"   # the v7 runs normalised with std; the corrected route replays that (waveform_contract.NORMS)
         self.new._fetch = sources.fetch_corrected
         self.new._reject = lambda *args: None  # per-row errors go to the audit output, never beside inputs
         original_window, original_labels, original_resample = namespace["_window"], namespace["make_labels"], namespace["_resample_if_needed"]

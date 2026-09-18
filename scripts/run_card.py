@@ -139,11 +139,12 @@ def config_section(config: dict, config_path) -> dict:
         "seed": config.get("seed", 42),
         "seed_source": "config" if "seed" in config else "default 42 (scripts/finetune.py)",
         "label_policy": data_cfg.get("label_policy"),
+        "norm": data_cfg.get("norm"),
         "augmentation": data_cfg.get("augmentation"),
         "window_length": data_cfg.get("window_length"),
         "training": {k: train_cfg.get(k) for k in (
             "batch_size", "max_epochs", "learning_rate", "optimizer", "weight_decay",
-            "distillation", "soft_ce", "timing_beta", "presence_gamma", "focal_gamma",
+            "distillation", "soft_ce", "timing_beta", "presence_gamma", "focal_gamma", "freeze_bn_stats",
             "scheduler", "early_stopping", "gradient_clip_val", "accumulate_grad_batches")},
         "model": config.get("model"),
     }

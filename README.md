@@ -70,7 +70,7 @@ x86_64, Linux x86_64; CUDA 12 on Linux) in `pixi.lock`; no conda or venv
 by hand.
 
 ```bash
-curl -fsSL https://pixi.sh/install.sh | sh                 # once, no root; installs to ~/.pixi
+curl -fsSL https://pixi.sh/install.sh -o /tmp/pixi-install.sh && less /tmp/pixi-install.sh && sh /tmp/pixi-install.sh                 # once, no root; installs to ~/.pixi
 git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
 pixi install                                               # CPU environment, all scripts and tests
 export SEISBENCH_CACHE_ROOT=/path/to/seisbench/cache
@@ -80,9 +80,10 @@ pixi shell                                                 # or: an activated sh
 ```
 
 GPU training on the lab server: `pixi install -e cuda` and prefix commands
-with `pixi run -e cuda`. The lock resolves PyTorch's CUDA 12.9 build; if
-`nvidia-smi` reports a driver below CUDA 12.9, add `cuda-version = "12.<x>.*"`
-to the `cuda` feature in `pixi.toml` and run `pixi lock`. Every script is
+with `pixi run -e cuda`. The `cuda` feature requires a driver for CUDA
+12.9 and locks that PyTorch build; for an older driver set both
+`system-requirements` and `cuda-version` in the feature to the driver's
+version and run `pixi lock`. Every script is
 also a task (`pixi run train --config ...`, `pixi run score ...`,
 `pixi run bundle build ...`); `pixi task list` shows them.
 

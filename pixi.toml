@@ -1,6 +1,6 @@
 # Pixi environment for phasenet-retrain (2026-09-18).
 #
-#   curl -fsSL https://pixi.sh/install.sh | sh      # once, no root; installs to ~/.pixi
+#   curl -fsSL https://pixi.sh/install.sh -o /tmp/pixi-install.sh && less /tmp/pixi-install.sh && sh /tmp/pixi-install.sh      # once, no root; installs to ~/.pixi
 #   pixi install                                   # default (CPU) environment, every platform below
 #   pixi run test                                  # the full test suite
 #   pixi shell                                     # a shell with the environment active
@@ -41,14 +41,17 @@ pytorch = ">=2.4"
 seisbench = ">=0.9"
 pyocto = ">=0.2"
 
-# GPU training on the lab server (linux-64 only). Requires an NVIDIA driver
-# for CUDA 12; `pixi install -e cuda` picks the CUDA build of PyTorch.
+# GPU training on the lab server (linux-64 only). The locked PyTorch build is
+# CUDA 12.9, so the host driver must support CUDA 12.9 (`nvidia-smi` shows
+# the driver's CUDA version). For an older driver change BOTH lines below to
+# that version (e.g. "12.6" and "12.6.*"), run `pixi lock`, commit the lock.
 [feature.cuda]
 platforms = ["linux-64"]
-system-requirements = { cuda = "12" }
+system-requirements = { cuda = "12.9" }
 
 [feature.cuda.dependencies]
 pytorch-gpu = ">=2.4"
+cuda-version = "12.9.*"
 
 [environments]
 default = { solve-group = "default" }

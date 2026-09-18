@@ -25,7 +25,7 @@ repaired code; use it only for step 3's replay if the historical loader
 needs it, and say which env each result came from.
 
 ```bash
-curl -fsSL https://pixi.sh/install.sh | sh && exec $SHELL   # once; installs to ~/.pixi
+curl -fsSL https://pixi.sh/install.sh -o /tmp/pixi-install.sh && less /tmp/pixi-install.sh && sh /tmp/pixi-install.sh && exec $SHELL   # once; installs to ~/.pixi
 cd /data/<your area>                                  # writable, with room for results and caches
 git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
 git checkout audit/2026-09-07-generalization           # or main, once PR #82 has merged
@@ -48,9 +48,10 @@ pixi run test                        # laptop: 450 passed; must pass here first
 Record the version line; the run card records it too. If the suite fails,
 stop and report the failure before anything else. Every later command runs
 inside `pixi shell` (or prefixed with `pixi run`); on a GPU node use
-`pixi run -e cuda`. If `nvidia-smi` reports a driver below CUDA 12.9, add
-`cuda-version = "12.<x>.*"` to the `cuda` feature in `pixi.toml` and run
-`pixi lock` before `pixi install -e cuda`.
+`pixi run -e cuda`. The `cuda` feature requires a driver for CUDA 12.9 and locks that
+PyTorch build; if `nvidia-smi` reports an older driver, set both
+`system-requirements` and `cuda-version` in the feature to that version,
+run `pixi lock`, then `pixi install -e cuda`.
 
 Every later step that names `data/manifests_v2`, `checkpoints/` or
 `results/` of the historical runs reads them from `$HIST`; every output

@@ -47,7 +47,7 @@ steps 0, 4 and 5; the rest is new.
 ### 2.1 Environment and tests (runbook §0)
 
 ```bash
-curl -fsSL https://pixi.sh/install.sh | sh && exec $SHELL   # once; installs pixi to ~/.pixi, no root
+curl -fsSL https://pixi.sh/install.sh -o /tmp/pixi-install.sh && less /tmp/pixi-install.sh && sh /tmp/pixi-install.sh && exec $SHELL   # once; installs pixi to ~/.pixi, no root
 cd /data/<your area>                                   # writable, with room for the manifests, checkpoints and results
 git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
 git checkout audit/2026-09-07-generalization
@@ -70,11 +70,11 @@ pixi run test                        # laptop: 450 passed
 pixi shell                           # every command below runs inside this shell (GPU node: pixi shell -e cuda)
 ```
 
-CUDA note: the lock resolves PyTorch's CUDA 12.9 build for `linux-64`. If
-`nvidia-smi` shows a driver below CUDA 12.9, add
-`cuda-version = "12.<x>.*"` to `[feature.cuda.dependencies]` in `pixi.toml`,
-run `pixi lock`, then `pixi install -e cuda`, and commit the lock change
-with the run.
+CUDA note: the `cuda` feature requires a driver for CUDA 12.9 and locks
+that PyTorch build for `linux-64`. If `nvidia-smi` shows an older driver,
+set both `system-requirements` and `cuda-version` in the feature to that
+version, run `pixi lock`, then `pixi install -e cuda`, and commit the lock
+change with the run.
 
 Every output of this path (manifests, checkpoints, results, exports,
 scores) goes under your clone; nothing writes into `$HIST` or into the

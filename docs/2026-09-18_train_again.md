@@ -47,27 +47,34 @@ steps 0, 4 and 5; the rest is new.
 ### 2.1 Environment and tests (runbook §0)
 
 ```bash
+curl -fsSL https://pixi.sh/install.sh -o /tmp/pixi-install.sh && less /tmp/pixi-install.sh && sh /tmp/pixi-install.sh && exec $SHELL   # once; installs pixi to ~/.pixi, no root
 cd /data/<your area>                                   # writable, with room for the manifests, checkpoints and results
 git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
 git checkout audit/2026-09-07-generalization
-conda activate <env with torch, seisbench, h5py, scipy, pandas, obspy, pytest>
-pip install pyarrow pyocto
+pixi install                                           # CPU env for every script and test
+pixi install -e cuda                                   # on the GPU node; see the CUDA note below
 
 # a cache of your own: datasets are Akash's by symlink (read-only), models are yours (writable;
 # score_checkpoint.py writes nothing there, but from_pretrained may fetch a missing parent)
 mkdir -p $HOME/.seisbench_phasenet/models
-ln -s /data/wsd04/ak287/.seisbench/datasets $HOME/.seisbench_phasenet/datasets
+ln -sfn /data/wsd04/ak287/.seisbench/datasets $HOME/.seisbench_phasenet/datasets
 export SEISBENCH_CACHE_ROOT=$HOME/.seisbench_phasenet
 ls $SEISBENCH_CACHE_ROOT/datasets | head
-export MPLCONFIGDIR=$PWD/.mpl
 
-# the historical clone, read-only; step 2.2 needs its manifests_v2 for the hold-out join
+# the historical clone, read-only; its manifests only add counts in step 2.2 and may be absent
 HIST=/data/wsd04/ak287/<clone>
-mkdir -p data/manifests_v2 && cp $HIST/data/manifests_v2/*.csv data/manifests_v2/
+mkdir -p data/manifests_v2 && cp $HIST/data/manifests_v2/*.csv data/manifests_v2/ 2>/dev/null || echo "no historical manifests (fine for this path)"
 
-python -c "import sys, torch, seisbench, scipy; print(sys.version.split()[0], torch.__version__, seisbench.__version__, scipy.__version__)"
-python -m pytest tests -q          # laptop: 450 passed in the torch venv; 400 passed, 20 skipped in base python (no torch)
+pixi run versions                    # python 3.11, numpy 1.26, torch 2.13, seisbench 0.12.6, obspy, pyocto, cuda
+pixi run test                        # laptop: 450 passed
+pixi shell                           # every command below runs inside this shell (GPU node: pixi shell -e cuda)
 ```
+
+CUDA note: the `cuda` feature requires a driver for CUDA 12.9 and locks
+that PyTorch build for `linux-64`. If `nvidia-smi` shows an older driver,
+set both `system-requirements` and `cuda-version` in the feature to that
+version, run `pixi lock`, then `pixi install -e cuda`, and commit the lock
+change with the run.
 
 Every output of this path (manifests, checkpoints, results, exports,
 scores) goes under your clone; nothing writes into `$HIST` or into the
@@ -315,7 +322,7 @@ the arms.
 
 ## 6. Validation on 2026-09-18
 
-Base `python` 3.9.20 (no torch): `python -m pytest tests -q`, 400 passed,
+Pixi environment (2026-09-18): `pixi run test`, 450 passed with the cached weights. Before pixi: base `python` 3.9.20 (no torch): `python -m pytest tests -q`, 400 passed,
 20 skipped (the torch and cached-weight tests).
 Torch venv (Python 3.11, torch 2.2.2, SeisBench 0.12.5, cached `instance`
 and `jma_wc`): 450 passed. `scripts/score_checkpoint.py` was run on the

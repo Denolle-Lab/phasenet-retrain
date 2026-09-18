@@ -18,41 +18,40 @@ cache (`.seisbench/datasets`) and the historical artifacts (`data/manifests_v2/*
 `checkpoints/`, `results/`). If `ls` on either fails, ask for group read;
 write is never required.
 
+The environment is [pixi](https://pixi.sh): one command, no root, every
+dependency pinned in `pixi.lock` (Python 3.11, PyTorch 2.13, SeisBench
+0.12.6, ObsPy, h5py, PyArrow, PyOcto). Do not use the 2026 conda env for the
+repaired code; use it only for step 3's replay if the historical loader
+needs it, and say which env each result came from.
+
 ```bash
+curl -fsSL https://pixi.sh/install.sh -o /tmp/pixi-install.sh && less /tmp/pixi-install.sh && sh /tmp/pixi-install.sh && exec $SHELL   # once; installs to ~/.pixi
 cd /data/<your area>                                  # writable, with room for results and caches
 git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
 git checkout audit/2026-09-07-generalization           # or main, once PR #82 has merged
-conda activate <env with torch, seisbench, h5py, scipy, pandas, obspy, pytest>   # the 2026 env first, see below
-pip install pyarrow pyocto
+pixi install                                           # CPU env; `pixi install -e cuda` for training on a GPU node
 
 # a cache of your own: datasets are Akash's by symlink (read-only), models are yours (writable)
 mkdir -p $HOME/.seisbench_phasenet/models
 ln -sfn /data/wsd04/ak287/.seisbench/datasets $HOME/.seisbench_phasenet/datasets   # idempotent on reruns
 export SEISBENCH_CACHE_ROOT=$HOME/.seisbench_phasenet
 ls $SEISBENCH_CACHE_ROOT/datasets | head
-export MPLCONFIGDIR=$PWD/.mpl
 
-# the historical manifests, copied: the loader writes its rejection ledger beside the manifest it reads
+# the historical manifests, copied, if they exist: the loader writes its rejection ledger beside the manifest it reads
 HIST=/data/wsd04/ak287/<clone>                          # Akash's clone, read-only
-mkdir -p data/manifests_v2 && cp $HIST/data/manifests_v2/*.csv data/manifests_v2/
+mkdir -p data/manifests_v2 && cp $HIST/data/manifests_v2/*.csv data/manifests_v2/ 2>/dev/null || echo "no historical manifests; steps 1 and 3 are skipped or labelled accordingly"
 
-python -c "import sys, torch, seisbench, scipy; print(sys.version.split()[0], torch.__version__, seisbench.__version__, scipy.__version__)"
-python -m pytest tests -q            # laptop: 407 passed in the torch venv; must pass here first
+pixi run versions
+pixi run test                        # laptop: 450 passed; must pass here first
 ```
 
-Which conda env: the one the 2026 fine-tunes ran in, if it still exists
-(`conda env list`; the noise builder's docstring names it `surface`). Two
-reasons: step 3 must replay the v7 rows under the runtime that trained
-them, and the repaired code has so far been tested only on the laptop
-(PyTorch 2.2.2, SeisBench 0.12.5), so the suite has to pass under the
-server's actual versions before anything is trusted. If the suite fails
-there on version grounds, keep that env untouched for step 3 and make a
-second one for everything else:
-`conda create -n phasenet-audit python=3.11 -y && conda activate phasenet-audit && pip install -r requirements.txt pyocto`.
-
-Record the four versions (Python, PyTorch, SeisBench, SciPy); the run card
-records them too. If the suite fails, stop and report the failure before
-anything else.
+Record the version line; the run card records it too. If the suite fails,
+stop and report the failure before anything else. Every later command runs
+inside `pixi shell` (or prefixed with `pixi run`); on a GPU node use
+`pixi run -e cuda`. The `cuda` feature requires a driver for CUDA 12.9 and locks that
+PyTorch build; if `nvidia-smi` reports an older driver, set both
+`system-requirements` and `cuda-version` in the feature to that version,
+run `pixi lock`, then `pixi install -e cuda`.
 
 Every later step that names `data/manifests_v2`, `checkpoints/` or
 `results/` of the historical runs reads them from `$HIST`; every output

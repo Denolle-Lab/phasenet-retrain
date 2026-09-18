@@ -1,0 +1,26 @@
+{
+  "association_cutoff_km": 100.0,
+  "depth_range_km": [
+    0.0,
+    25.0
+  ],
+  "layers": [],
+  "location_tolerance_km": 0.5,
+  "margin_km": 30.0,
+  "min_p_picks": 3,
+  "min_picks": 5,
+  "min_s_picks": 0,
+  "n_p_and_s_picks": 2,
+  "n_picks_p_and_s_policy": "require",
+  "notes": "Proposal for fluid-driven swarms: tight time tolerance for closely spaced small events.",
+  "p_velocity": 5.8,
+  "region": "swarm",
+  "s_velocity": 3.3,
+  "sha256": "b9ed1db8b94c8f21e423b7ae9cd695d39e19034a9871bc6975d7172720d92f35",
+  "spatial_tolerance_km": 5.0,
+  "time_before_s": 120.0,
+  "time_tolerance_s": 0.8,
+  "velocity_model": "homogeneous",
+  "version": "1",
+  "versioned": "Frozen associator parameters. sha256 is computed over the canonical JSON of every field except notes and versioned; it is recorded as config_sha256 in every events, assignments and matches row and in run.json of each run. To change a value: edit, bump version, and rewrite the file with AssociatorConfig.save (or `event_association.py --rehash <file>`) so the stored hash matches; AssociatorConfig.load refuses a file whose stored hash disagrees with its content."
+}

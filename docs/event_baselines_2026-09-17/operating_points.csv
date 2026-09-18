@@ -1,0 +1,43 @@
+key,weight,phase,threshold,budget_target_picks,source
+adriatic_2022,jma_wc,P,0.3,930,parent operating point (35B budget reference)
+adriatic_2022,instance,P,0.06,930,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+adriatic_2022,quakescope2026,P,0.22,930,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+adriatic_2022,jma_wc,S,0.3,531,parent operating point (35B budget reference)
+adriatic_2022,instance,S,0.14,531,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+adriatic_2022,quakescope2026,S,0.22,531,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+corinth_thiva_2020,jma_wc,P,0.3,1308,parent operating point (35B budget reference)
+corinth_thiva_2020,instance,P,0.04,1308,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+corinth_thiva_2020,quakescope2026,P,0.14,1308,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+corinth_thiva_2020,jma_wc,S,0.3,846,parent operating point (35B budget reference)
+corinth_thiva_2020,instance,S,0.04,846,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+corinth_thiva_2020,quakescope2026,S,0.2,846,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+etna_2022_2024,jma_wc,P,0.3,1767,parent operating point (35B budget reference)
+etna_2022_2024,instance,P,0.04,1767,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+etna_2022_2024,quakescope2026,P,0.22,1767,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+etna_2022_2024,jma_wc,S,0.3,534,parent operating point (35B budget reference)
+etna_2022_2024,instance,S,0.2,534,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+etna_2022_2024,quakescope2026,S,0.24,534,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+kaikoura_2016,jma_wc,P,0.3,1819,parent operating point (35B budget reference)
+kaikoura_2016,instance,P,0.04,1819,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+kaikoura_2016,quakescope2026,P,0.26,1819,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+kaikoura_2016,jma_wc,S,0.3,1032,parent operating point (35B budget reference)
+kaikoura_2016,instance,S,0.1,1032,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+kaikoura_2016,quakescope2026,S,0.3,1032,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+norcia_2016,jma_wc,P,0.3,1347,parent operating point (35B budget reference)
+norcia_2016,instance,P,0.04,1347,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+norcia_2016,quakescope2026,P,0.26,1347,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+norcia_2016,jma_wc,S,0.3,1198,parent operating point (35B budget reference)
+norcia_2016,instance,S,0.04,1198,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+norcia_2016,quakescope2026,S,0.28,1198,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+samos_2020,jma_wc,P,0.3,857,parent operating point (35B budget reference)
+samos_2020,instance,P,0.1,857,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+samos_2020,quakescope2026,P,0.2,857,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+samos_2020,jma_wc,S,0.3,285,parent operating point (35B budget reference)
+samos_2020,instance,S,0.24,285,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+samos_2020,quakescope2026,S,0.26,285,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+thessaly_2021,jma_wc,P,0.3,1733,parent operating point (35B budget reference)
+thessaly_2021,instance,P,0.04,1733,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+thessaly_2021,quakescope2026,P,0.26,1733,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+thessaly_2021,jma_wc,S,0.3,1057,parent operating point (35B budget reference)
+thessaly_2021,instance,S,0.12,1057,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"
+thessaly_2021,quakescope2026,S,0.26,1057,"35B matched budget, docs/baselines_2026-09-13/matched_budget.csv"

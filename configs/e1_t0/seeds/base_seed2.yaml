@@ -1,0 +1,86 @@
+# seed 2 copy of configs/e1_t0/base.yaml written by scripts/e1_seed_configs.py; do not edit, regenerate.
+# E1 / checkpoint 46B, base arm, seed 0 (docs/2026-09-11_training_strategy_v3.md
+# section 8, E1; docs/2026-09-18_train_again.md).
+#
+#  Base recipe: `instance` initialisation, 34A loader, masked label policy
+#  (mask on), soft-label cross-entropy, no distillation (alpha 0), adaptive
+#  BatchNorm statistics, AdamW at LR 5e-6 with weight decay 1e-4, batch 256,
+#  warm-up 2 epochs then cosine to 1e-6, gradient clip 1.0, early stopping on
+#  val_loss with patience 10, at most 60 epochs. No augmentation beyond the
+#  loader's crop, amplitude jitter and polarity flip (noise_prob 0).
+#  Manifests: data/manifests_t0 from
+#    python scripts/build_training_dataset.py --profile t0_pilot --output-dir data/manifests_t0
+#  The six one-factor arms in this directory each change one key; seeds 1 and
+#  2 come from scripts/e1_seed_configs.py. Early stopping on val_loss is the
+#  interim rule until the 35A development-excerpt scorer runs per epoch
+#  (strategy section 7); selection between arms is on the development suite
+#  through scripts/score_checkpoint.py, not on val_loss.
+#  Window normalisation follows the parent: data.norm "peak" is `instance`'s
+#  SeisBench model_args.norm (waveform_contract.normalise_waveform, matched to
+#  seisbench 0.12.5 phasenet.py annotate_batch_pre lines 192, 202-204), so
+#  the input statistics match the parent from the first step and the export
+#  of score_checkpoint.py declares the same norm. `base_jma_wc` uses "std".
+
+model:
+  pretrained:
+    use_pretrained: true
+    model_name: "instance"
+    freeze_layers: []
+
+training:
+  batch_size: 256
+  num_workers: 16
+  max_epochs: 60
+  learning_rate: 0.000005
+  optimizer: "adamw"
+  weight_decay: 0.0001
+
+  distillation:
+    alpha: 0.0
+    temperature: 4.0
+
+  soft_ce: true
+  freeze_bn_stats: false
+  timing_beta: 0.0
+  presence_gamma: 0.0
+  focal_gamma: 0.0
+
+  scheduler:
+    name: "CosineAnnealingWarmup"
+    warmup_epochs: 2
+    min_lr: 1.0e-6
+    warmup_start_factor: 0.01
+
+  early_stopping:
+    monitor: "val_loss"
+    patience: 10
+    mode: "min"
+
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+data:
+  train_manifest: "data/manifests_t0/train.csv"
+  val_manifest:   "data/manifests_t0/val.csv"
+  test_manifest:  "data/manifests_t0/test.csv"
+  window_length: 3001
+  label_policy: "masked"
+  norm: "peak"                  # window normalisation follows the parent (SeisBench model_args.norm)
+  augmentation:
+    noise_prob: 0.0
+
+logging:
+  use_tensorboard: false
+  use_wandb: false
+  log_every_n_steps: 100
+  save_dir: "results"
+  run_name: "e1_t0_base_seed2"
+  checkpoint_dir: "checkpoints/e1_t0_base_seed2"
+  metrics_csv: "results/e1_t0_base_seed2_metrics.csv"
+
+hardware:
+  accelerator: "auto"
+  devices: 1
+  amp: true
+
+seed: 2

@@ -1,0 +1,154 @@
+{
+  "repository": "Denolle-Lab/phasenet-retrain",
+  "owner": "Akashkharita",
+  "label": "su-picker",
+  "tasks": {
+    "SU-01": {
+      "number": 54,
+      "id": 5418235179,
+      "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/54",
+      "title": "[SU picker][SU-01] Define target taxonomy, suite roles and exclusion registry",
+      "body": "Track: **SU picker (SUNet)**. Owner: @Akashkharita. Roadmap: #53.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md).\n\n**Branch:** `surface/01-taxonomy-suites` from the reviewed surface integration head. Use a separate worktree per session.\n\n**Dependencies:** No preceding SU task. Reuse the verified exclusion/suite mechanisms in #33 and #44; release only the specific needed checkpoints, not whole-issue closure.\n\n**Timebox:** 10 working days from the agreed start; estimate, not a fixed calendar deadline.\n\n## Work\n\n- Define U as a station-level first observable surface-event arrival. Distinguish source initiation, flow-front passage, duration, source classification and location; document supported process classes and ambiguous glacier/tremor cases.\n- Create a versioned registry for train, mining, regression, development, calibration and sealed acceptance. Store event-family IDs/aliases, station-day UTC bounds, evidence tier, source hashes, quality/coverage, reviewer and model-exposure history.\n- Deduplicate raw/curated PNSN and cross-catalogue ESEC/SED/GeoNet/ComCat events. Apply event/station/time exclusions to positives, background, donors, pseudo-labels and transferred/classifier weights.\n- Propose post-2002 Rainier/St. Helens training/mining and Newberry/Hood development partitions; resolve shared stations/events and hold separate calibration days. Define reference-QA versus model-scoring access guards.\n- Coordinate scientific decisions with Marine; record an independent label reviewer and the agreed sprint start.\n\n## Acceptance criteria\n\n- [ ] A committed taxonomy, registry schema, populated pilot partition and exclusion report identify all unknown/colliding cases.\n- [ ] Entry-point checks refuse missing/stale roles and unauthorized acceptance scoring; fixtures cover aliases, overlapping windows, donor leakage and missing identities.\n- [ ] Previous output exposure is documented; a consumed acceptance panel cannot be relabeled blind.\n- [ ] Pilot partition is released for SU-02 or an explicit unresolved collision/access list is published.\n\n**Evidence required:** linked PR/artifacts, validation commands/results, code/config/data hashes, applicable split/model-exposure provenance and a decision report. A plan alone does not complete this task. Shared earthquake issues retain their own scope; link the needed checkpoint rather than creating a conflicting implementation.\n",
+      "state": "open",
+      "labels": [
+        "cross-repo",
+        "plan",
+        "su-picker"
+      ],
+      "assignees": [
+        "Akashkharita"
+      ]
+    },
+    "SU-02": {
+      "number": 55,
+      "id": 5418235280,
+      "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/55",
+      "title": "[SU picker][SU-02] Census, review and build the bounded pilot corpus",
+      "body": "Track: **SU picker (SUNet)**. Owner: @Akashkharita. Roadmap: #53.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md).\n\n**Branch:** `surface/02-corpus-label-audit` from the reviewed surface integration head. Use a separate worktree per session.\n\n**Dependencies:** SU-01 (#54) releases the pilot partitions. Read-only census may begin earlier; training/mining may not. Reuse #37 reference/coverage eligibility principles.\n\n**Timebox:** 10 working days after the pilot partition release; read-only census can start sooner.\n\n## Work\n\n- Census retrievable post-2002 Rainier/St. Helens continuous surface-event records and reviewed non-target windows from permitted stations; census Newberry/Hood development and separate calibration station-days. Do not commit to harvesting every year.\n- Join and deduplicate the PNSN raw export, curated exotic data and labelled CSV. Count unique event families, valid hours, actual components/native bandwidth, SNR, process evidence and geographic/instrument coverage; report missing waveforms and retrieval cost.\n- Verify original timestamp precision, P/S/first-arrival interpretation and quality-code semantics. Conduct blinded stratified re-picking; preserve uncertainty intervals and ambiguous labels rather than deleting them by a global move-out cutoff.\n- Keep reviewed negatives, unreviewed background and uncertain event-bearing intervals distinct. Review earthquakes/codas, thunder/blasts, tremor, environmental noise, gaps and clipping. Catalogue absence alone is not a negative label.\n- Audit observer start/end clock and station alignment before using duration masks. Register ESEC/other global cases as candidates with exposure/overlap and observability checks, not automatic acceptance examples.\n- Publish a bounded versioned waveform/arrival/validity manifest for the pilot, plus a label-review sheet and donor-pool provenance. Longer context must support real onset-position diversity and coda-only windows.\n\n## Acceptance criteria\n\n- [ ] Unique-event counts and usable waveform hours are reproducible from hashed sources; raw/curated duplication is removed.\n- [ ] Timestamp/quality definitions, blinded residual/uncertainty report and actual component inventory are recorded.\n- [ ] Pilot positives, reviewed negatives, development and calibration manifests pass SU-01 exclusions; missing/invalid rows are logged.\n- [ ] Per-process/distance/instrument candidate counts and review exposure establish which later acceptance claims are supportable.\n- [ ] Akash records a measured pilot size, access gaps and review workload at the end of the timebox.\n\n**Evidence required:** linked PR/artifacts, validation commands/results, code/config/data hashes, applicable split/model-exposure provenance and a decision report. A plan alone does not complete this task. Shared earthquake issues retain their own scope; link the needed checkpoint rather than creating a conflicting implementation.\n",
+      "state": "open",
+      "labels": [
+        "plan",
+        "server",
+        "su-picker"
+      ],
+      "assignees": [
+        "Akashkharita"
+      ]
+    },
+    "SU-03": {
+      "number": 56,
+      "id": 5418235413,
+      "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/56",
+      "title": "[SU picker][SU-03] Repair preprocessing, windowing, labels and model export contracts",
+      "body": "Track: **SU picker (SUNet)**. Owner: @Akashkharita. Roadmap: #53.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md).\n\n**Branch:** `surface/03-model-data-contract` from the reviewed surface integration head. Use a separate worktree per session.\n\n**Dependencies:** SU-01 (#54) plus the rate/component/label schema from SU-02 (#55). Synthetic work can start before the full corpus. Adopt #34A/#34C shared fixes; coordinate #43 augmentation semantics.\n\n## Work\n\n- Pin model/runtime versions, rates, units, component order, response epoch, normalization type/axis, filtering, overlap/blinding and validity masks. Candidate input is 50 Hz/6000 samples; quantify alternatives rather than assume an optimum.\n- Repair the installed VariableLengthPhaseNet save/load failure, then check numerical probability equality across training, CPU export/import and offline QuakeScope loading under the correct model class/cache namespace.\n- Use one verified training/inference resampling contract; measure passband, stopband, impulse timing and boundaries for 20/40/50/80/100/200 Hz and represented noninteger rates. Include the shared Hann attenuation on upsampling; do not build an independent surface-only fix.\n- Transport every onset, end time, uncertainty interval and validity mask through resampling/stretch/crop in absolute UTC. Do not double-resample, duplicate Z as three channels or turn fetch failures into noise.\n- Implement explicit onset-containing, coda-only, negative and mixed-event sampling. Standard 180 s/P-at-70 s records cannot yield onset-free 120 s crops; use longer context or declared valid-support restrictions.\n- Implement UN soft targets and the UPN arm contract: raw u,p in [0,1], n=max(0,1-u-p), divide all three by their sum, use masked soft-label CE on logits. Missing annotations are not negative labels. Duration supervision is a later independent masked head.\n\n## Acceptance criteria\n\n- [ ] CPU/offline export round trip preserves model outputs within a stated tolerance; class/labels/threshold arguments are recorded.\n- [ ] Rate/label fixtures preserve absolute arrivals within one target sample and quantify filter response; train/inference parity is demonstrated.\n- [ ] Crop/offset distributions, gap/component masks and failure rejection pass synthetic boundary/overlap tests.\n- [ ] UPN targets sum to one, including coincident arrivals; UN/UPN label order and missing-label masks are tested.\n- [ ] A reviewed example sheet and code/config hashes release the contract for baseline scoring.\n\n**Evidence required:** linked PR/artifacts, validation commands/results, code/config/data hashes, applicable split/model-exposure provenance and a decision report. A plan alone does not complete this task. Shared earthquake issues retain their own scope; link the needed checkpoint rather than creating a conflicting implementation.\n",
+      "state": "open",
+      "labels": [
+        "cross-repo",
+        "plan",
+        "su-picker"
+      ],
+      "assignees": [
+        "Akashkharita"
+      ]
+    },
+    "SU-04": {
+      "number": 57,
+      "id": 5418235496,
+      "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/57",
+      "title": "[SU picker][SU-04] Establish continuous baselines, calibration and acceptance protocol",
+      "body": "Track: **SU picker (SUNet)**. Owner: @Akashkharita. Roadmap: #53.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md).\n\n**Branch:** `surface/04-continuous-baselines` from the reviewed surface integration head. Use a separate worktree per session.\n\n**Dependencies:** SU-02 (#55) reviewed data and SU-03 (#56) contracts. Reuse verified #35 candidate extraction/matching and #38 calibration mechanisms; SU-01 governs all access.\n\n## Work\n\n- Persist continuous annotations/candidates for STA/LTA, envelope-duration detection, earthquake picker/ELEP baselines and the current QuakeScope cascade where available. Record model training/exposure history.\n- Extract triggers independently at each threshold, deduplicate seams, use one-to-one matching and account for missing support/model failures. Avoid oracle-centered maxima or filtered peaks from merged low-threshold triggers.\n- Calibrate on separate permitted station-days, with a global fallback and prespecified supported instrument strata; give baselines comparable tuning opportunities.\n- Report onset recall/timing, misses and reviewed false U candidates per 24 valid observed hours by process/noise/instrument/year; use paired event-family/station-day uncertainty. Unreviewed unmatched candidates are a separate metric.\n- Translate candidate rates into fleet exposure, review workload and precision over a plausible prevalence range. Keep station-candidate and network-event counts distinct.\n- Freeze reference/coverage eligibility and the acceptance protocol before training: matching tolerances, per-regime recall floors, reviewed false-alarm budget/exposure, interval width, fallback for unavailable data and panel-retirement rules.\n\n## Acceptance criteria\n\n- [ ] Baseline candidate/reference assignments, valid-hour denominators, failures and hashes are reproducible on permitted data.\n- [ ] Calibration days are disjoint from training/mining/development/acceptance; operating points are frozen for comparisons.\n- [ ] Continuous scorer fixtures cover close events, threshold splitting, seams, gaps, duplicates, zero references and failures.\n- [ ] Acceptance candidates are checked for ESEC/SED/Alaska/classifier overlap; independent event counts support the stated per-regime interval widths or strata are explicitly exploratory.\n- [ ] A committed protocol/baseline report releases the first pilot without reading sealed model scores.\n\n**Evidence required:** linked PR/artifacts, validation commands/results, code/config/data hashes, applicable split/model-exposure provenance and a decision report. A plan alone does not complete this task. Shared earthquake issues retain their own scope; link the needed checkpoint rather than creating a conflicting implementation.\n",
+      "state": "open",
+      "labels": [
+        "cross-repo",
+        "plan",
+        "server",
+        "su-picker"
+      ],
+      "assignees": [
+        "Akashkharita"
+      ]
+    },
+    "SU-05": {
+      "number": 58,
+      "id": 5418235631,
+      "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/58",
+      "title": "[SU picker][SU-05] Train and diagnose the minimal UN pilot",
+      "body": "Track: **SU picker (SUNet)**. Owner: @Akashkharita. Roadmap: #53.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md).\n\n**Branch:** `surface/05-minimal-pilot` from the reviewed surface integration head. Use a separate worktree per session.\n\n**Dependencies:** SU-01 (#54), SU-02 (#55), SU-03 (#56) and SU-04 (#57) release their required artifacts before training.\n\n## Work\n\n- Train a small UN softmax feasibility baseline on the reviewed pilot. Begin with the 50 Hz/120 s candidate, explicit sampling fractions, a minimal documented optimizer recipe and matched training/inference preprocessing.\n- Use training-internal validation for stopping, separate calibration for operating points, and development for model choices. Log effective labels, gradients, losses, compute, unique data and repeated exposures.\n- First establish clean-data learning and continuous regression behavior. Then compare UN versus normalized UPN and scratch versus documented transferred initialization as controlled arms with task heads reinitialized.\n- Use identical permitted row lists/update budgets and three paired seeds for shortlisted comparisons. Record pretraining exposure and retain each model artifact.\n- Publish successes and failure cases by weak/emergent onset, component availability, close/coincident events, earthquake coda and real noise.\n\n## Acceptance criteria\n\n- [ ] A reproducible baseline trains and exports under SU-03; run/config/data/split hashes and seeds are preserved.\n- [ ] Continuous development comparisons include recall, timing/misses, calibrated candidate workload and grouped uncertainty against SU-04 baselines.\n- [ ] A concise decision report selects a minimal recipe or diagnoses failure; weak/inconclusive results do not trigger automatic bulk scaling.\n- [ ] No mining or model selection used calibration/acceptance outputs; a passing candidate is not yet a deployment release.\n\n**Evidence required:** linked PR/artifacts, validation commands/results, code/config/data hashes, applicable split/model-exposure provenance and a decision report. A plan alone does not complete this task. Shared earthquake issues retain their own scope; link the needed checkpoint rather than creating a conflicting implementation.\n",
+      "state": "open",
+      "labels": [
+        "plan",
+        "server",
+        "su-picker"
+      ],
+      "assignees": [
+        "Akashkharita"
+      ]
+    },
+    "SU-06": {
+      "number": 59,
+      "id": 5418235732,
+      "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/59",
+      "title": "[SU picker][SU-06] Measure source transfer and controlled generalization improvements",
+      "body": "Track: **SU picker (SUNet)**. Owner: @Akashkharita. Roadmap: #53.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md).\n\n**Branch:** `surface/06-generalization-arms` from the reviewed surface integration head. Use a separate worktree per session.\n\n**Dependencies:** SU-05 (#58) establishes the minimal recipe or actionable diagnostics; all changes retain SU-01\u201304 data/evaluation controls.\n\n## Work\n\n- Prioritize experiments from pilot failures: rate at fixed duration, context at fixed rate, bandwidth-matched controls, Z-only versus 3C, and meaningful context measured by perturbing development examples.\n- Test real-noise mixing with measured achieved SNR/validity, cross-event mixtures with all labels, component dropout, gaps/clipping, and valid instrument-response/filter changes one group at a time.\n- Mine only designated training/mining days; independently review candidates, retain uncertain labels and keep disjoint evaluation days. A contamination-aware background arm needs a measured upper bound, capped contribution and sensitivity checks.\n- Run nested event-family data subsets with fixed negative exposure and comparable update budgets. Distinguish extra examples from extra mechanisms/regions; flat curves do not prove global sufficiency.\n- Evaluate process \u00d7 distance \u00d7 instrument transfer and cross-volcano swaps. Compare shortlisted arms with paired seeds and report uncertainty, cost and unsupported regimes.\n- Keep independent sigmoid onset heads/duration masks as conditional arms with appropriate reviewed labels and loss contracts, not automatic additions.\n\n## Acceptance criteria\n\n- [ ] Each experiment has a predeclared question, one controlled change or stated interaction, paired artifacts and an interpretable result.\n- [ ] No additional donor/mining/transfer data breach the registry; uncertainty/low-SNR masks and all time transforms pass checks.\n- [ ] A selected candidate improves the relevant development tradeoff or the report explicitly retains the simpler recipe.\n- [ ] A coverage/power report states supported and exploratory regimes, and a measured compute/data budget supports any proposed scaling.\n\n**Evidence required:** linked PR/artifacts, validation commands/results, code/config/data hashes, applicable split/model-exposure provenance and a decision report. A plan alone does not complete this task. Shared earthquake issues retain their own scope; link the needed checkpoint rather than creating a conflicting implementation.\n",
+      "state": "open",
+      "labels": [
+        "plan",
+        "server",
+        "su-picker"
+      ],
+      "assignees": [
+        "Akashkharita"
+      ]
+    },
+    "SU-07": {
+      "number": 60,
+      "id": 5418235837,
+      "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/60",
+      "title": "[SU picker][SU-07] Evaluate optional cascade and coverage-aware network association",
+      "body": "Track: **SU picker (SUNet)**. Owner: @Akashkharita. Roadmap: #53.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md).\n\n**Branch:** `surface/07-cascade-association` from the reviewed surface integration head. Use a separate worktree per session.\n\n**Dependencies:** SU-05 (#58) and the selected SU-06 (#59) station-level candidate; SU-04 supplies fixed evaluation/calibration rules. Optional: a documented decision to omit these stages is a valid result.\n\n## Work\n\n- Compare the picker alone with pick-centered QuakeXNet scores and, if warranted, a binary reranker trained on out-of-fold first-stage candidates from training/mining data.\n- Audit each classifier weight for ESEC/PNW exposure. Measure conditional and end-to-end performance, placement errors, additional latency and an evaluated Z-only/EHZ fallback.\n- Census observable stations per event before testing multi-station criteria. Compare interval-aware timing, envelope coherence and combined rules; do not assume emergence removes all move-out information.\n- Report all-event and network-eligible recall, false network events and correlated-noise failures. A fixed 30 s gate over 50 km or unmodified P/S PyOcto is not a general U associator.\n- Claim locations only after a process-appropriate source/propagation model and independent location validation. Record a decision to retain, omit or defer each stage.\n\n## Acceptance criteria\n\n- [ ] Complete candidate-stream comparisons show a measured benefit at comparable false-alarm/workload budgets, or optional stages are explicitly omitted.\n- [ ] Classifier exposure, fallback behavior and first-stage misses remain visible in the end-to-end report.\n- [ ] Association denominators include station observability and independent reference events; correlated noise and sparse-network cases are tested.\n- [ ] No unvalidated U picks are passed into earthquake P/S association; no location claim follows from coherence alone.\n\n**Evidence required:** linked PR/artifacts, validation commands/results, code/config/data hashes, applicable split/model-exposure provenance and a decision report. A plan alone does not complete this task. Shared earthquake issues retain their own scope; link the needed checkpoint rather than creating a conflicting implementation.\n",
+      "state": "open",
+      "labels": [
+        "cross-repo",
+        "plan",
+        "server",
+        "su-picker"
+      ],
+      "assignees": [
+        "Akashkharita"
+      ]
+    },
+    "SU-08": {
+      "number": 61,
+      "id": 5418235929,
+      "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/61",
+      "title": "[SU picker][SU-08] Run sealed acceptance and deliver a verified SU artifact",
+      "body": "Track: **SU picker (SUNet)**. Owner: @Akashkharita. Roadmap: #53.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md).\n\n**Branch:** `surface/08-acceptance-deployment` from the reviewed surface integration head. Use a separate worktree per session.\n\n**Dependencies:** SU-04 (#57) freezes eligibility/protocol; SU-05 (#58)/SU-06 (#59) select the candidate; SU-07 (#60) records inclusion or omission of optional stages. All foundational contracts remain valid.\n\n## Work\n\n- Freeze the selected weight, runtime, preprocessing, U threshold/calibration, candidate extraction, supported components, optional cascade/association and complete provenance before sealed scoring.\n- Evaluate once on the eligible held-out panel and reviewed continuous exposures. Apply the preregistered per-regime recall/timing/false-alarm criteria and uncertainty; retain exploratory labels for underpowered regimes.\n- On failure/inconclusive evidence, keep the existing workflow and document limitations. A panel used to revise the model loses blind status; plan fresh confirmation or disclose repeated evaluation.\n- Prepare QuakeScope model-class/cache loading, U threshold/schema, task-specific run identity, resume/deduplication, component fallback and separate association handling.\n- Verify CPU/offline loading, station-day throughput, memory, overlap/I/O/latency and frozen integration fixtures preserving earthquake outputs. Publish the model card and rollout/rollback decision.\n\n## Acceptance criteria\n\n- [ ] A signed-off release decision references frozen artifacts, all exclusions/exposure history and the complete acceptance report; no aggregate score hides failed supported-regime criteria.\n- [ ] The exported artifact reproduces validation outputs in the production container, including offline load and supported channel configurations.\n- [ ] SU outputs and resume identity are distinct from earthquake runs; integration fixtures preserve earthquake results.\n- [ ] Positive release evidence supports the documented rollout scope, or a no-release result and next-data requirements are recorded. Fleet execution follows the recorded rollout decision.\n\n**Evidence required:** linked PR/artifacts, validation commands/results, code/config/data hashes, applicable split/model-exposure provenance and a decision report. A plan alone does not complete this task. Shared earthquake issues retain their own scope; link the needed checkpoint rather than creating a conflicting implementation.\n",
+      "state": "open",
+      "labels": [
+        "cross-repo",
+        "plan",
+        "server",
+        "su-picker"
+      ],
+      "assignees": [
+        "Akashkharita"
+      ]
+    }
+  },
+  "epic": {
+    "number": 53,
+    "id": 5418235051,
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/53",
+    "title": "[SU picker][Roadmap] Build and validate the SUNet surface-event onset picker",
+    "body": "Owner: @Akashkharita. Track: **SU picker (SUNet)**.\n\nBuild a retrospective station-level surface-onset picker through eight gated tasks. Keep earthquake P/S picking separate while reusing verified preprocessing, exclusions and continuous evaluation contracts.\n\n[Implementation plan](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/SU_PICKER_IMPLEMENTATION_PLAN.md) \u00b7 [Design rationale](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-08_surface_event_picker_plan.md) \u00b7 [Audit](https://github.com/Denolle-Lab/phasenet-retrain/blob/audit/2026-09-10-surface-picker/docs/2026-09-10_surface_event_picker_audit.md).\n\nStart with SU-01 taxonomy/suite roles and a bounded SU-02 post-2002 Rainier/St. Helens pilot census, with Newberry/Hood development station-days after overlap checks. SU-01 and SU-02 each have an estimated 10-working-day timebox; Akash records T0 and independent review availability. No calendar deadline or completed training is implied.\n\n## Tasks\n\n- [ ] #54 \u2014 SU-01: Define target taxonomy, suite roles and exclusion registry\n- [ ] #55 \u2014 SU-02: Census, review and build the bounded pilot corpus\n- [ ] #56 \u2014 SU-03: Repair preprocessing, windowing, labels and model export contracts\n- [ ] #57 \u2014 SU-04: Establish continuous baselines, calibration and acceptance protocol\n- [ ] #58 \u2014 SU-05: Train and diagnose the minimal UN pilot\n- [ ] #59 \u2014 SU-06: Measure source transfer and controlled generalization improvements\n- [ ] #60 \u2014 SU-07: Evaluate optional cascade and coverage-aware network association\n- [ ] #61 \u2014 SU-08: Run sealed acceptance and deliver a verified SU artifact\n\n## Release rule\n\nSU-01\u201304 must release their required artifacts before the SU-05 pilot. Use SU-06 for controlled improvements and record inclusion/omission of SU-07 optional stages. SU-08 freezes and scores one candidate using the preregistered protocol, then records a release or no-release decision. No unsupported global coverage or automatic earthquake-association claim.\n\nShared contracts: #33, #34, #35, #37, #38, #43 and #44. Their current scope and assignees are unchanged.\n",
+    "state": "open",
+    "labels": [
+      "plan",
+      "su-picker"
+    ],
+    "assignees": [
+      "Akashkharita"
+    ]
+  },
+  "verified_at": "2026-09-10T23:10:33.933253+00:00"
+}

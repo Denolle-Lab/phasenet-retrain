@@ -526,6 +526,21 @@ on every metric (P-MAE 1.696s, MCC 0.160) — direct evidence that the
 pretrained-then-fine-tuned approach is the right strategy for this data
 volume, not a competing alternative worth pursuing further (GitHub #13).
 
+::: {.callout-important}
+**Retracted in part, 2026-09-07 (see @sec-audit item 15).** The "champion"
+label above rests on the unconditional P-MAE, which #8 found circular, and
+on a benchmark that is in-domain for v7 (every benchmark dataset is in its
+manifest, so `in_domain` equals `all`). On the same traces, paired, v7's
+surviving advantage is a conditional P-MAE gain of 0.019 s [0.015, 0.023]
+on picks both models detect, with no S-timing gain (0.001 s [−0.001,
+0.004]); its P recall is lower by 0.030 [0.027, 0.032] and S recall by
+0.044 [0.040, 0.047] (`docs/audit_2026-09-07/task2b_paired_full_benchmark.md`).
+On continuous data outside the training domain the timing gain is 0 to 6 ms
+and the parent recovers more analyst picks at matched pick budget on all
+six non-US sequence–phase pairs. The table stays as the record of what was
+measured; the reading of it as a deployable improvement does not stand.
+:::
+
 ![Fine-tuned model dashboard vs. all baselines (`notebooks/step3_ft_dashboard.png`). Main results overview across P/S-MAE, recall, MCC, and outlier rate.](notebooks/step3_ft_dashboard.png){#fig-dashboard width=100%}
 
 ![Per-metric ranked leaderboard — P-MAE (`notebooks/step3_fig_A_pmae.png`).](notebooks/step3_fig_A_pmae.png){#fig-pmae width=90%}
@@ -543,6 +558,12 @@ Fine-tuning beats the baseline on **timing** (P-MAE) in local and regional bins,
 but **loses recall in every bin** — and the gap is severe at teleseismic range
 (**v7 recall 0.122 vs jma_wc 0.238**, i.e. fine-tuning roughly *halved*
 teleseismic detection).
+
+*Added 2026-09-07.* The P-MAE column here is the unconditional number. On
+paired detected traces the timing gain is 0.014 s [0.010, 0.019] locally and
+0.026 s [0.019, 0.032] regionally; the recall deficit is 0.012 [0.009,
+0.015] local P, 0.043 [0.038, 0.047] regional P, 0.032 [0.028, 0.037] local
+S and 0.073 [0.065, 0.082] regional S (@sec-audit item 15).
 
 ![P/S-MAE by distance bin (`notebooks/step3_ft_distance_bins.png`).](notebooks/step3_ft_distance_bins.png){#fig-distbins width=95%}
 
@@ -686,6 +707,10 @@ iterated selection on the test set. The reported v7 > jma_wc timing advantage
 (0.340 vs 0.374) may shrink on a truly held-out set. A final, untouched test
 split — never used for version selection or threshold tuning — is required before
 any claim is locked.
+
+*2026-09-07:* it did shrink. On held-out continuous data the timing
+advantage is 0 to 6 ms and the recall deficit is confirmed; see @sec-audit
+item 15.
 :::
 
 # Critical audit: issues to resolve before action {#sec-audit}
@@ -742,6 +767,128 @@ broader group. Items are ordered by impact on conclusions. Each cites
    `docs/LABEL_ERROR_FILTERING.md` no longer describes Pipeline A at all — the
    label-error filter it documents was fixed and wired into Pipeline B (#10),
    so training-side label cleaning is now real, not disclaimed.
+
+15. **The fine-tune does not generalise better than its parent, and the
+    external test sequences were not independent of it. *Added 2026-09-07*
+    (`docs/2026-09-07_training_history_audit.md`,
+    `docs/2026-09-07_generalization_audit_prompt.md`, results and scripts
+    under `docs/audit_2026-09-07/` and `scripts/audit_generalization_hypotheses.py`,
+    branch `audit/2026-09-07-generalization`).**
+
+    *External results.* Two QuakeScope notebooks scored `quakescope2026`
+    (this repository's v7) and `jma_wc` on continuous data against
+    operators' analyst picks
+    (`~/GitHub/QuakeScope/reports/phasenet_global_sequences.html`,
+    `phasenet_sequence_comparison.html`; transcribed with bootstrap
+    intervals in `docs/audit_2026-09-07/external_recall_with_intervals.md`).
+    Outside the United States the parent recovers more picks on every
+    sequence and phase:
+
+    | Sequence (operator) | Phase | Analyst picks | v7 recall at 0.3 | jma_wc recall at 0.3 | Difference at matched budget |
+    |---|---|--:|--:|--:|--:|
+    | Kaikōura 2016 (GeoNet) | P | 357 | 0.661 [0.613, 0.711] | 0.703 [0.655, 0.751] | −0.016 |
+    | Kaikōura 2016 (GeoNet) | S | 458 | 0.502 [0.454, 0.546] | 0.520 [0.474, 0.561] | −0.006 |
+    | Norcia 2016 (INGV) | P | 701 | 0.763 [0.730, 0.793] | 0.795 [0.763, 0.823] | −0.014 |
+    | Norcia 2016 (INGV) | S | 656 | 0.744 [0.710, 0.776] | 0.777 [0.744, 0.806] | −0.018 |
+    | Thessaly 2021 (NOA) | P | 395 | 0.719 [0.671, 0.762] | 0.747 [0.701, 0.790] | −0.022 |
+    | Thessaly 2021 (NOA) | S | 331 | 0.390 [0.338, 0.441] | 0.402 [0.353, 0.450] | −0.003 |
+
+    No non-US sequence separates the two models on its own at the shared
+    threshold (every unpaired difference interval spans zero; in the western
+    set only Mendocino P does, −0.070 [−0.140, −0.005]), but the matched-budget
+    difference is negative on all six pairs (sign test p = 0.016) and the
+    mean absolute timing residuals agree to within 6 ms on every pair. In
+    the western United States the picture is the same except Ridgecrest,
+    where v7 leads S by 0.024 at a 370-pick budget. The matched-budget
+    differences carry no interval: the notebooks do not store the per-pick
+    data.
+
+    *Task 1, independence.* The external sequences are held out for
+    `jma_wc` by construction and not for v7. `scripts/heldout_sequences.py`
+    defines the five windows (mainshock hours and sequence spans) and the
+    2016/2021 whole-year hold-out; `scripts/audit_heldout_sequences.py` does
+    the spatiotemporal join over `manifests_v2/{train,val}`, the ten full
+    corpora and the benchmark manifest and writes
+    `data/exclusions/heldout_sequences.csv`; `scripts/build_training_dataset.py`
+    now applies that list beside `benchmark_exclude`, drops every 2016 and
+    2021 origin, carries the origin fingerprint into the manifest, and
+    refuses to build without the list. **The counts have not been computed:
+    the lab servers were unreachable from the machine this was written on
+    (2026-09-07), and nothing was reconstructed.** A space-only pre-screen
+    of the benchmark manifest finds 916 INSTANCE, 17 STEAD and 1,346
+    AQ2009GM traces within 1° of Norcia, 406 CEED and 49 STEAD within 1° of
+    Ridgecrest, and 987 PNW traces within 1° of Monroe, with origin times
+    unknown locally (`h3b_benchmark_spatial_prescreen.md`); the join on the
+    server resolves them.
+
+    *Task 2, honest re-score.* On `clean_holdout` as committed
+    (`task2a`), v7 trails the parent by 0.033 P recall and 0.050 S recall
+    overall, with a better conditional P-MAE (0.211 s vs 0.250 s, no
+    interval committed). The two `clean_holdout` populations differ, so the
+    paired re-score uses the full benchmark, which is v7's `in_domain`
+    split (`task2b`): P recall −0.030 [−0.032, −0.027], S recall −0.044
+    [−0.047, −0.040], AUC-recall −0.034 [−0.036, −0.033] for P and −0.017
+    [−0.018, −0.015] for S; on traces both detect, conditional P-MAE −0.019 s
+    [−0.023, −0.015] in v7's favour and S-MAE −0.001 s [−0.004, 0.001]. The
+    noise-pool detection MCC stays 0.771 [0.766, 0.776] against 0.776
+    [0.771, 0.780] (@sec-detection; not recomputed, the per-trace noise
+    results are on the server). A matched pick budget cannot be formed on
+    this benchmark: it has positives only, so a budget is the recall itself
+    (`task2c`). The one v7 advantage that survives is 19 ms of P timing on
+    picks both models make; it did not appear on external data.
+
+    *Task 3, hypotheses.* The "Hypotheses" section the prompt refers to is
+    absent from `docs/2026-09-07_generalization_audit_prompt.md`; H1 to H4
+    and H00 were reconstructed from the training-history audit §4 and the
+    task's own hints, and H0 (a positional prior from the fixed window
+    placement) had been tested and dropped there (§4.2).
+    **H1, calibration offset: supported, and insufficient.** v7's median
+    probability at true arrivals is 0.034 [0.031, 0.038] below the parent's
+    for P and 0.070 [0.063, 0.076] for S, with Spearman rank agreement 0.87
+    and 0.97; rank-mapping v7 onto the parent's scale removes the deficit in
+    every local bin, in regional P and in every SNR bin above 5 dB, and
+    leaves −0.009 [−0.016, −0.002] at regional S and −0.047 [−0.065,
+    −0.029] at teleseismic P (`h1a`, `h1b`). That is the T = 4 anchor and hard-argmax target of
+    `scripts/fine_tune_model.py:238-275`, and it is what a matched budget
+    removes; the residual 1 to 2 points outside is not calibration.
+    **H4, low-SNR capability loss: supported for P.** The paired P deficit
+    is 0.007 above 20 dB, 0.026 at 5–10 dB, 0.056 at 0–5 dB and 0.096
+    [0.084, 0.109] below 0 dB, and survives recalibration below 5 dB
+    (−0.045 [−0.057, −0.034] under 0 dB); the traces only the parent detects
+    have a median SNR of 3.5 dB against 12.3 dB for those only v7 detects
+    (`h4a`, `h4b`). The v13 header's "82 % of misses below 5 dB" is 71 %
+    [69, 72] on the committed results, and 70 % for the parent's own
+    misses: misses are low-SNR for both; the *differential* misses are.
+    **H2, S under-supervision: consistent, not yet tested.** The S deficit
+    (0.032 local, 0.073 [0.065, 0.082] regional) exceeds the P deficit and
+    is uniform across SNR, i.e. a confidence shift on S rather than an SNR
+    effect; 23 % of the cap budget is P-only by policy and teleseismic S is
+    nulled. The S fraction of the manifest by distance bin needs
+    `data/manifests_v2/train.csv` on the server (`h2a`, `h2b`).
+    **H3, contamination: cannot explain the result.** v7 is scored in-domain
+    on the whole benchmark and still loses (`h3a`); contamination of the
+    external sequences can only inflate v7. Its extent is task 1's pending
+    count. **H00, the selection metric: partly supported.** Of the nine own
+    weights ever run over the noise pool, the P-MAE that chose v7 ranks it
+    second while the detection MCC ranks it fifth, below the parent; v11
+    (T = 1.5) is the only single fine-tune above the parent on detection
+    MCC, 0.804 [0.799, 0.808] against 0.776 [0.771, 0.780], and was never
+    tested externally (`h00`). Fourteen of the twenty versions were never
+    scored on the noise pool, so the full ordering H00 asks for does not
+    exist.
+
+    *Can the "more general" claim be made?* No. The claim was made in
+    QuakeScope (`docs/phasenet_v7_model_description.md`, "Global dataset
+    training → better generalization across networks"), not in this
+    document, but this document's "champion" framing supported it and is
+    retracted in place above (@sec-leaderboard, @sec-bydist,
+    @sec-trajectory). v7 is a slightly more precise, less sensitive,
+    lower-confidence copy of its parent whose only measurable gain is
+    19 ms of P timing on the picks both make, and that gain did not travel.
+    The global campaign stays on `jma_wc`. A conditional v21 is proposed in
+    `docs/2026-09-07_v21_proposal.md` and has not been run; its first step
+    costs no training (test v11 externally), and task 1 must be completed
+    on the server before any manifest is built.
 
 ## Important (affect interpretation) {#sec-important}
 
@@ -826,6 +973,11 @@ broader group. Items are ordered by impact on conclusions. Each cites
    have.
 3. Lock a **held-out** test split untouched by version selection and threshold
    tuning; re-confirm the v7-vs-jma_wc comparison on it.
+   *2026-09-07:* re-confirmed on external continuous data instead, and the
+   comparison went to the parent (@sec-audit item 15). The held-out
+   sequences and years are now enforced at build time
+   (`scripts/heldout_sequences.py`); the exclusion list itself still has to
+   be produced on the server.
 
 **Phase 1 (onshore) modeling directions** suggested by the trajectory:
 

@@ -1,0 +1,506 @@
+[
+  {
+    "body": "**Goal.** Make the 23 held-out windows and places (`scripts/heldout_sequences.py`) real exclusions: counts per dataset and window, and the committed `data/exclusions/heldout_sequences.csv` the builder refuses to run without.\n\n**Steps** (on the server, branch `audit/2026-09-07-generalization`):\n```bash\nexport SEISBENCH_CACHE_ROOT=/path/to/cache\npython scripts/hash_manifests.py --check                    # manifests must match data/manifest_checksums.csv\npython scripts/audit_heldout_sequences.py                    # joins manifests_v2, the ten full corpora, the benchmark\ngit add data/exclusions && git commit\n```\n**Acceptance.** `heldout_sequence_counts.csv` and the list committed; the counts table pasted into `docs/2026-09-08_heldout_test_cases.md`; `vcseis` and `crew` date ranges read from their metadata to settle the Hawaii and Alaska tiers.\n**Depends on.** Server access. Blocks every manifest build.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 1,
+      "title": "Phase 0: evaluation before training",
+      "description": "Weeks 1-3. Task 1 on the server, baselines on the held-out set, the event-level scorer, thresholds by region.",
+      "dueOn": null
+    },
+    "number": 33,
+    "state": "OPEN",
+    "title": "[Phase 0] Run the held-out sequence exclusion on the server and commit the list",
+    "updatedAt": "2026-09-09T17:43:32Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/33"
+  },
+  {
+    "body": "**Goal.** Finish tasks 2-3 of the 2026-09-07 audit where the laptop could not: the S-label fraction of `manifests_v2/train.csv` by distance bin, and the detection MCC of every version on the noise pool.\n\n**Steps.** `python scripts/audit_generalization_hypotheses.py h2 h00` (reads the manifest and `results/detection_metrics.csv` when present). For H00, extend `SINGLE_MODELS` in `scripts/audit_noise_fp_leaderboard.py` to every `checkpoints/finetune_jma_wc_global_v*/best.pt` still on disk, rerun it and `scripts/compute_detection_metrics.py`, then `h00` again.\n**Acceptance.** `docs/audit_2026-09-07/h2a_s_fraction_by_distance_manifest.md` and an `h00` table covering every surviving checkpoint; the paper's item 15 updated with the numbers.\n**Depends on.** Server access; which checkpoints were kept.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 1,
+      "title": "Phase 0: evaluation before training",
+      "description": "Weeks 1-3. Task 1 on the server, baselines on the held-out set, the event-level scorer, thresholds by region.",
+      "dueOn": null
+    },
+    "number": 34,
+    "state": "OPEN",
+    "title": "[Phase 0] Server-side hypothesis tables: S fraction by distance (H2) and the full noise-pool ordering (H00)",
+    "updatedAt": "2026-09-09T17:43:33Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/34"
+  },
+  {
+    "body": "**Goal.** The baseline every candidate has to beat, on the 19 sequences, before any training: `jma_wc`, `instance`, `jma_wc_ft_global_v11` (best single fine-tune on the noise pool), and the PhaseNet ensembles `jma_wc`+`instance` and v7+v11.\n\n**Steps.** The picks are committed; waveforms re-fetch from the registry: `python scripts/build_heldout_testset.py --all all` (about 20 min, 1 GB) then `--verify` each key. Convert v11 with the QuakeScope path (`docs/phasenet_v7_model_description.md` §Reproduction) and score: `python scripts/heldout_testset_score.py --all --weights jma_wc instance <v11 pair> --out docs/audit_2026-09-07/heldout_scores.csv`. Add ensemble support to the scorer (average the probability curves) if missing.\n**Acceptance.** Recall at 0.3 and at matched budget per sequence, phase and window with bootstrap intervals; a decision on the campaign picker for this quarter written into the plan. Gate: a candidate replaces `jma_wc` only if it leads at matched budget on at least five of the six non-US mainshock pairs and does not lose on the volcano and swarm cases.\n**Depends on.** Server GPU; `checkpoints/finetune_jma_wc_global_v11/best.pt`.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 1,
+      "title": "Phase 0: evaluation before training",
+      "description": "Weeks 1-3. Task 1 on the server, baselines on the held-out set, the event-level scorer, thresholds by region.",
+      "dueOn": null
+    },
+    "number": 35,
+    "state": "OPEN",
+    "title": "[Phase 0] Rebuild the held-out test set on the server and score the existing weights at matched budget",
+    "updatedAt": "2026-09-09T17:43:35Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/35"
+  },
+  {
+    "body": "**Goal.** The metric the campaign is judged on is events, not picks. Associate each weight's picks with PyOcto, match to the operator catalogue, report events recovered by magnitude, by hour after the mainshock, and by day for swarms, plus picks per station-hour.\n\n**Steps.** `scripts/heldout_testset_events.py` reading `data/heldout_testset/<key>/` and the scorer's pick store; regional 1-D velocity models per sequence in the registry; matching tolerance in origin time and location recorded with the results.\n**Acceptance.** Tables for Kaikōura, La Palma and West Bohemia (one per regime) with intervals; unit tests on the matching.\n**Depends on.** The pick-level scorer output (previous issue).",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      }
+    ],
+    "milestone": {
+      "number": 1,
+      "title": "Phase 0: evaluation before training",
+      "description": "Weeks 1-3. Task 1 on the server, baselines on the held-out set, the event-level scorer, thresholds by region.",
+      "dueOn": null
+    },
+    "number": 36,
+    "state": "OPEN",
+    "title": "[Phase 0] Event-level scorer: PyOcto association against the reference catalogues",
+    "updatedAt": "2026-09-09T17:43:36Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/36"
+  },
+  {
+    "body": "**Goal.** Close the gaps listed in `data/heldout_testset/README.md`.\n\n- **Hi-net account** (NIED): Noto 2024 picks and waveforms, Noto swarm waveforms; `HinetPy` (`Client.get_arrivaltime`, `get_waveform`).\n- **CWA GDMS account**: Hualien 2024 CWASN waveforms.\n- **IMO**: SIL manual picks and the station list for Reykjanes 2023 and Fagradalsfjall 2021 (email).\n- **AFAD**: bulk manual readings for Kahramanmaraş 2023 (or the ISC copy once reviewed).\n- **Zagreb**: the 255,729 hand-picked onsets of Petrinja (Tectonophysics 2023 authors).\n- **WEBNET**: the Zenodo tarball `waveforms.tar.gz` (966 MB) once Zenodo stops answering 403.\n- **INGV-OV**: Campi Flegrei bulletin picks.\n\n**Acceptance.** Each item either added to the registry and rebuilt (`build_heldout_testset.py --sequence KEY all --force`) or marked unobtainable with the reason.\n**Owner.** Marine (accounts and emails); the pipeline already has a slot for each.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o79Ag",
+        "name": "needs-access",
+        "description": "Blocked on an account, an email or a data request",
+        "color": "d93f0b"
+      }
+    ],
+    "milestone": {
+      "number": 1,
+      "title": "Phase 0: evaluation before training",
+      "description": "Weeks 1-3. Task 1 on the server, baselines on the held-out set, the event-level scorer, thresholds by region.",
+      "dueOn": null
+    },
+    "number": 37,
+    "state": "OPEN",
+    "title": "[Phase 0] Obtain the restricted picks and waveforms",
+    "updatedAt": "2026-09-09T17:43:38Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/37"
+  },
+  {
+    "body": "**Goal.** Replace the shared 0.3 with a threshold set per weight set and region to a false-pick target on quiet station-days, recorded with the campaign.\n\n**Steps.** In QuakeScope: sample quiet station-days per region (no catalogued event within the window), run each weight, count picks per station-day versus threshold, choose the threshold that meets the target; store in the campaign config with provenance.\n**Acceptance.** A table of thresholds by weight and region and the false-pick rate at each; the two QuakeScope notebooks re-run at those thresholds.\n**Depends on.** Nothing in this repo; needs the campaign archives.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o79YQ",
+        "name": "cross-repo",
+        "description": "Touches QuakeScope as well",
+        "color": "fbca04"
+      }
+    ],
+    "milestone": {
+      "number": 1,
+      "title": "Phase 0: evaluation before training",
+      "description": "Weeks 1-3. Task 1 on the server, baselines on the held-out set, the event-level scorer, thresholds by region.",
+      "dueOn": null
+    },
+    "number": 38,
+    "state": "OPEN",
+    "title": "[Phase 0] Thresholds per weight and per region from quiet-day false-pick rates",
+    "updatedAt": "2026-09-09T17:43:40Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/38"
+  },
+  {
+    "body": "**Goal.** Decide the corpus size and operator list from counts, not guesses: events per year, picked stations per event, manual fraction, open-waveform fraction, per operator.\n\n**Steps.** `scripts/census_operator_bulletins.py` using the harvest code of `scripts/build_heldout_testset.py` on one week per year per operator: GeoNet, INGV, NOA, USGS ComCat (NC, CI, UW, NN, AK, HV), then tested one by one NRCan, GA, IMO, SED, KOERI, AFAD, CSN, SSN, GFZ, RESIF, IGN, ISC. Apply the held-out windows and years.\n**Acceptance.** A table per operator and year; a target corpus size with the distance, SNR and event-type mix estimated; runs from the laptop.\n**Depends on.** Nothing.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      }
+    ],
+    "milestone": {
+      "number": 2,
+      "title": "Phase 1: signal and noise corpora",
+      "description": "Weeks 4-11. Bulletin-labelled corpus at the scale that made jma_wc good, the eleven-flavour noise corpus, augmentation, frozen suites.",
+      "dueOn": null
+    },
+    "number": 39,
+    "state": "OPEN",
+    "title": "[Phase 1] Operator bulletin census: how many manual picks each FDSN event service can give",
+    "updatedAt": "2026-09-09T17:43:42Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/39"
+  },
+  {
+    "body": "**Goal.** The training corpus of the plan §4: windows cut from continuous data at native rate, every catalogued arrival in the window labelled (the aftershock regime), with SNR, distance, magnitude, rate, instrument, operator, year, event type and event count per window; SeisBench analyst P+S sets added with the same exclusions.\n\n**Steps.** `scripts/build_bulletin_corpus.py` (harvest → windows → HDF5 + manifest), stratified sampling to the composition targets (≥35 % below 5 dB, ≥30 % multi-event, ≥60 % with S, regional-heavy, ≥15 % volcano-tectonic and swarm settings, no operator above 30 %), `hash_manifests.py` fingerprints, `audit_heldout_sequences.py --check-manifest` on train and val.\n**Acceptance.** A manifest family `data/manifests_v4/` with composition summary and removal reports; the check passes; a 1 % sample plotted.\n**Depends on.** The census; the exclusion list (Phase 0 issue 1).",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 2,
+      "title": "Phase 1: signal and noise corpora",
+      "description": "Weeks 4-11. Bulletin-labelled corpus at the scale that made jma_wc good, the eleven-flavour noise corpus, augmentation, frozen suites.",
+      "dueOn": null
+    },
+    "number": 40,
+    "state": "OPEN",
+    "title": "[Phase 1] Bulletin-labelled corpus builder: 60 s windows with every arrival labelled",
+    "updatedAt": "2026-09-09T17:43:43Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/40"
+  },
+  {
+    "body": "**Goal.** Catch the reference problems the audit found (a per-operator S cap, automatic picks flagged manual).\n\n**Steps.** Run `scripts/label_error_filter.py` on the new corpus; add S−P versus distance residual screening per operator; a per-operator recall cap test with `jma_wc` on a held-out slice, of the kind that exposed Thessaly's S at 0.5.\n**Acceptance.** Removal fractions per operator in the manifest directory; a short note on any operator whose picks cannot be used as a reference.\n**Depends on.** The corpus builder.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 2,
+      "title": "Phase 1: signal and noise corpora",
+      "description": "Weeks 4-11. Bulletin-labelled corpus at the scale that made jma_wc good, the eleven-flavour noise corpus, augmentation, frozen suites.",
+      "dueOn": null
+    },
+    "number": 41,
+    "state": "OPEN",
+    "title": "[Phase 1] Label quality: confident learning plus physical checks per operator",
+    "updatedAt": "2026-09-09T17:43:45Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/41"
+  },
+  {
+    "body": "**Goal.** Plan §5: 120 s windows at native rate from the campaign's archives, in eleven classes (microseism, wind and tilt, cultural, hydrological, impulsive non-earthquake, volcanic tremor, tectonic tremor, sequence hum and coda, polar and ice, instrument and telemetry, quiet baseline), ≥20 k per class, no model screening, classes from source or spectral features, the held-out windows and places excluded, and a held-out split by station.\n\n**Steps.** `scripts/build_noise_corpus.py`; the existing `data/noise_global` pool folded in with its obst2024 traces dropped; class census and a per-class spectrogram sheet.\n**Acceptance.** `data/noise_v2/` with metadata (class, station, rate, site, season), the census, and the held-out station list.\n**Depends on.** Nothing; can start now from the laptop for the FDSN-served archives.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 2,
+      "title": "Phase 1: signal and noise corpora",
+      "description": "Weeks 4-11. Bulletin-labelled corpus at the scale that made jma_wc good, the eleven-flavour noise corpus, augmentation, frozen suites.",
+      "dueOn": null
+    },
+    "number": 42,
+    "state": "OPEN",
+    "title": "[Phase 1] Noise corpus: eleven flavours harvested by catalogue exclusion, held out by station",
+    "updatedAt": "2026-09-09T17:43:47Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/42"
+  },
+  {
+    "body": "**Goal.** Plan §5.3 in `CachedManifestDataset.__getitem__`: class-balanced noise draw with SNR weighted to 0-10 dB, non-stationary mixes, a second labelled window added with merged labels, coda backgrounds, spikes/steps/gaps/clipping/mains/drift, band-limiting and 20-100 Hz resampling, random window position, pure-noise negatives at 15 % of a batch, 30 % untouched.\n\n**Steps.** `scripts/augment.py` with a config block; unit tests that labels survive every transform (positions shift with the window, merge on superposition); a notebook page of twenty augmented examples.\n**Acceptance.** Tests pass; the config for each arm of Phase 2 is expressible.\n**Depends on.** The noise corpus for real runs; tests can use synthetic noise.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      }
+    ],
+    "milestone": {
+      "number": 2,
+      "title": "Phase 1: signal and noise corpora",
+      "description": "Weeks 4-11. Bulletin-labelled corpus at the scale that made jma_wc good, the eleven-flavour noise corpus, augmentation, frozen suites.",
+      "dueOn": null
+    },
+    "number": 43,
+    "state": "OPEN",
+    "title": "[Phase 1] Augmentation module: class-balanced real noise, event superposition, artefacts, resampling, random position",
+    "updatedAt": "2026-09-09T17:43:48Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/43"
+  },
+  {
+    "body": "**Goal.** The acceptance suite (Kaikōura, Norcia, Thessaly, Ridgecrest, Monroe, 2016, 2021, Kahramanmaraş, Noto 2024, Hualien, Petrinja, Reykjanes, La Palma, Santorini-Amorgos, West Bohemia, Maurienne, Noto swarm, Campi Flegrei) is scored once, at the end. The development suite (Samos, Adriatic, Etna, Corinth-Thiva, Hawaii and Alaska as tier 2) decides between runs.\n\n**Steps.** `suite` in the registry already; add a guard in the scorer that refuses acceptance keys unless `--acceptance-run` is passed and logs the run to `data/heldout_testset/acceptance_log.csv`.\n**Acceptance.** The guard and the log exist; the plan's gate table points at them.\n**Depends on.** Nothing.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      }
+    ],
+    "milestone": {
+      "number": 2,
+      "title": "Phase 1: signal and noise corpora",
+      "description": "Weeks 4-11. Bulletin-labelled corpus at the scale that made jma_wc good, the eleven-flavour noise corpus, augmentation, frozen suites.",
+      "dueOn": null
+    },
+    "number": 44,
+    "state": "OPEN",
+    "title": "[Phase 1] Freeze the development and acceptance suites and enforce the never-read rule",
+    "updatedAt": "2026-09-09T17:43:50Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/44"
+  },
+  {
+    "body": "**Goal.** The experiment the twenty versions never ran: does more data of this kind move the parent at all? Init `jma_wc`, distillation T = 1.5, α = 0.3, soft Gaussian targets, LR 5e-6, the augmentation module on, on nested subsets of 0.25, 0.5, 1, 2 and 4 M windows.\n\n**Acceptance.** Matched-budget recall against the parent on the development suite versus corpus size, per regime, with intervals; the decision written down: continue, or stop the fine-tune line and keep the Phase 0 winner (flat at or below the parent by 2 M means stop).\n**Depends on.** The corpus, the noise corpus, the augmentation module, the frozen suites, GPU time (a 4 M run is about eight times v7 per epoch).",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 3,
+      "title": "Phase 2: training experiments",
+      "description": "Weeks 12-22. The data-scaling curve first, then init/anchor, noise ablation, width and context. PhaseNet only.",
+      "dueOn": null
+    },
+    "number": 45,
+    "state": "OPEN",
+    "title": "[Phase 2] E1: the data-scaling curve, before any recipe work",
+    "updatedAt": "2026-09-09T17:43:51Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/45"
+  },
+  {
+    "body": "`jma_wc` init against from-scratch PhaseNetWC, and α = 0 against α = 0.3, at the largest corpus size that helped in E1. Scored on the development suite at matched budget. **Depends on** E1.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 3,
+      "title": "Phase 2: training experiments",
+      "description": "Weeks 12-22. The data-scaling curve first, then init/anchor, noise ablation, width and context. PhaseNet only.",
+      "dueOn": null
+    },
+    "number": 46,
+    "state": "OPEN",
+    "title": "[Phase 2] E2: initialisation and anchor at the size E1 chose",
+    "updatedAt": "2026-09-09T17:43:55Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/46"
+  },
+  {
+    "body": "Arms without the class-balanced draw, without event superposition, without the non-stationary and artefact groups, and with white Gaussian noise in place of the corpus. Scored on false picks per station-day by noise class (held-out stations) and on the aftershock regime. **Depends on** E1.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 3,
+      "title": "Phase 2: training experiments",
+      "description": "Weeks 12-22. The data-scaling curve first, then init/anchor, noise ablation, width and context. PhaseNet only.",
+      "dueOn": null
+    },
+    "number": 47,
+    "state": "OPEN",
+    "title": "[Phase 2] E3: noise ablation",
+    "updatedAt": "2026-09-09T17:43:56Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/47"
+  },
+  {
+    "body": "PhaseNetWC (the parent's 2× filters) against standard width at the same data; 60 s input against 30 s (fully convolutional, so the change is the window). Ensembles of the best arm with `jma_wc` as the deployment option if they win at matched budget. **Depends on** E1.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 3,
+      "title": "Phase 2: training experiments",
+      "description": "Weeks 12-22. The data-scaling curve first, then init/anchor, noise ablation, width and context. PhaseNet only.",
+      "dueOn": null
+    },
+    "number": 48,
+    "state": "OPEN",
+    "title": "[Phase 2] E4: PhaseNet width and input length",
+    "updatedAt": "2026-09-09T17:43:58Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/48"
+  },
+  {
+    "body": "One candidate per line scored once on the acceptance suite with `--acceptance-run`, then converted with the QuakeScope path, placed in the `quakescope2026` slot, and both notebooks re-run. It must beat `jma_wc` at matched pick budget on the non-US mainshock sequences and not lose on the volcano and swarm cases. Until then the campaign stays on `jma_wc` or the Phase 0 winner. **Depends on** E2-E4.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o79YQ",
+        "name": "cross-repo",
+        "description": "Touches QuakeScope as well",
+        "color": "fbca04"
+      }
+    ],
+    "milestone": {
+      "number": 3,
+      "title": "Phase 2: training experiments",
+      "description": "Weeks 12-22. The data-scaling curve first, then init/anchor, noise ablation, width and context. PhaseNet only.",
+      "dueOn": null
+    },
+    "number": 49,
+    "state": "OPEN",
+    "title": "[Phase 2] The acceptance run and the QuakeScope notebooks",
+    "updatedAt": "2026-09-09T17:44:00Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/49"
+  },
+  {
+    "body": "P only, from GEOFON, MLAAPDE, CREW and ISC-labelled P at 3-30° from M ≥ 4, initialised from the SeisBench `geofon` weights, the noise recipe restricted to microseism, polar and quiet classes. Runs only on oceanic islands, coasts facing offshore seismicity, and where the nearest station is more than 300 km away; picks enter the associator with a global velocity model. Scored against ISC and NEIC by completeness magnitude versus nearest-station distance on offshore and African regions held out by year. No ocean-bottom data this round. **Depends on** the noise corpus; independent of Phase 2.",
+    "comments": [],
+    "labels": [
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o78rQ",
+        "name": "plan",
+        "description": "From the 2026-09 training plan",
+        "color": "0e8a16"
+      },
+      {
+        "id": "LA_kwDOQdALqM8AAAAC0o782w",
+        "name": "server",
+        "description": "Needs the lab server (SeisBench cache, checkpoints, GPU)",
+        "color": "5319e7"
+      }
+    ],
+    "milestone": {
+      "number": 4,
+      "title": "Phase 3: distant P and deployment",
+      "description": "Weeks 22-26. The 20 Hz distant-P model, thresholds by weight and region, the standing acceptance test.",
+      "dueOn": null
+    },
+    "number": 50,
+    "state": "OPEN",
+    "title": "[Phase 3] Distant-P model at 20 Hz on 120 s windows for offshore events and sparse regions",
+    "updatedAt": "2026-09-09T17:44:01Z",
+    "url": "https://github.com/Denolle-Lab/phasenet-retrain/issues/50"
+  }
+]

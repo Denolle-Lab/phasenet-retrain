@@ -1,0 +1,207 @@
+{
+ "key": "etna_2022_2024",
+ "label": "Etna 2022-2024",
+ "built": "2026-09-08T17:53:23+00:00",
+ "git_commit": "efd4b68a7c215f6d3054aa91e8076b9e68148f58",
+ "python": "3.9.20",
+ "obspy": "1.4.2",
+ "pandas": "2.3.2",
+ "registry": {
+  "key": "etna_2022_2024",
+  "label": "Etna 2022-2024",
+  "regime": "vt",
+  "tier": 1,
+  "suite": "dev",
+  "lat": 37.75,
+  "lon": 15.0,
+  "radius": 0.5,
+  "mainshock": null,
+  "mag": null,
+  "picks": [
+   {
+    "kind": "fdsn_per_event",
+    "client": "INGV",
+    "min_mag": null
+   }
+  ],
+  "windows": {
+   "kind": "busiest",
+   "span": [
+    "2022-01-01T00:00:00Z",
+    "2024-12-31T23:59:59Z"
+   ],
+   "n_windows": 2,
+   "hours": 3,
+   "catalog": {
+    "kind": "fdsn_region",
+    "client": "INGV",
+    "min_mag": 1.0,
+    "arrivals": false
+   }
+  },
+  "waveform_routes": [
+   "INGV"
+  ],
+  "channel_pref": [
+   "HH",
+   "EH",
+   "BH"
+  ],
+  "n_stations": 6,
+  "extra_stations": [],
+  "notes": ""
+ },
+ "reference_ok": "reference_ok = mode == 'manual', or mode unknown for ISC-sourced picks (the ISC bulletin carries agencies' reviewed readings without an evaluation mode)",
+ "queries": [
+  {
+   "kind": "get_stations",
+   "client": "GEONET",
+   "base_url": "http://service.geonet.org.nz",
+   "when": "2026-09-08T17:52:34+00:00",
+   "params": {
+    "latitude": "-42.69",
+    "longitude": "173.02",
+    "maxradius": "2.5",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2016-11-13T11:12:56.000000Z",
+    "endtime": "2016-11-13T14:12:56.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T17:52:35+00:00",
+   "params": {
+    "latitude": "42.83",
+    "longitude": "13.11",
+    "maxradius": "1.3",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2016-10-30T06:50:18.000000Z",
+    "endtime": "2016-10-30T08:50:18.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T17:52:48+00:00",
+   "params": {
+    "latitude": "43.96",
+    "longitude": "13.32",
+    "maxradius": "1.2",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2022-11-09T06:17:25.000000Z",
+    "endtime": "2022-11-09T09:17:25.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T17:53:00+00:00",
+   "params": {
+    "latitude": "40.83",
+    "longitude": "14.14",
+    "maxradius": "0.65",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2023-09-26T01:00:00.000000Z",
+    "endtime": "2023-09-27T22:30:00.000000Z",
+    "level": "channel"
+   }
+  },
+  {
+   "kind": "get_stations",
+   "client": "INGV",
+   "base_url": "http://webservices.ingv.it",
+   "when": "2026-09-08T17:53:11+00:00",
+   "params": {
+    "latitude": "37.75",
+    "longitude": "15.0",
+    "maxradius": "1.0",
+    "channel": "HH?,EH?,BH?",
+    "starttime": "2022-08-29T19:15:00.000000Z",
+    "endtime": "2023-06-04T19:15:00.000000Z",
+    "level": "channel"
+   }
+  }
+ ],
+ "n_queries": 5,
+ "counts": {
+  "catalog_events": 2068,
+  "picks": 4537,
+  "picks_reference_ok": 4537,
+  "picks_manual": 4537,
+  "stations_fetched": 6,
+  "windows": 2
+ },
+ "files": {
+  "catalog.parquet": {
+   "sha256": "87d4ae4353ce4b5c9342f1ef32804f0057fcf4ea4f0ca1bb2890fc4fc20c0ab0",
+   "bytes": 81366
+  },
+  "picks.parquet": {
+   "sha256": "24db294edea10ed403085a2d1e50a4a1a3d8c964f5b9af97f0da1cd48bb36cf1",
+   "bytes": 89796
+  },
+  "stations.csv": {
+   "sha256": "d26a5ae763921553c40097f3b88b86c62cff3e43857253551e9debc13ce3ca22",
+   "bytes": 8530
+  },
+  "waveforms/IV.ECZM__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "3238ffd4159fa138e60a230fee3518c7ce1a8ddc77ed26b548aeb053ee00755f",
+   "bytes": 4514816
+  },
+  "waveforms/IV.ECZM__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "448df97e6153db9a59cfa773a4e226eed972065fd9d440a1e4b6f4f93073a89b",
+   "bytes": 3950080
+  },
+  "waveforms/IV.EMSG__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "07c081b2dd6a7bc00a1cedda964440264634d17c5cdf818d89df71c97eaf1c73",
+   "bytes": 4436480
+  },
+  "waveforms/IV.EMSG__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "ff4db8ef2159b470c70b021e570b5abe4ca78ad891372282d87cd18e1d07b413",
+   "bytes": 4153344
+  },
+  "waveforms/IV.EPZF__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "4020ebac8a95e37b5143d5f38f2f6d5ac16b5e5703359a6b5ae5732c61deb8f4",
+   "bytes": 3850240
+  },
+  "waveforms/IV.EPZF__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "59da2c177a0d4494057f5671ce47e04311e74d5b7aa382743f46eaf3ef9b653b",
+   "bytes": 4644352
+  },
+  "waveforms/IV.ESML__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "27c1c1f6b39c1e0d0da6726f743daf3b6f259ea06277cdd6985e991a0edf09dc",
+   "bytes": 4418560
+  },
+  "waveforms/IV.ESML__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "90e70c94c35710c1e372ccf8e307cce88c422f982fb46c5619256a7d59aba150",
+   "bytes": 4235776
+  },
+  "waveforms/IV.ESVO__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "197035a4f6712bc4de31ab9a63801b85a8546b1daeff6302d8194c5cde728dcb",
+   "bytes": 6136832
+  },
+  "waveforms/IV.ESVO__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "edc75b435ba55fd840e27ac9d2404879c43e88a0625eb17cc114f680f7f42dfd",
+   "bytes": 5590016
+  },
+  "waveforms/IV.MUCR__HH__20220829T191500__20220829T221500.mseed": {
+   "sha256": "4ec938e9ab8d18195ab61ff190a1969d1e615262c3eb5542da3ec99fe2a06624",
+   "bytes": 3979776
+  },
+  "waveforms/IV.MUCR__HH__20230604T161500__20230604T191500.mseed": {
+   "sha256": "9994d3fd1152f278af8e92705cdd240fa2fc3b7edc734f85467efeba9700870e",
+   "bytes": 2970624
+  },
+  "windows.csv": {
+   "sha256": "788073f23fb5a96cbc36060e69e0afaaebe893267c1d4c8fb2ae1ee3bb33e934",
+   "bytes": 299
+  }
+ }
+}

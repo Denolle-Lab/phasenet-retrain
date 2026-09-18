@@ -20,6 +20,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import seisbench.models as sbm
 
+from waveform_contract import NORMS
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Pick-residual helper
@@ -109,6 +111,10 @@ class MetricsLogger:
         "val_N_acc",  "val_P_acc",  "val_S_acc",
         "val_p_mae_s", "val_s_mae_s",
         "lr",
+        # per-term losses and supervision counts (#41A); "" when not applicable
+        "train_loss_ce", "train_loss_kd", "train_loss_P", "train_loss_S", "train_loss_N",
+        "train_supervised_fraction", "train_pos_P", "train_pos_S",
+        "val_loss_ce", "val_loss_kd", "val_supervised_fraction", "val_pos_P", "val_pos_S",
     ]
 
     def __init__(self, csv_path: str):
@@ -147,6 +153,21 @@ class PhaseNetFinetune(nn.Module):
         model_name = pretrained.get("model_name", "jma_wc")
         print(f"Loading pretrained PhaseNet: {model_name}")
         self.model = sbm.PhaseNet.from_pretrained(model_name)
+        self.parent_name = model_name
+        # Window normalisation contract (2026-09-18): the loader's norm follows
+        # the parent's SeisBench norm unless data.norm says otherwise
+        # (manifest_data_module.resolve_norm). finetune.py sets self.norm to
+        # the value the loaders were built with; save_checkpoint stores it and
+        # scripts/score_checkpoint.py exports with it.
+        self.parent_norm = getattr(self.model, "norm", None)
+        self.norm = (config.get("data", {}) or {}).get("norm")
+        if self.norm is not None:
+            if self.norm not in NORMS:
+                raise ValueError(f"data.norm {self.norm!r} is not one of {NORMS}")
+            if self.parent_norm is not None and self.norm != self.parent_norm:
+                print(f"  WARNING: data.norm={self.norm!r} but parent {model_name} was trained with "
+                      f"norm={self.parent_norm!r}; training input statistics will not match the parent's")
+        print(f"  window norm: {self.norm or 'from parent'} (parent {model_name}: {self.parent_norm})")
 
         for layer_name in pretrained.get("freeze_layers", []):
             for name, param in self.model.named_parameters():
@@ -177,6 +198,14 @@ class PhaseNetFinetune(nn.Module):
             self.teacher.eval()
         else:
             self.teacher = None
+
+        # Frozen BatchNorm statistics (strategy v3 section 7, an E1 arm): the
+        # BatchNorm modules stay in eval mode during training, so the running
+        # mean and variance are the parent's and are not updated; their affine
+        # weight and bias still train. Default False = adaptive statistics.
+        self.freeze_bn_stats = bool(training_cfg.get("freeze_bn_stats", False))
+        if self.freeze_bn_stats:
+            print("  BatchNorm stats FROZEN (affine parameters still train)")
 
         self.timing_beta = training_cfg.get("timing_beta", 0.0)
         if self.timing_beta > 0:
@@ -214,36 +243,56 @@ class PhaseNetFinetune(nn.Module):
         super().train(mode)
         if self.teacher is not None:
             self.teacher.eval()   # teacher must always stay in eval (no dropout/BN in train mode)
+        if mode and getattr(self, "freeze_bn_stats", False):
+            for module in self.model.modules():
+                if isinstance(module, nn.modules.batchnorm._BatchNorm):
+                    module.eval()   # running statistics fixed; affine parameters keep requires_grad
         return self
+
+    def bn_modules(self):
+        """The student's BatchNorm modules, in module order."""
+        return [m for m in self.model.modules() if isinstance(m, nn.modules.batchnorm._BatchNorm)]
 
     def forward(self, x: torch.Tensor, logits: bool = False) -> torch.Tensor:
         return self.model(x, logits=logits)
 
     def compute_loss_and_metrics(
-        self, x: torch.Tensor, y: torch.Tensor
-    ) -> Dict[str, torch.Tensor]:
+        self, x: torch.Tensor, y: torch.Tensor, mask: torch.Tensor = None
+    ) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         """
         Forward pass + loss + per-phase accuracy.
+
+        mask : optional (B, T) tensor in {0, 1}, the supervised samples of the
+               label policy (#41A). The cross-entropy term (hard, soft or
+               focal) is averaged over supervised samples only; accuracy is
+               measured there too. Distillation, timing and presence terms are
+               not masked. mask=None supervises every sample (legacy).
         When distillation is enabled, loss = alpha * KL(student||teacher) + (1-alpha) * CE.
-        Returns a dict with 'loss', 'acc', 'N_acc', 'P_acc', 'S_acc'.
+        Returns (metrics, probs); metrics carries the per-term losses
+        'loss_ce', 'loss_kd', the soft per-channel terms 'loss_P/S/N',
+        'supervised_fraction' and the supervised positive counts 'pos_P/S'.
         """
         logits = self(x, logits=True)
         probs  = F.softmax(logits, dim=1)
 
-        # Flatten spatial dimension for cross-entropy
-        y_flat      = y.permute(0, 2, 1).reshape(-1, 3)
-        logits_flat = logits.permute(0, 2, 1).reshape(-1, 3)
+        # Flatten spatial dimension for cross-entropy; float32 for the sums
+        # (under AMP the logits are float16 and a sum over B*T overflows).
+        y_flat      = y.permute(0, 2, 1).reshape(-1, 3).float()
+        logits_flat = logits.permute(0, 2, 1).reshape(-1, 3).float()
         y_cls       = y_flat.argmax(dim=1)
+        if mask is None:
+            w = torch.ones(y_flat.shape[0], device=y_flat.device, dtype=torch.float32)
+        else:
+            w = mask.reshape(-1).float()
+        w_sum = w.sum().clamp(min=1.0)
+        log_p = F.log_softmax(logits_flat, dim=1)
 
         if self.soft_ce:
             # -Σ y_true · log(p_pred), computed on the full Gaussian label
             # rather than its hard argmax (issue #11).
-            log_p = F.log_softmax(logits_flat, dim=1)
-            if self.class_weight is not None:
-                weighted_y = y_flat * self.class_weight.unsqueeze(0)
-                ce_loss = -(weighted_y * log_p).sum(dim=1).mean()
-            else:
-                ce_loss = -(y_flat * log_p).sum(dim=1).mean()
+            weighted_y = y_flat * self.class_weight.unsqueeze(0) if self.class_weight is not None else y_flat
+            ce_per = -(weighted_y * log_p).sum(dim=1)
+            ce_loss = (ce_per * w).sum() / w_sum
         elif self.focal_gamma > 0:
             # pt must come from the UNWEIGHTED per-sample CE: F.cross_entropy's
             # `weight` arg scales the loss value itself, not just the class
@@ -257,9 +306,15 @@ class PhaseNetFinetune(nn.Module):
             focal_per = (1 - pt) ** self.focal_gamma * ce_per_unweighted
             if self.class_weight is not None:
                 focal_per = focal_per * self.class_weight[y_cls]
-            ce_loss = focal_per.mean()
+            ce_loss = (focal_per * w).sum() / w_sum
         else:
-            ce_loss = F.cross_entropy(logits_flat, y_cls, weight=self.class_weight)
+            ce_per = F.cross_entropy(logits_flat, y_cls, weight=self.class_weight, reduction="none")
+            if self.class_weight is not None:
+                # same normalisation as F.cross_entropy(reduction="mean", weight=...)
+                norm = (w * self.class_weight[y_cls]).sum().clamp(min=1e-12)
+            else:
+                norm = w_sum
+            ce_loss = (ce_per * w).sum() / norm
 
         if self.distill_alpha > 0 and self.teacher is not None:
             with torch.no_grad():
@@ -267,7 +322,7 @@ class PhaseNetFinetune(nn.Module):
             T = self.distill_T
             # KL divergence on softened distributions (temperature scaling)
             s_flat = (logits_flat / T)
-            t_flat = (teacher_logits.permute(0, 2, 1).reshape(-1, 3) / T)
+            t_flat = (teacher_logits.permute(0, 2, 1).reshape(-1, 3).float() / T)
             kl_loss = F.kl_div(
                 F.log_softmax(s_flat, dim=-1),
                 F.softmax(t_flat, dim=-1),
@@ -275,6 +330,7 @@ class PhaseNetFinetune(nn.Module):
             ) * (T ** 2)
             loss = (1 - self.distill_alpha) * ce_loss + self.distill_alpha * kl_loss
         else:
+            kl_loss = torch.zeros((), device=y_flat.device)
             loss = ce_loss
 
         if self.timing_beta > 0:
@@ -296,16 +352,22 @@ class PhaseNetFinetune(nn.Module):
                 loss = loss + self.presence_gamma * presence_loss
 
         pred_cls = logits_flat.argmax(dim=1)
-        acc      = (pred_cls == y_cls).float().mean()
+        acc      = ((pred_cls == y_cls).float() * w).sum() / w_sum
 
-        metrics = {"loss": loss, "acc": acc}
+        metrics = {"loss": loss, "acc": acc, "loss_ce": ce_loss.detach(), "loss_kd": kl_loss.detach(),
+                   "supervised_fraction": w.mean().detach()}
 
-        true_cls = y.argmax(dim=1).reshape(-1)
-        pred_flat = probs.permute(0, 2, 1).reshape(-1, 3).argmax(dim=1)
-        for idx, name in enumerate(["P", "S", "N"]):  # PSN — matches jma_wc convention
-            mask = true_cls == idx
-            if mask.any():
-                metrics[f"{name}_acc"] = (pred_flat[mask] == true_cls[mask]).float().mean()
+        with torch.no_grad():
+            # soft per-channel decomposition, a diagnostic in every loss mode
+            per_channel = (-(y_flat * log_p) * w.unsqueeze(1)).sum(dim=0) / w_sum
+            supervised = w > 0
+            for idx, name in enumerate(["P", "S", "N"]):  # PSN — matches jma_wc convention
+                metrics[f"loss_{name}"] = per_channel[idx]
+                sel = (y_cls == idx) & supervised
+                if sel.any():
+                    metrics[f"{name}_acc"] = (pred_cls[sel] == y_cls[sel]).float().mean()
+                if name != "N":
+                    metrics[f"pos_{name}"] = ((y_flat[:, idx] > 0.5) & supervised).sum().float()
 
         return metrics, probs
 

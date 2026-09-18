@@ -1,0 +1,302 @@
+{
+  "versions": {
+    "python": "3.11.13 | packaged by conda-forge | (main, Jun  4 2025, 14:52:34) [Clang 18.1.8 ]",
+    "torch": "2.7.1",
+    "seisbench": "0.9.1.dev16+g3667d44"
+  },
+  "native_rate_alignment": [
+    {
+      "native_rate": 20,
+      "waveform_peak": 400,
+      "label_peak": 80,
+      "label_minus_waveform_seconds": -3.2
+    },
+    {
+      "native_rate": 40,
+      "waveform_peak": 400,
+      "label_peak": 160,
+      "label_minus_waveform_seconds": -2.4
+    },
+    {
+      "native_rate": 50,
+      "waveform_peak": 400,
+      "label_peak": 200,
+      "label_minus_waveform_seconds": -2.0
+    },
+    {
+      "native_rate": 100,
+      "waveform_peak": 400,
+      "label_peak": 400,
+      "label_minus_waveform_seconds": 0.0
+    }
+  ],
+  "threshold_sweep": {
+    "low_floor_picks": 1,
+    "filtered_low_at_0p3": 1,
+    "extracted_at_0p3": 2
+  },
+  "greedy_matching": {
+    "reference": [
+      0.0,
+      0.6
+    ],
+    "candidate": [
+      -0.4,
+      0.1
+    ],
+    "tolerance": 0.5,
+    "matched": 1,
+    "feasible_maximum": 2
+  },
+  "overlapping_soft_targets": {
+    "max_channel_sum": 2.0,
+    "unknown_s_noise_target": 1.0
+  },
+  "checkpoint": {
+    "epoch": 44,
+    "tensors": 111,
+    "teacher_tensors": 111,
+    "teacher_exactly_parent": true,
+    "cached_export_exactly_student": true,
+    "model_args": {
+      "component_order": "ZNE",
+      "phases": "PSN",
+      "norm": "std",
+      "filter_factor": 2
+    }
+  },
+  "forward_lengths": [
+    {
+      "input": 3001,
+      "output": [
+        1,
+        3,
+        3001
+      ]
+    },
+    {
+      "input": 6000,
+      "output": [
+        1,
+        3,
+        6000
+      ]
+    },
+    {
+      "input": 6001,
+      "error": "Sizes of tensors must match except in dimension 1. Expected size 1501 but got size 1 for tensor number 1 in the list."
+    }
+  ],
+  "inference_window_contract": {
+    "in_samples": 3001,
+    "pred_sample": [
+      0,
+      3001
+    ]
+  },
+  "batchnorm_variance_ratios": [
+    {
+      "key": "in_bn.running_var",
+      "median_ratio": 0.7584116458892822,
+      "min_ratio": 0.506157398223877,
+      "max_ratio": 1.0634446144104004
+    },
+    {
+      "key": "down_branch.0.1.running_var",
+      "median_ratio": 1.1322518587112427,
+      "min_ratio": 0.6759768724441528,
+      "max_ratio": 1.2521165609359741
+    },
+    {
+      "key": "down_branch.0.3.running_var",
+      "median_ratio": 1.1017509698867798,
+      "min_ratio": 0.9638697504997253,
+      "max_ratio": 1.2257463932037354
+    },
+    {
+      "key": "down_branch.1.1.running_var",
+      "median_ratio": 0.931080162525177,
+      "min_ratio": 0.22601015865802765,
+      "max_ratio": 1.2455904483795166
+    },
+    {
+      "key": "down_branch.1.3.running_var",
+      "median_ratio": 0.7637998461723328,
+      "min_ratio": 0.3919053375720978,
+      "max_ratio": 1.2309402227401733
+    },
+    {
+      "key": "down_branch.2.1.running_var",
+      "median_ratio": 0.8108557462692261,
+      "min_ratio": 0.435385525226593,
+      "max_ratio": 1.6191076040267944
+    },
+    {
+      "key": "down_branch.2.3.running_var",
+      "median_ratio": 0.9030429124832153,
+      "min_ratio": 0.28445157408714294,
+      "max_ratio": 1.3957922458648682
+    },
+    {
+      "key": "down_branch.3.1.running_var",
+      "median_ratio": 0.7620348930358887,
+      "min_ratio": 0.48230648040771484,
+      "max_ratio": 1.5626300573349
+    },
+    {
+      "key": "down_branch.3.3.running_var",
+      "median_ratio": 0.8497745394706726,
+      "min_ratio": 0.3861548602581024,
+      "max_ratio": 3.0314455032348633
+    },
+    {
+      "key": "down_branch.4.1.running_var",
+      "median_ratio": 0.9763302803039551,
+      "min_ratio": 0.5257607698440552,
+      "max_ratio": 2.9076406955718994
+    },
+    {
+      "key": "up_branch.0.1.running_var",
+      "median_ratio": 1.0433382987976074,
+      "min_ratio": 0.724168598651886,
+      "max_ratio": 1.5938966274261475
+    },
+    {
+      "key": "up_branch.0.3.running_var",
+      "median_ratio": 0.8016089200973511,
+      "min_ratio": 0.48389989137649536,
+      "max_ratio": 1.4965686798095703
+    },
+    {
+      "key": "up_branch.1.1.running_var",
+      "median_ratio": 1.0514559745788574,
+      "min_ratio": 0.7183975577354431,
+      "max_ratio": 1.5210071802139282
+    },
+    {
+      "key": "up_branch.1.3.running_var",
+      "median_ratio": 0.912392258644104,
+      "min_ratio": 0.45144370198249817,
+      "max_ratio": 2.3371875286102295
+    },
+    {
+      "key": "up_branch.2.1.running_var",
+      "median_ratio": 0.9561941027641296,
+      "min_ratio": 0.6621442437171936,
+      "max_ratio": 2.1521942615509033
+    },
+    {
+      "key": "up_branch.2.3.running_var",
+      "median_ratio": 0.8784365057945251,
+      "min_ratio": 0.5078478455543518,
+      "max_ratio": 2.558656930923462
+    },
+    {
+      "key": "up_branch.3.1.running_var",
+      "median_ratio": 1.1649802923202515,
+      "min_ratio": 0.6270248889923096,
+      "max_ratio": 2.828641653060913
+    },
+    {
+      "key": "up_branch.3.3.running_var",
+      "median_ratio": 0.636817991733551,
+      "min_ratio": 0.4120069146156311,
+      "max_ratio": 2.44000506401062
+    }
+  ],
+  "development_excerpt": {
+    "file": "data/heldout_testset/adriatic_2022/waveforms/IV.AOI__HH__20221109T061725__20221109T091725.mseed",
+    "start": "2022-11-09T06:17:25.000200Z",
+    "seconds": 600,
+    "results": [
+      {
+        "model": "jma_wc",
+        "phase": "P",
+        "low_floor_filtered_at_0p3": 7,
+        "extracted_at_0p3": 7,
+        "low_floor_times": [
+          "2022-11-09T06:19:54.150133Z",
+          "2022-11-09T06:21:37.610133Z",
+          "2022-11-09T06:21:57.150133Z",
+          "2022-11-09T06:22:22.940133Z",
+          "2022-11-09T06:23:40.620133Z",
+          "2022-11-09T06:24:50.010133Z",
+          "2022-11-09T06:26:41.920133Z"
+        ],
+        "direct_times": [
+          "2022-11-09T06:19:54.150133Z",
+          "2022-11-09T06:21:37.610133Z",
+          "2022-11-09T06:21:57.150133Z",
+          "2022-11-09T06:22:22.940133Z",
+          "2022-11-09T06:23:40.620133Z",
+          "2022-11-09T06:24:50.010133Z",
+          "2022-11-09T06:26:41.920133Z"
+        ]
+      },
+      {
+        "model": "jma_wc",
+        "phase": "S",
+        "low_floor_filtered_at_0p3": 7,
+        "extracted_at_0p3": 7,
+        "low_floor_times": [
+          "2022-11-09T06:17:35.160133Z",
+          "2022-11-09T06:22:04.470133Z",
+          "2022-11-09T06:24:57.410133Z",
+          "2022-11-09T06:25:23.580133Z",
+          "2022-11-09T06:26:21.830133Z",
+          "2022-11-09T06:26:48.770133Z",
+          "2022-11-09T06:26:55.340133Z"
+        ],
+        "direct_times": [
+          "2022-11-09T06:17:35.160133Z",
+          "2022-11-09T06:22:04.470133Z",
+          "2022-11-09T06:24:57.410133Z",
+          "2022-11-09T06:25:23.580133Z",
+          "2022-11-09T06:26:21.830133Z",
+          "2022-11-09T06:26:48.770133Z",
+          "2022-11-09T06:26:55.340133Z"
+        ]
+      },
+      {
+        "model": "v7",
+        "phase": "P",
+        "low_floor_filtered_at_0p3": 7,
+        "extracted_at_0p3": 7,
+        "low_floor_times": [
+          "2022-11-09T06:17:28.400133Z",
+          "2022-11-09T06:19:54.160133Z",
+          "2022-11-09T06:21:57.140133Z",
+          "2022-11-09T06:22:22.980133Z",
+          "2022-11-09T06:23:40.630133Z",
+          "2022-11-09T06:24:50.020133Z",
+          "2022-11-09T06:26:41.940133Z"
+        ],
+        "direct_times": [
+          "2022-11-09T06:17:28.400133Z",
+          "2022-11-09T06:19:54.160133Z",
+          "2022-11-09T06:21:57.140133Z",
+          "2022-11-09T06:22:22.980133Z",
+          "2022-11-09T06:23:40.630133Z",
+          "2022-11-09T06:24:50.020133Z",
+          "2022-11-09T06:26:41.940133Z"
+        ]
+      },
+      {
+        "model": "v7",
+        "phase": "S",
+        "low_floor_filtered_at_0p3": 3,
+        "extracted_at_0p3": 3,
+        "low_floor_times": [
+          "2022-11-09T06:17:35.180133Z",
+          "2022-11-09T06:25:23.630133Z",
+          "2022-11-09T06:26:48.770133Z"
+        ],
+        "direct_times": [
+          "2022-11-09T06:17:35.180133Z",
+          "2022-11-09T06:25:23.630133Z",
+          "2022-11-09T06:26:48.770133Z"
+        ]
+      }
+    ]
+  }
+}

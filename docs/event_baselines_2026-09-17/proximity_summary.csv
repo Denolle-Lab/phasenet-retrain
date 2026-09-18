@@ -1,0 +1,124 @@
+table,key,weight,nearest_class,n
+unmatched_predicted,adriatic_2022,instance,30<|dt|<=120s,29
+unmatched_predicted,adriatic_2022,instance,5<|dt|<=30s,7
+unmatched_predicted,adriatic_2022,instance,|dt|>120s,6
+unmatched_predicted,adriatic_2022,jma_wc,30<|dt|<=120s,25
+unmatched_predicted,adriatic_2022,jma_wc,5<|dt|<=30s,9
+unmatched_predicted,adriatic_2022,jma_wc,|dt|>120s,5
+unmatched_predicted,adriatic_2022,quakescope2026,30<|dt|<=120s,22
+unmatched_predicted,adriatic_2022,quakescope2026,5<|dt|<=30s,8
+unmatched_predicted,adriatic_2022,quakescope2026,|dt|>120s,5
+unmatched_predicted,corinth_thiva_2020,instance,30<|dt|<=120s,9
+unmatched_predicted,corinth_thiva_2020,instance,5<|dt|<=30s,4
+unmatched_predicted,corinth_thiva_2020,instance,|dt|>120s,60
+unmatched_predicted,corinth_thiva_2020,jma_wc,30<|dt|<=120s,16
+unmatched_predicted,corinth_thiva_2020,jma_wc,5<|dt|<=30s,3
+unmatched_predicted,corinth_thiva_2020,jma_wc,|dt|>120s,46
+unmatched_predicted,corinth_thiva_2020,quakescope2026,30<|dt|<=120s,10
+unmatched_predicted,corinth_thiva_2020,quakescope2026,5<|dt|<=30s,3
+unmatched_predicted,corinth_thiva_2020,quakescope2026,|dt|>120s,44
+unmatched_predicted,etna_2022_2024,instance,30<|dt|<=120s,48
+unmatched_predicted,etna_2022_2024,instance,5<|dt|<=30s,8
+unmatched_predicted,etna_2022_2024,instance,|dt|>120s,17
+unmatched_predicted,etna_2022_2024,jma_wc,30<|dt|<=120s,48
+unmatched_predicted,etna_2022_2024,jma_wc,5<|dt|<=30s,11
+unmatched_predicted,etna_2022_2024,jma_wc,|dt|>120s,16
+unmatched_predicted,etna_2022_2024,quakescope2026,30<|dt|<=120s,44
+unmatched_predicted,etna_2022_2024,quakescope2026,5<|dt|<=30s,8
+unmatched_predicted,etna_2022_2024,quakescope2026,|dt|>120s,16
+unmatched_predicted,kaikoura_2016,instance,30<|dt|<=120s,54
+unmatched_predicted,kaikoura_2016,instance,5<|dt|<=30s,35
+unmatched_predicted,kaikoura_2016,instance,"|dt|<=5s, dist>30km",10
+unmatched_predicted,kaikoura_2016,instance,|dt|>120s,3
+unmatched_predicted,kaikoura_2016,jma_wc,30<|dt|<=120s,60
+unmatched_predicted,kaikoura_2016,jma_wc,5<|dt|<=30s,31
+unmatched_predicted,kaikoura_2016,jma_wc,"|dt|<=5s, dist>30km",11
+unmatched_predicted,kaikoura_2016,jma_wc,|dt|>120s,3
+unmatched_predicted,kaikoura_2016,quakescope2026,30<|dt|<=120s,50
+unmatched_predicted,kaikoura_2016,quakescope2026,5<|dt|<=30s,26
+unmatched_predicted,kaikoura_2016,quakescope2026,"|dt|<=5s, dist>30km",9
+unmatched_predicted,kaikoura_2016,quakescope2026,|dt|>120s,5
+unmatched_predicted,norcia_2016,instance,30<|dt|<=120s,18
+unmatched_predicted,norcia_2016,instance,5<|dt|<=30s,25
+unmatched_predicted,norcia_2016,instance,"|dt|<=5s, dist>30km",3
+unmatched_predicted,norcia_2016,jma_wc,30<|dt|<=120s,25
+unmatched_predicted,norcia_2016,jma_wc,5<|dt|<=30s,37
+unmatched_predicted,norcia_2016,jma_wc,"|dt|<=5s, dist>30km",5
+unmatched_predicted,norcia_2016,quakescope2026,30<|dt|<=120s,23
+unmatched_predicted,norcia_2016,quakescope2026,5<|dt|<=30s,40
+unmatched_predicted,norcia_2016,quakescope2026,"|dt|<=5s, dist>30km",7
+unmatched_predicted,samos_2020,instance,30<|dt|<=120s,9
+unmatched_predicted,samos_2020,instance,5<|dt|<=30s,1
+unmatched_predicted,samos_2020,instance,|dt|>120s,33
+unmatched_predicted,samos_2020,jma_wc,30<|dt|<=120s,4
+unmatched_predicted,samos_2020,jma_wc,|dt|>120s,21
+unmatched_predicted,samos_2020,quakescope2026,30<|dt|<=120s,5
+unmatched_predicted,samos_2020,quakescope2026,5<|dt|<=30s,1
+unmatched_predicted,samos_2020,quakescope2026,|dt|>120s,20
+unmatched_predicted,thessaly_2021,instance,30<|dt|<=120s,96
+unmatched_predicted,thessaly_2021,instance,5<|dt|<=30s,21
+unmatched_predicted,thessaly_2021,instance,"|dt|<=5s, dist>30km",2
+unmatched_predicted,thessaly_2021,instance,|dt|>120s,24
+unmatched_predicted,thessaly_2021,jma_wc,30<|dt|<=120s,95
+unmatched_predicted,thessaly_2021,jma_wc,5<|dt|<=30s,16
+unmatched_predicted,thessaly_2021,jma_wc,|dt|>120s,20
+unmatched_predicted,thessaly_2021,quakescope2026,30<|dt|<=120s,78
+unmatched_predicted,thessaly_2021,quakescope2026,5<|dt|<=30s,15
+unmatched_predicted,thessaly_2021,quakescope2026,"|dt|<=5s, dist>30km",1
+unmatched_predicted,thessaly_2021,quakescope2026,|dt|>120s,24
+unmatched_reference_covered,adriatic_2022,instance,30<|dt|<=120s,2
+unmatched_reference_covered,adriatic_2022,instance,5<|dt|<=30s,2
+unmatched_reference_covered,adriatic_2022,jma_wc,30<|dt|<=120s,4
+unmatched_reference_covered,adriatic_2022,jma_wc,5<|dt|<=30s,5
+unmatched_reference_covered,adriatic_2022,jma_wc,|dt|>120s,1
+unmatched_reference_covered,adriatic_2022,quakescope2026,30<|dt|<=120s,2
+unmatched_reference_covered,adriatic_2022,quakescope2026,5<|dt|<=30s,3
+unmatched_reference_covered,adriatic_2022,quakescope2026,|dt|>120s,2
+unmatched_reference_covered,corinth_thiva_2020,jma_wc,5<|dt|<=30s,1
+unmatched_reference_covered,corinth_thiva_2020,jma_wc,|dt|>120s,1
+unmatched_reference_covered,corinth_thiva_2020,quakescope2026,5<|dt|<=30s,1
+unmatched_reference_covered,corinth_thiva_2020,quakescope2026,|dt|>120s,1
+unmatched_reference_covered,etna_2022_2024,instance,30<|dt|<=120s,3
+unmatched_reference_covered,etna_2022_2024,instance,5<|dt|<=30s,2
+unmatched_reference_covered,etna_2022_2024,jma_wc,30<|dt|<=120s,5
+unmatched_reference_covered,etna_2022_2024,jma_wc,5<|dt|<=30s,5
+unmatched_reference_covered,etna_2022_2024,jma_wc,|dt|>120s,3
+unmatched_reference_covered,etna_2022_2024,quakescope2026,30<|dt|<=120s,5
+unmatched_reference_covered,etna_2022_2024,quakescope2026,5<|dt|<=30s,4
+unmatched_reference_covered,etna_2022_2024,quakescope2026,|dt|>120s,4
+unmatched_reference_covered,kaikoura_2016,instance,30<|dt|<=120s,12
+unmatched_reference_covered,kaikoura_2016,instance,5<|dt|<=30s,28
+unmatched_reference_covered,kaikoura_2016,instance,"|dt|<=5s, dist>30km",10
+unmatched_reference_covered,kaikoura_2016,jma_wc,30<|dt|<=120s,27
+unmatched_reference_covered,kaikoura_2016,jma_wc,5<|dt|<=30s,33
+unmatched_reference_covered,kaikoura_2016,jma_wc,"|dt|<=5s, dist>30km",11
+unmatched_reference_covered,kaikoura_2016,quakescope2026,30<|dt|<=120s,32
+unmatched_reference_covered,kaikoura_2016,quakescope2026,5<|dt|<=30s,34
+unmatched_reference_covered,kaikoura_2016,quakescope2026,"|dt|<=5s, dist>30km",9
+unmatched_reference_covered,kaikoura_2016,quakescope2026,|dt|>120s,1
+unmatched_reference_covered,norcia_2016,instance,30<|dt|<=120s,3
+unmatched_reference_covered,norcia_2016,instance,5<|dt|<=30s,16
+unmatched_reference_covered,norcia_2016,instance,within tolerances,3
+unmatched_reference_covered,norcia_2016,instance,"|dt|<=5s, dist>30km",3
+unmatched_reference_covered,norcia_2016,jma_wc,30<|dt|<=120s,2
+unmatched_reference_covered,norcia_2016,jma_wc,5<|dt|<=30s,16
+unmatched_reference_covered,norcia_2016,jma_wc,within tolerances,4
+unmatched_reference_covered,norcia_2016,jma_wc,"|dt|<=5s, dist>30km",5
+unmatched_reference_covered,norcia_2016,quakescope2026,30<|dt|<=120s,1
+unmatched_reference_covered,norcia_2016,quakescope2026,5<|dt|<=30s,18
+unmatched_reference_covered,norcia_2016,quakescope2026,within tolerances,4
+unmatched_reference_covered,norcia_2016,quakescope2026,"|dt|<=5s, dist>30km",6
+unmatched_reference_covered,samos_2020,instance,30<|dt|<=120s,3
+unmatched_reference_covered,samos_2020,instance,5<|dt|<=30s,1
+unmatched_reference_covered,samos_2020,instance,|dt|>120s,2
+unmatched_reference_covered,samos_2020,jma_wc,30<|dt|<=120s,4
+unmatched_reference_covered,samos_2020,jma_wc,|dt|>120s,8
+unmatched_reference_covered,samos_2020,quakescope2026,30<|dt|<=120s,3
+unmatched_reference_covered,samos_2020,quakescope2026,|dt|>120s,9
+unmatched_reference_covered,thessaly_2021,instance,30<|dt|<=120s,1
+unmatched_reference_covered,thessaly_2021,instance,5<|dt|<=30s,3
+unmatched_reference_covered,thessaly_2021,instance,"|dt|<=5s, dist>30km",2
+unmatched_reference_covered,thessaly_2021,jma_wc,5<|dt|<=30s,4
+unmatched_reference_covered,thessaly_2021,quakescope2026,30<|dt|<=120s,1
+unmatched_reference_covered,thessaly_2021,quakescope2026,5<|dt|<=30s,5
+unmatched_reference_covered,thessaly_2021,quakescope2026,"|dt|<=5s, dist>30km",1

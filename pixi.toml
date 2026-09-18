@@ -1,0 +1,73 @@
+# Pixi environment for phasenet-retrain (2026-09-18).
+#
+#   curl -fsSL https://pixi.sh/install.sh | sh      # once, no root; installs to ~/.pixi
+#   pixi install                                   # default (CPU) environment, every platform below
+#   pixi run test                                  # the full test suite
+#   pixi shell                                     # a shell with the environment active
+#   pixi install -e cuda && pixi run -e cuda train --config configs/e1_t0/base.yaml   # GPU, linux-64
+#
+# Conda-forge supplies the compiled stack (Python, NumPy, SciPy, ObsPy, h5py,
+# PyArrow, PyTorch); SeisBench and PyOcto come from PyPI and resolve against
+# the conda packages. The lock file pins every platform; commit it with any
+# change here.
+
+[workspace]
+name = "phasenet-retrain"
+version = "2026.9.18"
+description = "PhaseNet retraining, evaluation and audits (Denolle Lab)"
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "osx-64", "linux-64"]
+
+[dependencies]
+python = "3.11.*"
+numpy = "1.26.*"          # pyocto 0.2.0 requires numpy<2
+scipy = ">=1.13"
+pandas = ">=2.2,<3"         # the code and its tests were validated on pandas 2.2; pandas 3 changes defaults (copy-on-write, string dtype)
+pyarrow = ">=15"
+h5py = ">=3.10"
+obspy = ">=1.4"
+pyproj = ">=3.6"
+scikit-learn = ">=1.4"
+matplotlib-base = ">=3.8"
+seaborn = ">=0.13"
+plotly = ">=5.20"
+pyyaml = ">=6"
+tqdm = ">=4.66"
+requests = ">=2.31"
+pytest = ">=8"
+pytorch = ">=2.4"
+
+[pypi-dependencies]
+seisbench = ">=0.9"
+pyocto = ">=0.2"
+
+# GPU training on the lab server (linux-64 only). Requires an NVIDIA driver
+# for CUDA 12; `pixi install -e cuda` picks the CUDA build of PyTorch.
+[feature.cuda]
+platforms = ["linux-64"]
+system-requirements = { cuda = "12" }
+
+[feature.cuda.dependencies]
+pytorch-gpu = ">=2.4"
+
+[environments]
+default = { solve-group = "default" }
+cuda = { features = ["cuda"], solve-group = "cuda" }
+
+[activation.env]
+MPLCONFIGDIR = "$PIXI_PROJECT_ROOT/.mpl"
+
+[tasks]
+test = "python -m pytest tests -q"
+versions = "python -c \"import sys, numpy, scipy, torch, seisbench, obspy, pyocto; print('python', sys.version.split()[0], '| numpy', numpy.__version__, '| scipy', scipy.__version__, '| torch', torch.__version__, '| seisbench', seisbench.__version__, '| obspy', obspy.__version__, '| pyocto', pyocto.__version__, '| cuda', torch.cuda.is_available())\""
+build-manifests = "python scripts/build_training_dataset.py"
+bundle = "python scripts/exclusion_bundle.py"
+census = "python scripts/source_census.py"
+train = "python scripts/finetune.py"
+run-card = "python scripts/run_card.py"
+score = "python scripts/heldout_testset_score.py"
+score-checkpoint = "python scripts/score_checkpoint.py"
+associate = "python scripts/event_association.py"
+audit-labels = "python scripts/audit_source_labels.py"
+audit-benchmark-labels = "python scripts/audit_benchmark_labels.py"
+audit-v7-rows = "python scripts/audit_v7_rows.py"

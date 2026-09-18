@@ -65,22 +65,31 @@ paper_draft.qmd / .html   — the project paper; §Critical audit carries the 20
 
 ## Installation
 
+[Pixi](https://pixi.sh) pins the whole stack per platform (macOS arm64 and
+x86_64, Linux x86_64; CUDA 12 on Linux) in `pixi.lock`; no conda or venv
+by hand.
+
 ```bash
+curl -fsSL https://pixi.sh/install.sh | sh                 # once, no root; installs to ~/.pixi
 git clone https://github.com/Denolle-Lab/phasenet-retrain.git && cd phasenet-retrain
-python3.11 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+pixi install                                               # CPU environment, all scripts and tests
 export SEISBENCH_CACHE_ROOT=/path/to/seisbench/cache
-python -m pytest tests -q
+pixi run versions                                          # python, numpy, scipy, torch, seisbench, obspy, pyocto, cuda
+pixi run test                                              # 450 passed with the cached weights, 3 skipped without
+pixi shell                                                 # or: an activated shell, then plain `python scripts/...`
 ```
 
-If pip resolves a PyTorch older than 2.3 (macOS x86_64 stops at 2.2.2),
-`import torch` fails under NumPy 2; add `"numpy<2"` to the install line in
-that case only. `requirements.txt` carries no NumPy upper bound because
-current PyTorch wheels support NumPy 2.
+GPU training on the lab server: `pixi install -e cuda` and prefix commands
+with `pixi run -e cuda`. The lock resolves PyTorch's CUDA 12.9 build; if
+`nvidia-smi` reports a driver below CUDA 12.9, add `cuda-version = "12.<x>.*"`
+to the `cuda` feature in `pixi.toml` and run `pixi lock`. Every script is
+also a task (`pixi run train --config ...`, `pixi run score ...`,
+`pixi run bundle build ...`); `pixi task list` shows them.
 
-The pure-pandas parts (exclusions, scoring, association, census, protocol)
-run without torch; the loader, loss and forensics tests skip when torch,
-SeisBench or h5py are missing, so a full pass needs all three.
+`requirements.txt` remains for pip users; the pure-pandas parts (exclusions,
+scoring, association, census, protocol) run without torch, and the loader,
+loss and forensics tests skip when torch, SeisBench or h5py are missing.
+The pixi environment is the supported one.
 
 ## Usage
 
